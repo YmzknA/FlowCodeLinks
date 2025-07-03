@@ -1,0 +1,17 @@
+# version フィールドを削除（obsoleteのため）
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    volumes:
+      # ソースコードをマウント（開発中の変更を即座に反映）
+      - .:/app
+      # node_modulesは除外（Dockerコンテナ内のものを使用）
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+    # ファイル変更を監視してホットリロード
+    stdin_open: true
+    tty: true

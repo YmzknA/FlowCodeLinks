@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Prism.js Syntax Highlighting Theme */
+@import 'prismjs/themes/prism-tomorrow.css';
+
+/* コードのインデント・空白文字を保持 */
+pre {
+  white-space: pre !important;
+  overflow-x: auto;
+}
+
+pre code {
+  white-space: pre !important;
+  display: block;
+  padding: 0;
+  margin: 0;
+  font-family: 'Courier New', Consolas, 'Liberation Mono', Menlo, monospace;
+  line-height: 1.4;
+}
