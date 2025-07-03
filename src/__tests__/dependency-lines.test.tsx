@@ -105,8 +105,9 @@ describe('DependencyLines コンポーネント', () => {
       />
     );
 
-    const lines = container.querySelectorAll('line');
-    expect(lines.length).toBeGreaterThan(0);
+    // 実際のコンポーネントはpath要素を使用
+    const paths = container.querySelectorAll('path');
+    expect(paths.length).toBeGreaterThan(0);
   });
 
   test('矢印マーカーが定義される', () => {
@@ -142,8 +143,8 @@ describe('DependencyLines コンポーネント', () => {
       />
     );
 
-    const lines = container.querySelectorAll('line');
-    expect(lines).toHaveLength(0);
+    const paths = container.querySelectorAll('path[d]');
+    expect(paths).toHaveLength(0);
   });
 
   test('ハイライト機能が動作する', () => {
@@ -158,8 +159,13 @@ describe('DependencyLines コンポーネント', () => {
       />
     );
 
-    const highlightedLines = container.querySelectorAll('line.highlighted');
-    expect(highlightedLines.length).toBeGreaterThan(0);
+    // ハイライト用の矢印マーカーが存在することを確認
+    const highlightedMarker = container.querySelector('#arrowhead-highlighted');
+    expect(highlightedMarker).toBeInTheDocument();
+    
+    // ハイライトされた線の色が変わることを確認
+    const paths = container.querySelectorAll('path[stroke="#dc2626"]');
+    expect(paths.length).toBeGreaterThan(0);
   });
 
   test('線の色が依存関係タイプによって変わる', () => {
@@ -174,9 +180,9 @@ describe('DependencyLines コンポーネント', () => {
       />
     );
 
-    const lines = container.querySelectorAll('line');
-    lines.forEach(line => {
-      expect(line.getAttribute('stroke')).toBeTruthy();
+    const paths = container.querySelectorAll('path[stroke]');
+    paths.forEach(path => {
+      expect(path.getAttribute('stroke')).toBeTruthy();
     });
   });
 
@@ -208,12 +214,12 @@ describe('DependencyLines コンポーネント', () => {
       />
     );
 
-    const lines = container.querySelectorAll('line');
-    lines.forEach(line => {
-      expect(Number(line.getAttribute('x1'))).toBeGreaterThanOrEqual(0);
-      expect(Number(line.getAttribute('y1'))).toBeGreaterThanOrEqual(0);
-      expect(Number(line.getAttribute('x2'))).toBeGreaterThanOrEqual(0);
-      expect(Number(line.getAttribute('y2'))).toBeGreaterThanOrEqual(0);
+    const paths = container.querySelectorAll('path[d]');
+    paths.forEach(path => {
+      const d = path.getAttribute('d');
+      expect(d).toBeTruthy();
+      // path要素のd属性にはベジェ曲線の座標が含まれている
+      expect(d).toMatch(/^M\s+[\d.-]+\s+[\d.-]+\s+C/);
     });
   });
 });

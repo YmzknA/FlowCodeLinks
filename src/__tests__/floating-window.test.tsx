@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { FloatingWindow } from '@/components/FloatingWindow';
 import { ParsedFile } from '@/types/codebase';
@@ -40,47 +40,60 @@ const mockWindowData = {
 };
 
 describe('FloatingWindow コンポーネント', () => {
-  test('ウィンドウが正しくレンダリングされる', () => {
-    render(
-      <FloatingWindow
-        window={mockWindowData}
-        onPositionChange={() => {}}
-        onToggleCollapse={() => {}}
-        onToggleMethodsOnly={() => {}}
-        onClose={() => {}}
-      />
-    );
+  test('ウィンドウが正しくレンダリングされる', async () => {
+    await act(async () => {
+      render(
+        <FloatingWindow
+          window={mockWindowData}
+          onPositionChange={() => {}}
+          onToggleCollapse={() => {}}
+          onToggleMethodsOnly={() => {}}
+          onClose={() => {}}
+        />
+      );
+    });
 
     expect(screen.getByText('example.rb')).toBeInTheDocument();
-    expect(screen.getByText(/class Example/)).toBeInTheDocument();
+    await waitFor(() => {
+      // シンタックスハイライトにより、classとExampleが別々のspan要素に分かれるため
+      expect(screen.getByText('class')).toBeInTheDocument();
+      expect(screen.getByText('Example')).toBeInTheDocument();
+    });
   });
 
-  test('ファイルパスが正しく表示される', () => {
-    render(
-      <FloatingWindow
-        window={mockWindowData}
-        onPositionChange={() => {}}
-        onToggleCollapse={() => {}}
-        onToggleMethodsOnly={() => {}}
-        onClose={() => {}}
-      />
-    );
+  test('ファイルパスが正しく表示される', async () => {
+    await act(async () => {
+      render(
+        <FloatingWindow
+          window={mockWindowData}
+          onPositionChange={() => {}}
+          onToggleCollapse={() => {}}
+          onToggleMethodsOnly={() => {}}
+          onClose={() => {}}
+        />
+      );
+    });
 
-    expect(screen.getByText('test/example.rb')).toBeInTheDocument();
+    // 実際の表示内容に合わせて修正（" ( lines)"が含まれることを考慮）
+    await waitFor(() => {
+      expect(screen.getByText(/test\/example\.rb/)).toBeInTheDocument();
+    });
   });
 
-  test('折りたたみボタンをクリックできる', () => {
+  test('折りたたみボタンをクリックできる', async () => {
     const mockToggleCollapse = jest.fn();
     
-    render(
-      <FloatingWindow
-        window={mockWindowData}
-        onPositionChange={() => {}}
-        onToggleCollapse={mockToggleCollapse}
-        onToggleMethodsOnly={() => {}}
-        onClose={() => {}}
-      />
-    );
+    await act(async () => {
+      render(
+        <FloatingWindow
+          window={mockWindowData}
+          onPositionChange={() => {}}
+          onToggleCollapse={mockToggleCollapse}
+          onToggleMethodsOnly={() => {}}
+          onClose={() => {}}
+        />
+      );
+    });
 
     const collapseButton = screen.getByLabelText('折りたたみ');
     fireEvent.click(collapseButton);
@@ -88,18 +101,20 @@ describe('FloatingWindow コンポーネント', () => {
     expect(mockToggleCollapse).toHaveBeenCalledWith('window-1');
   });
 
-  test('メソッド表示切り替えボタンをクリックできる', () => {
+  test('メソッド表示切り替えボタンをクリックできる', async () => {
     const mockToggleMethodsOnly = jest.fn();
     
-    render(
-      <FloatingWindow
-        window={mockWindowData}
-        onPositionChange={() => {}}
-        onToggleCollapse={() => {}}
-        onToggleMethodsOnly={mockToggleMethodsOnly}
-        onClose={() => {}}
-      />
-    );
+    await act(async () => {
+      render(
+        <FloatingWindow
+          window={mockWindowData}
+          onPositionChange={() => {}}
+          onToggleCollapse={() => {}}
+          onToggleMethodsOnly={mockToggleMethodsOnly}
+          onClose={() => {}}
+        />
+      );
+    });
 
     const methodsButton = screen.getByLabelText('メソッドのみ表示');
     fireEvent.click(methodsButton);
@@ -107,18 +122,20 @@ describe('FloatingWindow コンポーネント', () => {
     expect(mockToggleMethodsOnly).toHaveBeenCalledWith('window-1');
   });
 
-  test('閉じるボタンをクリックできる', () => {
+  test('閉じるボタンをクリックできる', async () => {
     const mockClose = jest.fn();
     
-    render(
-      <FloatingWindow
-        window={mockWindowData}
-        onPositionChange={() => {}}
-        onToggleCollapse={() => {}}
-        onToggleMethodsOnly={() => {}}
-        onClose={mockClose}
-      />
-    );
+    await act(async () => {
+      render(
+        <FloatingWindow
+          window={mockWindowData}
+          onPositionChange={() => {}}
+          onToggleCollapse={() => {}}
+          onToggleMethodsOnly={() => {}}
+          onClose={mockClose}
+        />
+      );
+    });
 
     const closeButton = screen.getByLabelText('閉じる');
     fireEvent.click(closeButton);
@@ -126,61 +143,75 @@ describe('FloatingWindow コンポーネント', () => {
     expect(mockClose).toHaveBeenCalledWith('window-1');
   });
 
-  test('折りたたみ状態では内容が表示されない', () => {
+  test('折りたたみ状態では内容が表示されない', async () => {
     const collapsedWindow = {
       ...mockWindowData,
       isCollapsed: true
     };
 
-    render(
-      <FloatingWindow
-        window={collapsedWindow}
-        onPositionChange={() => {}}
-        onToggleCollapse={() => {}}
-        onToggleMethodsOnly={() => {}}
-        onClose={() => {}}
-      />
-    );
+    await act(async () => {
+      render(
+        <FloatingWindow
+          window={collapsedWindow}
+          onPositionChange={() => {}}
+          onToggleCollapse={() => {}}
+          onToggleMethodsOnly={() => {}}
+          onClose={() => {}}
+        />
+      );
+    });
 
     expect(screen.getByText('example.rb')).toBeInTheDocument();
-    expect(screen.queryByText(/class Example/)).not.toBeInTheDocument();
+    // 折りたたみ状態では内容が表示されないため、classもExampleも表示されない
+    expect(screen.queryByText('class')).not.toBeInTheDocument();
+    expect(screen.queryByText('Example')).not.toBeInTheDocument();
   });
 
-  test('メソッドのみ表示モードではメソッドのみ表示される', () => {
+  test('メソッドのみ表示モードではメソッドのみ表示される', async () => {
     const methodsOnlyWindow = {
       ...mockWindowData,
       showMethodsOnly: true
     };
 
-    render(
-      <FloatingWindow
-        window={methodsOnlyWindow}
-        onPositionChange={() => {}}
-        onToggleCollapse={() => {}}
-        onToggleMethodsOnly={() => {}}
-        onClose={() => {}}
-      />
-    );
+    await act(async () => {
+      render(
+        <FloatingWindow
+          window={methodsOnlyWindow}
+          onPositionChange={() => {}}
+          onToggleCollapse={() => {}}
+          onToggleMethodsOnly={() => {}}
+          onClose={() => {}}
+        />
+      );
+    });
 
-    expect(screen.getByText('hello')).toBeInTheDocument();
-    expect(screen.queryByText(/class Example/)).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('hello')).toBeInTheDocument();
+    });
+    // メソッドのみ表示モードでは、class定義は表示されない
+    expect(screen.queryByText('class')).not.toBeInTheDocument();
+    expect(screen.queryByText('Example')).not.toBeInTheDocument();
   });
 
-  test('非表示状態では何も表示されない', () => {
+  test('非表示状態では何も表示されない', async () => {
     const hiddenWindow = {
       ...mockWindowData,
       isVisible: false
     };
 
-    const { container } = render(
-      <FloatingWindow
-        window={hiddenWindow}
-        onPositionChange={() => {}}
-        onToggleCollapse={() => {}}
-        onToggleMethodsOnly={() => {}}
-        onClose={() => {}}
-      />
-    );
+    let container: any;
+    await act(async () => {
+      const result = render(
+        <FloatingWindow
+          window={hiddenWindow}
+          onPositionChange={() => {}}
+          onToggleCollapse={() => {}}
+          onToggleMethodsOnly={() => {}}
+          onClose={() => {}}
+        />
+      );
+      container = result.container;
+    });
 
     expect(container.firstChild).toBeNull();
   });

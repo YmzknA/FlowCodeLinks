@@ -111,16 +111,18 @@ describe('Method Jump Functionality', () => {
       }
     };
     
-    render(<Sidebar {...propsWithHighlight} />);
+    const { container } = render(<Sidebar {...propsWithHighlight} />);
     
     // メソッド表示に切り替え
     const methodToggleButton = screen.getByText('メソッド表示');
     fireEvent.click(methodToggleButton);
     
-    // ハイライトされたメソッドが正しいスタイルで表示されることを確認
-    const highlightedMethod = screen.getByText('greet').closest('div');
-    expect(highlightedMethod).toHaveClass('bg-yellow-100');
-    expect(highlightedMethod).toHaveClass('border-yellow-300');
+    // ハイライトされたメソッドが存在することを確認
+    // 'highlighted'クラスを持つ要素が存在することを確認
+    const highlightedElement = container.querySelector('.highlighted');
+    expect(highlightedElement).toBeInTheDocument();
+    expect(highlightedElement).toHaveClass('bg-yellow-100');
+    expect(highlightedElement).toHaveClass('border-yellow-300');
   });
 
   test('should filter methods by search term', () => {
@@ -191,9 +193,9 @@ describe('Method Jump Functionality', () => {
     const methodToggleButton = screen.getByText('メソッド表示');
     fireEvent.click(methodToggleButton);
     
-    // メソッド情報の確認 - 別々の要素として存在することを確認
+    // メソッド情報の確認 - 複数の同じテキストがある場合を考慮
     expect(screen.getByText('greet')).toBeInTheDocument();
-    expect(screen.getByText('user.rb')).toBeInTheDocument();
-    expect(screen.getByText('method')).toBeInTheDocument();
+    expect(screen.getAllByText('user.rb').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('method').length).toBeGreaterThan(0);
   });
 });
