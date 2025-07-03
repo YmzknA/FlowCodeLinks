@@ -201,14 +201,17 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
           backgroundColor: '#2d2d2d',
           color: '#ccc',
           lineHeight: '18px', // 計算と同じ行の高さに設定
-          margin: 0 // preのデフォルトマージンを削除
+          margin: 0, // preのデフォルトマージンを削除
+          overflow: 'auto'
         }}
       >
         <code 
           className={`language-${prismLanguage}`}
           style={{ 
             whiteSpace: 'pre',
-            display: 'block'
+            display: 'block',
+            tabSize: 2,
+            fontFamily: 'inherit'
           }}
           dangerouslySetInnerHTML={{ 
             __html: highlightedCode || file.content
