@@ -50,9 +50,12 @@ function cleanFileContent(content: string): string {
   const cleanedLines: string[] = [];
   
   for (const line of lines) {
-    const lineNumberMatch = line.match(/^\s*\d+:\s*(.*)$/);
+    // 行番号とコロンを除去するが、インデントは保持
+    const lineNumberMatch = line.match(/^\s*\d+:(.*)$/);
     if (lineNumberMatch) {
-      cleanedLines.push(lineNumberMatch[1]);
+      // 行番号とコロンを除去し、その後の内容（インデント含む）を保持
+      const afterColon = lineNumberMatch[1];
+      cleanedLines.push(afterColon);
     } else {
       cleanedLines.push(line);
     }
