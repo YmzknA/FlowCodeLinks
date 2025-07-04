@@ -24,12 +24,12 @@ export const useFileUpload = (): UseFileUploadReturn => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    // ファイルサイズ制限 (5MB)
-    const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
+    // ファイルサイズ制限 (10MB)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
     if (file.size > MAX_FILE_SIZE) {
       setUploadResult(prev => ({
         ...prev,
-        error: 'ファイルサイズが5MBを超えています。より小さなファイルを選択してください。'
+        error: 'ファイルサイズが10MBを超えています。より小さなファイルを選択してください。'
       }));
       return;
     }
