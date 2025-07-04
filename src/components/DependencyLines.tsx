@@ -1,6 +1,76 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { FloatingWindow, Dependency, ScrollInfo } from '@/types/codebase';
 
+// メモ化された個別の線コンポーネント
+interface DependencyLineProps {
+  line: LineData;
+  index: number;
+  isHovered: boolean;
+  isHighlighted: boolean;
+  onMouseEnter: (e: React.MouseEvent) => void;
+  onMouseLeave: () => void;
+  onMouseMove: (e: React.MouseEvent) => void;
+  onClick: () => void;
+  getLineColor: (dependency: Dependency, isHighlighted: boolean) => string;
+  getLineWidth: (dependency: Dependency, isHighlighted: boolean) => number;
+}
+
+const DependencyLine = React.memo<DependencyLineProps>(({ 
+  line, 
+  index, 
+  isHovered, 
+  isHighlighted, 
+  onMouseEnter, 
+  onMouseLeave, 
+  onMouseMove, 
+  onClick,
+  getLineColor,
+  getLineWidth
+}) => {
+  return (
+    <g>
+      {/* 透明な太い曲線（ホバー判定用） */}
+      <path
+        d={`M ${line.x1} ${line.y1} C ${line.controlX1} ${line.controlY1}, ${line.controlX2} ${line.controlY2}, ${line.x2} ${line.y2}`}
+        stroke="transparent"
+        strokeWidth={Math.max(getLineWidth(line.dependency, isHighlighted) + 6, 12)}
+        fill="none"
+        style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
+        onMouseEnter={onMouseEnter}
+        onMouseLeave={onMouseLeave}
+        onMouseMove={onMouseMove}
+        onClick={onClick}
+      />
+      
+      {/* 実際の曲線 */}
+      <path
+        d={`M ${line.x1} ${line.y1} C ${line.controlX1} ${line.controlY1}, ${line.controlX2} ${line.controlY2}, ${line.x2} ${line.y2}`}
+        stroke={getLineColor(line.dependency, isHighlighted)}
+        strokeWidth={getLineWidth(line.dependency, isHighlighted)}
+        fill="none"
+        markerEnd={isHighlighted ? 'url(#arrowhead-highlighted)' : 'url(#arrowhead)'}
+        strokeDasharray={line.dependency.type === 'internal' ? '8,4' : 'none'}
+        opacity={isHovered ? 1 : (line.dependency.type === 'internal' ? 0.5 : 0.8)}
+        style={{ pointerEvents: 'none' }}
+      />
+      
+      {/* 始点の小さな丸 */}
+      <circle
+        cx={line.x1}
+        cy={line.y1}
+        r={isHighlighted ? 4 : 3}
+        fill={getLineColor(line.dependency, isHighlighted)}
+        stroke="white"
+        strokeWidth="1"
+        opacity={isHovered ? 1 : (line.dependency.type === 'internal' ? 0.6 : 0.9)}
+        style={{ pointerEvents: 'none' }}
+      />
+    </g>
+  );
+});
+
+DependencyLine.displayName = 'DependencyLine';
+
 interface DependencyLinesProps {
   windows: FloatingWindow[];
   dependencies: Dependency[];
@@ -147,104 +217,110 @@ const calculateControlPoints = (
   return { controlX1, controlY1, controlX2, controlY2 };
 };
 
-// メソッドの詳細位置を計算（ウィンドウ内の実際の行位置）
-const calculateDetailedMethodPosition = (
-  window: FloatingWindow, 
-  methodName: string, 
-  zoom: number, 
+// 定数定義
+const CANVAS_OFFSET = { x: 2000, y: 1000 } as const; // ZoomableCanvasのオフセット
+const HEADER_HEIGHT = 40 as const; // ウィンドウヘッダーの高さ
+const LINE_HEIGHT = 18 as const; // コード1行の高さ（px）
+const DEFAULT_ARROW_SIZE = { width: 3, height: 2.25 } as const;
+const HIGHLIGHTED_ARROW_SIZE = { width: 5, height: 3.75 } as const;
+
+// 特定行の位置計算（呼び出し行用）
+const calculatePositionBySpecificLine = (
+  specificLine: number,
+  window: FloatingWindow,
+  zoom: number,
   pan: { x: number; y: number },
-  isEndpoint: boolean = false,
-  targetDirection?: 'left' | 'right' | 'up' | 'down',
-  specificLine?: number // 呼び出し行を指定する場合
+  targetDirection?: 'left' | 'right' | 'up' | 'down'
 ) => {
-  // ZoomableCanvasのキャンバスオフセット(2000px, 1000px)を考慮
-  const canvasOffset = { x: 2000, y: 1000 };
-  
-  // ウィンドウの基本座標
   const windowX = window.position.x;
   const windowY = window.position.y;
   const windowWidth = window.position.width;
   const windowHeight = window.position.height;
   
-  // ファイル内のメソッドを検索
-  const method = window.file.methods?.find(m => m.name === methodName);
+  const contentHeight = windowHeight - HEADER_HEIGHT;
+  
+  // ファイルの総行数をより正確に計算
+  const allMethods = window.file.methods || [];
+  const maxEndLine = allMethods.length > 0 
+    ? Math.max(...allMethods.map(m => m.endLine))
+    : 100;
+  const estimatedTotalLines = Math.max(maxEndLine, window.file.totalLines || 100);
+  
+  const methodLineRatio = Math.min(specificLine / estimatedTotalLines, 1);
+  
+  // スクロール情報に基づく垂直位置の調整
+  let adjustedMethodY: number;
+  
+  if (!window.showMethodsOnly && !window.isCollapsed) {
+    // スクロール情報がある場合はそれを使用、ない場合は初期状態として全体表示を仮定
+    const scrollInfo = window.scrollInfo || {
+      scrollTop: 0,
+      scrollHeight: contentHeight,
+      clientHeight: contentHeight,
+      visibleStartRatio: 0,
+      visibleEndRatio: 1
+    };
+    
+    const { visibleStartRatio, visibleEndRatio } = scrollInfo;
+    
+    // 行が表示範囲内にあるかを判定
+    const isInVisibleRange = methodLineRatio >= visibleStartRatio && methodLineRatio <= visibleEndRatio;
+    
+    if (isInVisibleRange) {
+      // 表示範囲内: 実際のスクロール位置に基づいて動的に計算
+      const visibleRangeHeight = visibleEndRatio - visibleStartRatio;
+      const relativePositionInRange = visibleRangeHeight > 0 
+        ? (methodLineRatio - visibleStartRatio) / visibleRangeHeight
+        : methodLineRatio;
+      adjustedMethodY = windowY + HEADER_HEIGHT + (contentHeight * relativePositionInRange);
+    } else {
+      // 表示範囲外: ウィンドウの上部または下部に固定
+      if (methodLineRatio < visibleStartRatio) {
+        // 行が表示範囲より上にある場合: ウィンドウ上部に固定
+        adjustedMethodY = windowY + HEADER_HEIGHT + 10; // 少し下にオフセット
+      } else {
+        // 行が表示範囲より下にある場合: ウィンドウ下部に固定
+        adjustedMethodY = windowY + windowHeight - 10; // 少し上にオフセット
+      }
+    }
+  } else {
+    // メソッドのみ表示や折りたたみの場合は従来の計算
+    adjustedMethodY = windowY + HEADER_HEIGHT + (contentHeight * methodLineRatio);
+  }
+  
+  const methodY = adjustedMethodY;
+  
+  // 水平位置は方向に応じて設定
+  let methodX: number;
+  if (targetDirection === 'right') {
+    methodX = windowX + windowWidth - 5; // 右端（少し内側）
+  } else if (targetDirection === 'left') {
+    methodX = windowX + 5; // 左端（少し内側）
+  } else {
+    methodX = windowX + windowWidth / 2; // 中央（フォールバック）
+  }
+  
+  return { x: methodX, y: methodY };
+};
+
+// メソッド位置計算（メソッド定義用）
+const calculatePositionByMethod = (
+  method: import('@/types/codebase').Method | undefined,
+  window: FloatingWindow,
+  zoom: number,
+  pan: { x: number; y: number },
+  isEndpoint: boolean,
+  targetDirection?: 'left' | 'right' | 'up' | 'down'
+) => {
+  const windowX = window.position.x;
+  const windowY = window.position.y;
+  const windowWidth = window.position.width;
+  const windowHeight = window.position.height;
   
   let methodX: number, methodY: number;
   
-  // 特定の行が指定されている場合（呼び出し行）は、メソッド検索せずに直接その行を使用
-  if (specificLine) {
-    // 直接指定された行番号を使用（呼び出し行）
-    const headerHeight = 40;
-    const contentHeight = windowHeight - headerHeight;
-    const lineHeight = 18; // 1行の高さ
-    
-    // ファイルの総行数をより正確に計算
-    const allMethods = window.file.methods || [];
-    const maxEndLine = allMethods.length > 0 
-      ? Math.max(...allMethods.map(m => m.endLine))
-      : 100;
-    const estimatedTotalLines = Math.max(maxEndLine, window.file.totalLines || 100);
-    
-    const methodLineRatio = Math.min(specificLine / estimatedTotalLines, 1);
-    
-    // スクロール情報に基づく垂直位置の調整
-    let adjustedMethodY: number;
-    
-    if (!window.showMethodsOnly && !window.isCollapsed) {
-      // スクロール情報がある場合はそれを使用、ない場合は初期状態として全体表示を仮定
-      const scrollInfo = window.scrollInfo || {
-        scrollTop: 0,
-        scrollHeight: contentHeight,
-        clientHeight: contentHeight,
-        visibleStartRatio: 0,
-        visibleEndRatio: 1
-      };
-      
-      const { visibleStartRatio, visibleEndRatio } = scrollInfo;
-      
-      // 行が表示範囲内にあるかを判定
-      const isInVisibleRange = methodLineRatio >= visibleStartRatio && methodLineRatio <= visibleEndRatio;
-      
-      if (isInVisibleRange) {
-        // 表示範囲内: 実際のスクロール位置に基づいて動的に計算
-        const visibleRangeHeight = visibleEndRatio - visibleStartRatio;
-        const relativePositionInRange = visibleRangeHeight > 0 
-          ? (methodLineRatio - visibleStartRatio) / visibleRangeHeight
-          : methodLineRatio;
-        adjustedMethodY = windowY + headerHeight + (contentHeight * relativePositionInRange);
-      } else {
-        // 表示範囲外: ウィンドウの上部または下部に固定
-        if (methodLineRatio < visibleStartRatio) {
-          // 行が表示範囲より上にある場合: ウィンドウ上部に固定
-          adjustedMethodY = windowY + headerHeight + 10; // 少し下にオフセット
-        } else {
-          // 行が表示範囲より下にある場合: ウィンドウ下部に固定
-          adjustedMethodY = windowY + windowHeight - 10; // 少し上にオフセット
-        }
-      }
-    } else {
-      // メソッドのみ表示や折りたたみの場合は従来の計算
-      adjustedMethodY = windowY + headerHeight + (contentHeight * methodLineRatio);
-    }
-    
-    methodY = adjustedMethodY;
-    
-    // 水平位置は方向に応じて設定
-    if (targetDirection === 'right') {
-      methodX = windowX + windowWidth - 5; // 右端（少し内側）
-    } else if (targetDirection === 'left') {
-      methodX = windowX + 5; // 左端（少し内側）
-    } else {
-      methodX = windowX + windowWidth / 2; // 中央（フォールバック）
-    }
-  } else if (method && method.startLine) {
-    // メソッドが見つかった場合、行番号に基づく位置計算
-    
-    // ウィンドウ内でのメソッドの概算位置
-    // ウィンドウヘッダーを考慮（約40px）
-    const headerHeight = 40;
-    const contentHeight = windowHeight - headerHeight;
-    const lineHeight = 18; // 1行の高さ
+  if (method && method.startLine) {
+    const contentHeight = windowHeight - HEADER_HEIGHT;
     
     // ファイルの総行数をより正確に計算
     const allMethods = window.file.methods || [];
@@ -259,7 +335,6 @@ const calculateDetailedMethodPosition = (
     let adjustedMethodY: number;
     
     if (!window.showMethodsOnly && !window.isCollapsed) {
-      // スクロール情報がある場合はそれを使用、ない場合は初期状態として全体表示を仮定
       const scrollInfo = window.scrollInfo || {
         scrollTop: 0,
         scrollHeight: contentHeight,
@@ -269,56 +344,39 @@ const calculateDetailedMethodPosition = (
       };
       
       const { visibleStartRatio, visibleEndRatio } = scrollInfo;
-      
-      // メソッドが表示範囲内にあるかを判定
       const isInVisibleRange = methodLineRatio >= visibleStartRatio && methodLineRatio <= visibleEndRatio;
       
       if (isInVisibleRange) {
-        // 表示範囲内: 実際のスクロール位置に基づいて動的に計算
         const visibleRangeHeight = visibleEndRatio - visibleStartRatio;
         const relativePositionInRange = visibleRangeHeight > 0 
           ? (methodLineRatio - visibleStartRatio) / visibleRangeHeight
           : methodLineRatio;
-        adjustedMethodY = windowY + headerHeight + (contentHeight * relativePositionInRange);
+        adjustedMethodY = windowY + HEADER_HEIGHT + (contentHeight * relativePositionInRange);
       } else {
-        // 表示範囲外: ウィンドウの上部または下部に固定
         if (methodLineRatio < visibleStartRatio) {
-          // メソッドが表示範囲より上にある場合: ウィンドウ上部に固定
-          adjustedMethodY = windowY + headerHeight + 10; // 少し下にオフセット
+          adjustedMethodY = windowY + HEADER_HEIGHT + 10;
         } else {
-          // メソッドが表示範囲より下にある場合: ウィンドウ下部に固定
-          adjustedMethodY = windowY + windowHeight - 10; // 少し上にオフセット
+          adjustedMethodY = windowY + windowHeight - 10;
         }
       }
     } else {
-      // メソッドのみ表示や折りたたみの場合は従来の計算
-      adjustedMethodY = windowY + headerHeight + (contentHeight * methodLineRatio);
+      adjustedMethodY = windowY + HEADER_HEIGHT + (contentHeight * methodLineRatio);
     }
     
     // 垂直位置の計算
     if (isEndpoint) {
-      // 終点は少し下にオフセット（1行分程度）
-      methodY = adjustedMethodY + lineHeight;
-      // 終点は矢印の方向に応じて左右のエッジ
-      if (targetDirection === 'right') {
-        methodX = windowX + windowWidth - 5; // 右端（少し内側）
-      } else if (targetDirection === 'left') {
-        methodX = windowX + 5; // 左端（少し内側）
-      } else {
-        methodX = windowX + windowWidth / 2; // 中央（フォールバック）
-      }
+      methodY = adjustedMethodY + LINE_HEIGHT;
     } else {
-      // 始点の垂直位置は調整済み位置を使用
       methodY = adjustedMethodY;
-      
-      // 始点は左右のエッジ
-      if (targetDirection === 'right') {
-        methodX = windowX + windowWidth - 5; // 右端（少し内側）
-      } else if (targetDirection === 'left') {
-        methodX = windowX + 5; // 左端（少し内側）
-      } else {
-        methodX = windowX + windowWidth / 2; // 中央（フォールバック）
-      }
+    }
+    
+    // 水平位置の計算
+    if (targetDirection === 'right') {
+      methodX = windowX + windowWidth - 5;
+    } else if (targetDirection === 'left') {
+      methodX = windowX + 5;
+    } else {
+      methodX = windowX + windowWidth / 2;
     }
   } else {
     // メソッドが見つからない場合はウィンドウ中央
@@ -326,9 +384,42 @@ const calculateDetailedMethodPosition = (
     methodY = windowY + windowHeight / 2;
   }
   
+  return { x: methodX, y: methodY };
+};
+
+// メソッドの詳細位置を計算（統合関数）
+const calculateDetailedMethodPosition = (
+  window: FloatingWindow, 
+  methodName: string, 
+  zoom: number, 
+  pan: { x: number; y: number },
+  isEndpoint: boolean = false,
+  targetDirection?: 'left' | 'right' | 'up' | 'down',
+  specificLine?: number // 呼び出し行を指定する場合
+) => {
+  if (specificLine) {
+    const position = calculatePositionBySpecificLine(specificLine, window, zoom, pan, targetDirection);
+    
+    // キャンバス座標系に変換
+    const canvasX = position.x + CANVAS_OFFSET.x;
+    const canvasY = position.y + CANVAS_OFFSET.y;
+    
+    // スクリーン座標に変換
+    const screenX = canvasX * zoom + pan.x;
+    const screenY = canvasY * zoom + pan.y;
+    
+    return {
+      x: screenX,
+      y: screenY
+    };
+  }
+  
+  const method = window.file.methods?.find(m => m.name === methodName);
+  const position = calculatePositionByMethod(method, window, zoom, pan, isEndpoint, targetDirection);
+  
   // キャンバス座標系に変換
-  const canvasX = methodX + canvasOffset.x;
-  const canvasY = methodY + canvasOffset.y;
+  const canvasX = position.x + CANVAS_OFFSET.x;
+  const canvasY = position.y + CANVAS_OFFSET.y;
   
   // スクリーン座標に変換
   const screenX = canvasX * zoom + pan.x;
@@ -564,14 +655,14 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
         
         <marker
           id="arrowhead-highlighted"
-          markerWidth="5"
-          markerHeight="3.75"
-          refX="4"
-          refY="1.875"
+          markerWidth={HIGHLIGHTED_ARROW_SIZE.width}
+          markerHeight={HIGHLIGHTED_ARROW_SIZE.height}
+          refX={HIGHLIGHTED_ARROW_SIZE.width - 1}
+          refY={HIGHLIGHTED_ARROW_SIZE.height / 2}
           orient="auto"
         >
           <polygon
-            points="0 0, 5 1.875, 0 3.75"
+            points={`0 0, ${HIGHLIGHTED_ARROW_SIZE.width} ${HIGHLIGHTED_ARROW_SIZE.height / 2}, 0 ${HIGHLIGHTED_ARROW_SIZE.height}`}
             fill="#dc2626"
           />
         </marker>
@@ -579,61 +670,31 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
 
 
       {/* 依存関係の線 */}
-      {lineData.map((line, index) => {
-        const isHovered = hoveredLine === index;
-        const isHighlighted = line.isHighlighted || isHovered;
-        
-        return (
-          <g key={index}>
-            {/* 透明な太い曲線（ホバー判定用） */}
-            <path
-              d={`M ${line.x1} ${line.y1} C ${line.controlX1} ${line.controlY1}, ${line.controlX2} ${line.controlY2}, ${line.x2} ${line.y2}`}
-              stroke="transparent"
-              strokeWidth={Math.max(getLineWidth(line.dependency, isHighlighted) + 6, 12)}
-              fill="none"
-              style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
-              onMouseEnter={(e) => {
-                setHoveredLine(index);
-                setTooltipPosition({ x: e.clientX, y: e.clientY });
-              }}
-              onMouseLeave={() => {
-                setHoveredLine(null);
-                setTooltipPosition(null);
-              }}
-              onMouseMove={(e) => {
-                if (hoveredLine === index) {
-                  setTooltipPosition({ x: e.clientX, y: e.clientY });
-                }
-              }}
-              onClick={() => handleArrowClick(line.dependency)}
-            />
-            
-            {/* 実際の曲線 */}
-            <path
-              d={`M ${line.x1} ${line.y1} C ${line.controlX1} ${line.controlY1}, ${line.controlX2} ${line.controlY2}, ${line.x2} ${line.y2}`}
-              stroke={getLineColor(line.dependency, isHighlighted)}
-              strokeWidth={getLineWidth(line.dependency, isHighlighted)}
-              fill="none"
-              markerEnd={isHighlighted ? 'url(#arrowhead-highlighted)' : 'url(#arrowhead)'}
-              strokeDasharray={line.dependency.type === 'internal' ? '8,4' : 'none'}
-              opacity={isHovered ? 1 : (line.dependency.type === 'internal' ? 0.5 : 0.8)}
-              style={{ pointerEvents: 'none' }}
-            />
-            
-            {/* 始点の小さな丸 */}
-            <circle
-              cx={line.x1}
-              cy={line.y1}
-              r={isHighlighted ? 4 : 3}
-              fill={getLineColor(line.dependency, isHighlighted)}
-              stroke="white"
-              strokeWidth="1"
-              opacity={isHovered ? 1 : (line.dependency.type === 'internal' ? 0.6 : 0.9)}
-              style={{ pointerEvents: 'none' }}
-            />
-          </g>
-        );
-      })}
+      {lineData.map((line, index) => (
+        <DependencyLine
+          key={`${line.dependency.from.methodName}-${line.dependency.to.methodName}-${index}`}
+          line={line}
+          index={index}
+          isHovered={hoveredLine === index}
+          isHighlighted={line.isHighlighted || hoveredLine === index}
+          onMouseEnter={(e) => {
+            setHoveredLine(index);
+            setTooltipPosition({ x: e.clientX, y: e.clientY });
+          }}
+          onMouseLeave={() => {
+            setHoveredLine(null);
+            setTooltipPosition(null);
+          }}
+          onMouseMove={(e) => {
+            if (hoveredLine === index) {
+              setTooltipPosition({ x: e.clientX, y: e.clientY });
+            }
+          }}
+          onClick={() => handleArrowClick(line.dependency)}
+          getLineColor={getLineColor}
+          getLineWidth={getLineWidth}
+        />
+      ))}
 
       {/* 呼び出し回数のラベル */}
       {lineData.map((line, index) => {
