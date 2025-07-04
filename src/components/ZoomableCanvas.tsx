@@ -52,13 +52,20 @@ export const ZoomableCanvas: React.FC<ZoomableCanvasProps> = ({
   }, [zoom, pan, onZoomChange]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // 中ボタン（ホイールボタン）でのパン操作のみ有効
-    if (e.button === 1) { // 中ボタン
-      e.preventDefault();
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    // 左ボタンまたは中ボタン（ホイールボタン）でのパン操作を有効
+    if (e.button === 0 || e.button === 1) { // 左ボタンまたは中ボタン
+      // フローティングウィンドウやコントロール以外の背景をクリックした場合のみパン開始
+      const target = e.target as HTMLElement;
+      const isBackground = target.classList.contains('w-full') || 
+                          target.classList.contains('relative') ||
+                          target === e.currentTarget;
+      
+      if (isBackground) {
+        e.preventDefault();
+        setIsDragging(true);
+        setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      }
     }
-    // 左ボタンでのパン操作は無効化（フローティングウィンドウのドラッグを優先）
   }, [pan]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -213,7 +220,7 @@ export const ZoomableCanvas: React.FC<ZoomableCanvasProps> = ({
         ref={canvasRef}
         className="w-full h-full overflow-hidden relative"
         style={{ 
-          cursor: isDragging ? 'grabbing' : 'default',
+          cursor: isDragging ? 'grabbing' : 'grab',
           backgroundImage: `radial-gradient(circle, #e5e7eb 1px, transparent 1px)`,
           backgroundSize: `${50 * zoom}px ${50 * zoom}px`,
           backgroundPosition: `${pan.x % (50 * zoom)}px ${pan.y % (50 * zoom)}px`
