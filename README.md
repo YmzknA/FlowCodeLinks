@@ -1,7 +1,5 @@
 # FlowCodeLinks
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FYmzknA%2Fcode_flow_reader)
-
 **コードの関係性を可視化するWebアプリケーション**
 
 複雑なコードベースのメソッド間の関係を直感的に理解できるよう、フローティングウィンドウと矢印で可視化します。
