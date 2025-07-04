@@ -1,5 +1,7 @@
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { FloatingWindow, Dependency, ScrollInfo } from '@/types/codebase';
+import { LRUCurveCache } from '@/utils/lru-cache';
+import { CURVE_CONFIG, COLOR_PALETTE, HIGHLIGHT_COLORS } from '@/config/curve-settings';
 
 // メモ化された個別の線コンポーネント
 interface DependencyLineProps {
@@ -217,12 +219,13 @@ const calculateControlPoints = (
   return { controlX1, controlY1, controlX2, controlY2 };
 };
 
-// 定数定義
-const CANVAS_OFFSET = { x: 2000, y: 1000 } as const; // ZoomableCanvasのオフセット
-const HEADER_HEIGHT = 40 as const; // ウィンドウヘッダーの高さ
-const LINE_HEIGHT = 18 as const; // コード1行の高さ（px）
-const DEFAULT_ARROW_SIZE = { width: 3, height: 2.25 } as const;
-const HIGHLIGHTED_ARROW_SIZE = { width: 5, height: 3.75 } as const;
+// 型安全性強化: 位置計算の設定用Union型
+type PositionCalculationConfig = 
+  | { type: 'method'; methodName: string }
+  | { type: 'line'; lineNumber: number };
+
+// 設定ファイルから定数をインポート（マジックナンバー排除）
+const { DISPLAY, Z_CURVE, ARROW, LINE_WIDTH, OPACITY, PERFORMANCE } = CURVE_CONFIG;
 
 // 特定行の位置計算（呼び出し行用）
 const calculatePositionBySpecificLine = (
@@ -237,7 +240,7 @@ const calculatePositionBySpecificLine = (
   const windowWidth = window.position.width;
   const windowHeight = window.position.height;
   
-  const contentHeight = windowHeight - HEADER_HEIGHT;
+  const contentHeight = windowHeight - DISPLAY.HEADER_HEIGHT;
   
   // ファイルの総行数をより正確に計算
   const allMethods = window.file.methods || [];
@@ -272,20 +275,20 @@ const calculatePositionBySpecificLine = (
       const relativePositionInRange = visibleRangeHeight > 0 
         ? (methodLineRatio - visibleStartRatio) / visibleRangeHeight
         : methodLineRatio;
-      adjustedMethodY = windowY + HEADER_HEIGHT + (contentHeight * relativePositionInRange);
+      adjustedMethodY = windowY + DISPLAY.HEADER_HEIGHT + (contentHeight * relativePositionInRange);
     } else {
       // 表示範囲外: ウィンドウの上部または下部に固定
       if (methodLineRatio < visibleStartRatio) {
         // 行が表示範囲より上にある場合: ウィンドウ上部に固定
-        adjustedMethodY = windowY + HEADER_HEIGHT + 10; // 少し下にオフセット
+        adjustedMethodY = windowY + DISPLAY.HEADER_HEIGHT + DISPLAY.VISIBLE_RANGE_OFFSET; // 少し下にオフセット
       } else {
         // 行が表示範囲より下にある場合: ウィンドウ下部に固定
-        adjustedMethodY = windowY + windowHeight - 10; // 少し上にオフセット
+        adjustedMethodY = windowY + windowHeight - DISPLAY.VISIBLE_RANGE_OFFSET; // 少し上にオフセット
       }
     }
   } else {
     // メソッドのみ表示や折りたたみの場合は従来の計算
-    adjustedMethodY = windowY + HEADER_HEIGHT + (contentHeight * methodLineRatio);
+    adjustedMethodY = windowY + DISPLAY.HEADER_HEIGHT + (contentHeight * methodLineRatio);
   }
   
   const methodY = adjustedMethodY;
@@ -320,7 +323,7 @@ const calculatePositionByMethod = (
   let methodX: number, methodY: number;
   
   if (method && method.startLine) {
-    const contentHeight = windowHeight - HEADER_HEIGHT;
+    const contentHeight = windowHeight - DISPLAY.HEADER_HEIGHT;
     
     // ファイルの総行数をより正確に計算
     const allMethods = window.file.methods || [];
@@ -351,21 +354,21 @@ const calculatePositionByMethod = (
         const relativePositionInRange = visibleRangeHeight > 0 
           ? (methodLineRatio - visibleStartRatio) / visibleRangeHeight
           : methodLineRatio;
-        adjustedMethodY = windowY + HEADER_HEIGHT + (contentHeight * relativePositionInRange);
+        adjustedMethodY = windowY + DISPLAY.HEADER_HEIGHT + (contentHeight * relativePositionInRange);
       } else {
         if (methodLineRatio < visibleStartRatio) {
-          adjustedMethodY = windowY + HEADER_HEIGHT + 10;
+          adjustedMethodY = windowY + DISPLAY.HEADER_HEIGHT + DISPLAY.VISIBLE_RANGE_OFFSET;
         } else {
-          adjustedMethodY = windowY + windowHeight - 10;
+          adjustedMethodY = windowY + windowHeight - DISPLAY.VISIBLE_RANGE_OFFSET;
         }
       }
     } else {
-      adjustedMethodY = windowY + HEADER_HEIGHT + (contentHeight * methodLineRatio);
+      adjustedMethodY = windowY + DISPLAY.HEADER_HEIGHT + (contentHeight * methodLineRatio);
     }
     
     // 垂直位置の計算
     if (isEndpoint) {
-      methodY = adjustedMethodY + LINE_HEIGHT;
+      methodY = adjustedMethodY + DISPLAY.LINE_HEIGHT;
     } else {
       methodY = adjustedMethodY;
     }
@@ -387,39 +390,27 @@ const calculatePositionByMethod = (
   return { x: methodX, y: methodY };
 };
 
-// メソッドの詳細位置を計算（統合関数）
+// メソッドの詳細位置を計算（統合関数）- 型安全性強化版
 const calculateDetailedMethodPosition = (
   window: FloatingWindow, 
-  methodName: string, 
+  config: PositionCalculationConfig,
   zoom: number, 
   pan: { x: number; y: number },
   isEndpoint: boolean = false,
-  targetDirection?: 'left' | 'right' | 'up' | 'down',
-  specificLine?: number // 呼び出し行を指定する場合
+  targetDirection?: 'left' | 'right' | 'up' | 'down'
 ) => {
-  if (specificLine) {
-    const position = calculatePositionBySpecificLine(specificLine, window, zoom, pan, targetDirection);
-    
-    // キャンバス座標系に変換
-    const canvasX = position.x + CANVAS_OFFSET.x;
-    const canvasY = position.y + CANVAS_OFFSET.y;
-    
-    // スクリーン座標に変換
-    const screenX = canvasX * zoom + pan.x;
-    const screenY = canvasY * zoom + pan.y;
-    
-    return {
-      x: screenX,
-      y: screenY
-    };
+  let position: { x: number; y: number };
+  
+  if (config.type === 'line') {
+    position = calculatePositionBySpecificLine(config.lineNumber, window, zoom, pan, targetDirection);
+  } else {
+    const method = window.file.methods?.find(m => m.name === config.methodName);
+    position = calculatePositionByMethod(method, window, zoom, pan, isEndpoint, targetDirection);
   }
   
-  const method = window.file.methods?.find(m => m.name === methodName);
-  const position = calculatePositionByMethod(method, window, zoom, pan, isEndpoint, targetDirection);
-  
   // キャンバス座標系に変換
-  const canvasX = position.x + CANVAS_OFFSET.x;
-  const canvasY = position.y + CANVAS_OFFSET.y;
+  const canvasX = position.x + DISPLAY.CANVAS_OFFSET.x;
+  const canvasY = position.y + DISPLAY.CANVAS_OFFSET.y;
   
   // スクリーン座標に変換
   const screenX = canvasX * zoom + pan.x;
@@ -438,7 +429,13 @@ const calculateMethodPosition = (
   zoom: number, 
   pan: { x: number; y: number }
 ) => {
-  return calculateDetailedMethodPosition(window, methodName, zoom, pan, false);
+  return calculateDetailedMethodPosition(
+    window, 
+    { type: 'method', methodName }, 
+    zoom, 
+    pan, 
+    false
+  );
 };
 
 export const DependencyLines: React.FC<DependencyLinesProps> = ({
@@ -527,69 +524,28 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
     return Math.min(Math.max(dependency.count * 1.5, 2), 6);
   };
 
-  const lineData = useMemo(() => {
+  // 1. 位置に依存しない基本的な線データ（パフォーマンス最適化）
+  const stableLineData = useMemo(() => {
     // 各レンダリング時に曲線パラメータをリセット
     usedCurveParams.current.clear();
     
-    const lines: LineData[] = [];
-    const existingLines: Array<{x1: number, y1: number, x2: number, y2: number}> = [];
+    const lines: Array<{
+      dependency: Dependency;
+      isHighlighted: boolean;
+      direction: 'left' | 'right';
+      fromWindow: FloatingWindow;
+      toWindow: FloatingWindow;
+    }> = [];
     
     dependencies.forEach((dependency) => {
       const fromWindow = findWindowByMethod(visibleWindows, dependency.from);
       const toWindow = findWindowByMethod(visibleWindows, dependency.to);
       
       if (fromWindow && toWindow) {
-        // 矢印は常に表示し、位置のみを動的に調整する
-        // まず基本位置を取得して方向を判定
-        const fromBasic = calculateMethodPosition(fromWindow, dependency.from.methodName, zoom, pan);
-        const toBasic = calculateMethodPosition(toWindow, dependency.to.methodName, zoom, pan);
-        
-        // 矢印の方向を判定
-        const deltaX = toBasic.x - fromBasic.x;
-        const direction = deltaX > 0 ? 'right' : 'left';
-        
-        // 詳細な始点と終点を計算
-        const startCoords = calculateDetailedMethodPosition(
-          fromWindow, 
-          dependency.from.methodName, 
-          zoom, 
-          pan, 
-          false, // 始点
-          direction,
-          dependency.fromLine // 呼び出し行を指定
-        );
-        
-        // 終点では方向を反転（右から来る矢印は左端に、左から来る矢印は右端に）
-        const endDirection = direction === 'right' ? 'left' : 'right';
-        
-        const endCoords = calculateDetailedMethodPosition(
-          toWindow, 
-          dependency.to.methodName, 
-          zoom, 
-          pan, 
-          true, // 終点
-          endDirection
-        );
-        
-        // 同じ座標の場合は自己参照として視覚的にオフセット
-        let adjustedEndCoords = endCoords;
-        if (Math.abs(startCoords.x - endCoords.x) < 50 && Math.abs(startCoords.y - endCoords.y) < 50) {
-          adjustedEndCoords = {
-            x: endCoords.x + 30 * zoom,
-            y: endCoords.y + 20 * zoom
-          };
-        }
-        
-        // 曲線の制御点を計算（重複回避機能付き）
-        const controlPoints = calculateControlPoints(
-          startCoords.x, 
-          startCoords.y, 
-          adjustedEndCoords.x, 
-          adjustedEndCoords.y, 
-          dependency.from.methodName,
-          existingLines,
-          usedCurveParams.current
-        );
+        // 基本的な方向判定（ウィンドウの中央位置で判定）
+        const fromCenterX = fromWindow.position.x + fromWindow.position.width / 2;
+        const toCenterX = toWindow.position.x + toWindow.position.width / 2;
+        const direction = toCenterX > fromCenterX ? 'right' : 'left';
         
         const isHighlighted = highlightedMethod && (
           (highlightedMethod.methodName === dependency.from.methodName && 
@@ -598,31 +554,93 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
            highlightedMethod.filePath === dependency.to.filePath)
         );
         
-        const lineData = {
-          x1: startCoords.x,
-          y1: startCoords.y,
-          x2: adjustedEndCoords.x,
-          y2: adjustedEndCoords.y,
-          controlX1: controlPoints.controlX1,
-          controlY1: controlPoints.controlY1,
-          controlX2: controlPoints.controlX2,
-          controlY2: controlPoints.controlY2,
+        lines.push({
           dependency,
-          isHighlighted: !!isHighlighted
-        };
-        
-        lines.push(lineData);
-        existingLines.push({
-          x1: startCoords.x,
-          y1: startCoords.y,
-          x2: adjustedEndCoords.x,
-          y2: adjustedEndCoords.y
+          isHighlighted: !!isHighlighted,
+          direction,
+          fromWindow,
+          toWindow
         });
       }
-    })
+    });
     
     return lines;
-  }, [visibleWindows, dependencies, highlightedMethod, zoom, pan, sidebarCollapsed, sidebarWidth]);
+  }, [visibleWindows, dependencies, highlightedMethod]);
+  
+  // 2. 座標変換のみを別途処理（zoom, panに依存）
+  const lineData = useMemo(() => {
+    const transformedLines: LineData[] = [];
+    const existingLines: Array<{x1: number, y1: number, x2: number, y2: number}> = [];
+    
+    stableLineData.forEach((stableLine) => {
+      // 詳細な始点と終点を計算
+      const startCoords = calculateDetailedMethodPosition(
+        stableLine.fromWindow,
+        stableLine.dependency.fromLine 
+          ? { type: 'line', lineNumber: stableLine.dependency.fromLine }
+          : { type: 'method', methodName: stableLine.dependency.from.methodName },
+        zoom, 
+        pan, 
+        false, // 始点
+        stableLine.direction
+      );
+      
+      // 終点では方向を反転（右から来る矢印は左端に、左から来る矢印は右端に）
+      const endDirection = stableLine.direction === 'right' ? 'left' : 'right';
+      
+      const endCoords = calculateDetailedMethodPosition(
+        stableLine.toWindow,
+        { type: 'method', methodName: stableLine.dependency.to.methodName },
+        zoom, 
+        pan, 
+        true, // 終点
+        endDirection
+      );
+      
+      // 同じ座標の場合は自己参照として視覚的にオフセット
+      let adjustedEndCoords = endCoords;
+      if (Math.abs(startCoords.x - endCoords.x) < 50 && Math.abs(startCoords.y - endCoords.y) < 50) {
+        adjustedEndCoords = {
+          x: endCoords.x + 30 * zoom,
+          y: endCoords.y + 20 * zoom
+        };
+      }
+      
+      // 曲線の制御点を計算（重複回避機能付き）
+      const controlPoints = calculateControlPoints(
+        startCoords.x, 
+        startCoords.y, 
+        adjustedEndCoords.x, 
+        adjustedEndCoords.y, 
+        stableLine.dependency.from.methodName,
+        existingLines,
+        usedCurveParams.current
+      );
+      
+      const lineData = {
+        x1: startCoords.x,
+        y1: startCoords.y,
+        x2: adjustedEndCoords.x,
+        y2: adjustedEndCoords.y,
+        controlX1: controlPoints.controlX1,
+        controlY1: controlPoints.controlY1,
+        controlX2: controlPoints.controlX2,
+        controlY2: controlPoints.controlY2,
+        dependency: stableLine.dependency,
+        isHighlighted: stableLine.isHighlighted
+      };
+      
+      transformedLines.push(lineData);
+      existingLines.push({
+        x1: startCoords.x,
+        y1: startCoords.y,
+        x2: adjustedEndCoords.x,
+        y2: adjustedEndCoords.y
+      });
+    });
+    
+    return transformedLines;
+  }, [stableLineData, zoom, pan]);
 
   return (
     <>
@@ -655,14 +673,14 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
         
         <marker
           id="arrowhead-highlighted"
-          markerWidth={HIGHLIGHTED_ARROW_SIZE.width}
-          markerHeight={HIGHLIGHTED_ARROW_SIZE.height}
-          refX={HIGHLIGHTED_ARROW_SIZE.width - 1}
-          refY={HIGHLIGHTED_ARROW_SIZE.height / 2}
+          markerWidth={ARROW.HIGHLIGHTED.width}
+          markerHeight={ARROW.HIGHLIGHTED.height}
+          refX={ARROW.HIGHLIGHTED.width - 1}
+          refY={ARROW.HIGHLIGHTED.height / 2}
           orient="auto"
         >
           <polygon
-            points={`0 0, ${HIGHLIGHTED_ARROW_SIZE.width} ${HIGHLIGHTED_ARROW_SIZE.height / 2}, 0 ${HIGHLIGHTED_ARROW_SIZE.height}`}
+            points={`0 0, ${ARROW.HIGHLIGHTED.width} ${ARROW.HIGHLIGHTED.height / 2}, 0 ${ARROW.HIGHLIGHTED.height}`}
             fill="#dc2626"
           />
         </marker>

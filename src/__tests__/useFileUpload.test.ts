@@ -74,9 +74,10 @@ describe('useFileUpload hook', () => {
     const { result } = renderHook(() => useFileUpload());
     
     // 10MB超のファイルをモック
-    const largeFile = new File(['content'], 'large.md', { 
-      type: 'text/markdown',
-      size: 11 * 1024 * 1024 // 11MB
+    // 11MBのコンテンツを生成
+    const largeContent = 'a'.repeat(11 * 1024 * 1024);
+    const largeFile = new File([largeContent], 'large.md', { 
+      type: 'text/markdown'
     });
     const event = createMockEvent(largeFile);
 

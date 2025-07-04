@@ -9,6 +9,7 @@ const mockFiles: ParsedFile[] = [
     content: 'class User\n  def initialize(name)\n    @name = name\n  end\n\n  def greet\n    puts "Hello, #{@name}!"\n  end\nend',
     language: 'ruby',
     directory: 'app/models',
+    totalLines: 9,
     methods: [
       {
         name: 'initialize',
@@ -40,6 +41,7 @@ const mockFiles: ParsedFile[] = [
     content: 'class UsersController\n  def show\n    @user = User.new("Alice")\n    @user.greet\n  end\nend',
     language: 'ruby',
     directory: 'app/controllers',
+    totalLines: 6,
     methods: [
       {
         name: 'show',
@@ -49,8 +51,8 @@ const mockFiles: ParsedFile[] = [
         filePath: 'app/controllers/users_controller.rb',
         code: '  def show\n    @user = User.new("Alice")\n    @user.greet\n  end',
         calls: [
-          { methodName: 'new', line: 3 },
-          { methodName: 'greet', line: 4 }
+          { methodName: 'new', line: 3, context: '@user = User.new("Alice")' },
+          { methodName: 'greet', line: 4, context: '@user.greet' }
         ],
         isPrivate: false,
         parameters: []
@@ -174,11 +176,12 @@ describe('useMethodJump hook', () => {
       path: 'lib/utils.js',
       fileName: 'utils.js',
       content: 'function helper() { return true; }',
-      language: 'javascript',
+      language: 'javascript' as const,
       directory: 'lib',
+      totalLines: 1,
       methods: [{
         name: 'helper',
-        type: 'function',
+        type: 'function' as const,
         startLine: 1,
         endLine: 1,
         filePath: 'lib/utils.js',
