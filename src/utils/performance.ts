@@ -92,8 +92,18 @@ export const useThrottledCallback = <T extends (...args: any[]) => void>(
   callback: T,
   delay: number
 ): T => {
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // クリーンアップ処理
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+  
   const throttleRef = useMemo(() => {
-    let timeoutId: NodeJS.Timeout | null = null;
     let lastExecTime = 0;
     
     return ((...args: Parameters<T>) => {
@@ -103,10 +113,13 @@ export const useThrottledCallback = <T extends (...args: any[]) => void>(
         lastExecTime = now;
         callback(...args);
       } else {
-        if (timeoutId) clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+        timeoutRef.current = setTimeout(() => {
           lastExecTime = Date.now();
           callback(...args);
+          timeoutRef.current = null;
         }, delay - (now - lastExecTime));
       }
     }) as T;
