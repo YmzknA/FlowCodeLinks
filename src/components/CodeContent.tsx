@@ -213,9 +213,8 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
   return (
     <div 
       ref={containerRef} 
-      className="p-4 h-full overflow-auto"
+      className="p-4 h-full overflow-auto cursor-default"
       onWheel={handleWheel}
-      style={{ cursor: 'default' }}
     >
       <pre 
         className={`language-${prismLanguage} text-sm p-3 rounded`}
