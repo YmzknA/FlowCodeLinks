@@ -1,77 +1,103 @@
 # FlowCodeLinks
 
-GitHubリポジトリのコードを読みやすく可視化し、メソッド間の関係を線で結んで表示するWebアプリケーション
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FYmzknA%2Fcode_flow_reader)
 
-## 🚀 Quick Start
+**コードの関係性を可視化するWebアプリケーション**
 
-### 前提条件
-- Docker & Docker Compose
+複雑なコードベースのメソッド間の関係を直感的に理解できるよう、フローティングウィンドウと矢印で可視化します。
 
-### 開発環境起動
-```bash
-# リポジトリクローン後
-cd code_reading
+## 🚀 今すぐ試す
 
-# Docker環境起動
-docker-compose up -d
+**👉 [https://flow-code-links.vercel.app/](https://flow-code-links.vercel.app/)**
 
-# ブラウザでアクセス
-open http://localhost:3000
+## ✨ 主な機能
+
+### 📁 簡単ファイルアップロード
+- **Repomix**で生成されたマークダウンファイルをアップロード
+
+### 🔍 インテリジェントなコード解析
+- メソッドの呼び出し関係を解析し、依存関係を抽出
+
+### 🪟 フローティングウィンドウ
+- ファイルごとに独立したドラッグ可能なウィンドウ
+- シンタックスハイライト対応
+
+### 🔗 関係性の可視化
+- メソッド間の呼び出しを **矢印** で表示
+- 呼び出し元に応じて色分け
+- 複雑な依存関係も一目で把握
+
+### 🎛️ 直感的な操作
+- **サイドバー**からファイル/メソッドの表示切り替え
+- **検索機能**で特定のメソッドやファイルを素早く発見
+- **ズーム機能**で大規模なコードベースにも対応
+
+## 📖 使い方
+
+### 1. Repomixファイルを準備
+https://repomix.com/
+このサイトでリポジトリを入力し、markdown化してください。
+
+### 2. FlowCodeLinksで可視化
+
+1. **[FlowCodeLinks](https://flow-code-links.vercel.app/)** にアクセス
+2. 生成された `.md` ファイルをドラッグ&ドロップでアップロード
+3. 自動的にコードが解析されます
+4. サイドバーから表示するファイルやメソッドを選択
+
+### 3. コードの関係性を探索
+
+- **メソッド名をクリック** → 定義箇所にジャンプ
+- **矢印をたどる** → 依存関係を視覚的に追跡
+- **検索機能** → 特定のメソッドやファイルを素早く発見
+
+## 🎯 こんな方におすすめ
+
+- **📚 大規模なコードベースを理解したい開発者**
+- **🔍 コードリーディングを効率化したい方**
+- **🎓 新しいプロジェクトに参加したエンジニア**
+- **📊 システムアーキテクチャを可視化したい設計者**
+
+## 🛠️ 対応言語
+
+- **Ruby** / **Ruby on Rails**
+- **JavaScript**
+
+*その他の言語対応は今後追加予定*
+
+## 🔒 セキュリティ
+
+- **完全クライアントサイド処理** - ファイルはサーバーに送信されません
+- **一時的な処理** - ページを閉じるとデータは完全に削除されます
+
+## 💡 使用例
+
+### コードレビュー時
+```
+新しいPRの影響範囲を視覚的に確認
+「この変更はどのメソッドに影響するか？」が一目でわかる
 ```
 
-### テスト実行
-```bash
-# テスト実行
-docker-compose exec app npm test
-
-# テスト監視モード
-docker-compose exec app npm run test:watch
+### 新メンバーのオンボーディング
+```
+システム全体の構造を素早く把握
+「このメソッドは何をしているか？」が追跡しやすい
 ```
 
-## 📋 プロジェクト情報
 
-### 開発状況
-- **現在**: Day 1 完了（環境構築）
-- **次回**: Day 2 予定（mdファイル解析機能）
+## 🚀 技術スタック
 
-### 重要ファイル
-- `CLAUDE.md`: プロジェクト引き継ぎ情報
-- `requirements.md`: 要件定義
-- `implementation-plan.md`: 12日間実装計画
-- `daily_log/`: 日毎実装ログ
-
-### 技術スタック
 - **フロントエンド**: Next.js 14 + TypeScript
-- **スタイリング**: Tailwind CSS（CSS最小限）
-- **テスト**: Jest + Testing Library (TDD)
-- **ドラッグ&ドロップ**: @dnd-kit/core
-- **シンタックスハイライト**: Prism.js
-- **開発環境**: Docker Compose
+- **UI/UX**: Tailwind CSS
+- **コード解析**: 独自パーサー
+- **可視化**: SVG + Canvas
+- **デプロイ**: Vercel
 
-## 🎯 機能概要
+## 📝 フィードバック・貢献
 
-1. **ファイルアップロード**: Repomixで生成されたmdファイル
-2. **コード解析**: Ruby(Rails)とJavaScriptのメソッド/関数を解析
-3. **フローティングウィンドウ**: ドラッグ可能なファイル表示
-4. **関係性可視化**: メソッド間の呼び出し関係を矢印で表示
-5. **サイドバー制御**: 表示/非表示、検索、折りたたみ機能
+バグ報告や機能要望は [GitHub Issues](https://github.com/YmzknA/code_flow_reader/issues) までお寄せください。
 
-## 🏗️ 開発方針
+---
 
-- **TDD**: t_wadaのTDD原則に従い、Red-Green-Refactorサイクル
-- **指導ログ**: 新入社員向けに詳細な実装ログを記録
-- **Docker環境**: ホストPCに影響を与えない分離環境
-- **Tailwind中心**: CSSファイルは最小限に抑制
-
-## 📞 コマンド
-
-```bash
-# 環境操作
-docker-compose up -d        # 起動
-docker-compose down         # 停止
-docker-compose logs         # ログ確認
-
-# 開発
-docker-compose exec app npm test      # テスト
-docker-compose exec app npm run dev   # 開発サーバー
-```
+**作成者**: [YmzknA](https://github.com/YmzknA)  
+**リポジトリ**: [GitHub](https://github.com/YmzknA/code_flow_reader)
