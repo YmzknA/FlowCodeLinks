@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { ParsedFile } from '@/types/codebase';
 import { sanitizeContent } from '@/utils/security';
 import { debounce, optimizedScroll } from '@/utils/performance';
+import { useWheelScrollIsolation } from '@/hooks/useWheelScrollIsolation';
 
 interface CodeContentProps {
   file: ParsedFile;
@@ -12,6 +13,9 @@ interface CodeContentProps {
 export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMethod, onMethodClick }) => {
   const [highlightedCode, setHighlightedCode] = useState<string>('');
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // ホイールスクロール分離フックを使用
+  const { handleWheel } = useWheelScrollIsolation(containerRef);
 
   // 言語に応じたPrismの言語識別子を取得
   const getPrismLanguage = (language: string): string => {
@@ -42,9 +46,9 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
             prism = (await import('prismjs')).default;
             
             // 言語サポートを追加
-            await import('prismjs/components/prism-ruby');
-            await import('prismjs/components/prism-javascript');
-            await import('prismjs/components/prism-typescript');
+            await import('prismjs/components/prism-ruby' as any);
+            await import('prismjs/components/prism-javascript' as any);
+            await import('prismjs/components/prism-typescript' as any);
             
             // グローバルに設定
             window.Prism = prism;
@@ -207,7 +211,11 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
   const prismLanguage = getPrismLanguage(file.language);
 
   return (
-    <div ref={containerRef} className="p-4 h-full overflow-auto">
+    <div 
+      ref={containerRef} 
+      className="p-4 h-full overflow-auto"
+      onWheel={handleWheel}
+    >
       <pre 
         className={`language-${prismLanguage} text-sm p-3 rounded`}
         style={{ 

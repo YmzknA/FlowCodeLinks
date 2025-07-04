@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { FloatingWindow as FloatingWindowType, ScrollInfo } from '@/types/codebase';
+import { useWheelScrollIsolation } from '@/hooks/useWheelScrollIsolation';
 
 interface FloatingWindowProps {
   window: FloatingWindowType;
@@ -49,6 +50,9 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
   const lastClickTime = useRef<number>(0);
   const onScrollChangeRef = useRef(onScrollChange);
   const onMethodClickRef = useRef(onMethodClick);
+  
+  // ホイールスクロール分離フックを使用
+  const { handleWheel } = useWheelScrollIsolation(contentRef);
 
   // Refを常に最新の値に更新
   useEffect(() => {
@@ -63,6 +67,8 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       onScrollChangeRef.current(id, scrollInfo);
     }
   }, [id]);
+
+
 
   // スクロール情報を計算する関数
   const calculateScrollInfo = (element: HTMLDivElement): ScrollInfo => {
@@ -90,6 +96,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       onScrollChangeRef.current(id, scrollInfo);
     }
   }, [id]);
+
 
   // メソッドクリックイベントハンドラー（デバウンス機能付き）
   const handleCodeClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -386,8 +393,11 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
         <div 
           ref={contentRef}
           className="p-4 overflow-auto h-full"
-          style={{ height: 'calc(100% - 64px)' }}
+          style={{ 
+            height: 'calc(100% - 64px)'
+          }}
           onScroll={handleScroll}
+          onWheel={handleWheel}
         >
           {file.methods.map((method, index) => (
             <div 
@@ -430,18 +440,23 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       <div 
         ref={contentRef}
         className="p-4 overflow-auto h-full"
-        style={{ height: 'calc(100% - 64px)' }}
+        style={{ 
+          height: 'calc(100% - 64px)'
+        }}
         onScroll={handleScroll}
         onClick={handleCodeClick}
+        onWheel={handleWheel}
       >
         <pre 
-          className={`language-${prismLanguage} text-sm p-3 rounded overflow-auto`}
+          className={`language-${prismLanguage} text-sm p-3 rounded`}
           style={{ 
             whiteSpace: 'pre', 
             tabSize: 2,
             fontFamily: 'Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace',
             backgroundColor: '#2d2d2d',
-            color: '#ccc'
+            color: '#ccc',
+            margin: 0,
+            overflow: 'auto'
           }}
         >
           <code 
