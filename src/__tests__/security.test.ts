@@ -1,4 +1,4 @@
-import { sanitizeExternalLinks, auditHtmlContent } from '../utils/security';
+import { sanitizeExternalLinks, auditHtmlContent, sanitizeHighlightedCode, escapeHtml } from '../utils/security';
 
 describe('Security utilities', () => {
   describe('sanitizeExternalLinks', () => {
@@ -52,7 +52,7 @@ describe('Security utilities', () => {
 
     test('detects javascript: URLs in development', () => {
       const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'development';
+      Object.defineProperty(process.env, 'NODE_ENV', { value: 'development', writable: true });
 
       const html = '<a href="javascript:alert(1)">Malicious Link</a>';
       auditHtmlContent(html, 'test');
@@ -64,31 +64,64 @@ describe('Security utilities', () => {
         })
       );
 
-      process.env.NODE_ENV = originalEnv;
+      Object.defineProperty(process.env, 'NODE_ENV', { value: originalEnv, writable: true });
     });
 
     test('does not log in production', () => {
       const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'production';
+      Object.defineProperty(process.env, 'NODE_ENV', { value: 'production', writable: true });
 
       const html = '<a href="javascript:alert(1)">Malicious Link</a>';
       auditHtmlContent(html, 'test');
 
       expect(consoleSpy).not.toHaveBeenCalled();
 
-      process.env.NODE_ENV = originalEnv;
+      Object.defineProperty(process.env, 'NODE_ENV', { value: originalEnv, writable: true });
     });
 
     test('detects script tags', () => {
       const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'development';
+      Object.defineProperty(process.env, 'NODE_ENV', { value: 'development', writable: true });
 
       const html = '<script>alert("xss")</script>';
       auditHtmlContent(html, 'test');
 
       expect(consoleSpy).toHaveBeenCalled();
 
-      process.env.NODE_ENV = originalEnv;
+      Object.defineProperty(process.env, 'NODE_ENV', { value: originalEnv, writable: true });
+    });
+  });
+
+  describe('sanitizeHighlightedCode', () => {
+    test('sanitizes HTML and preserves allowed tags', () => {
+      const html = '<span class="token">code</span><script>alert("xss")</script>';
+      const result = sanitizeHighlightedCode(html);
+      
+      expect(result).toContain('<span class="token">code</span>');
+      expect(result).not.toContain('<script>');
+    });
+
+    test('preserves method data attributes', () => {
+      const html = '<span class="cursor-pointer" data-method-name="testMethod">testMethod</span>';
+      const result = sanitizeHighlightedCode(html);
+      
+      expect(result).toContain('data-method-name="testMethod"');
+    });
+  });
+
+  describe('escapeHtml', () => {
+    test('escapes HTML special characters', () => {
+      const unsafe = '<script>alert("xss")</script>';
+      const result = escapeHtml(unsafe);
+      
+      expect(result).toBe('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;');
+    });
+
+    test('escapes ampersands', () => {
+      const unsafe = 'Tom & Jerry';
+      const result = escapeHtml(unsafe);
+      
+      expect(result).toBe('Tom &amp; Jerry');
     });
   });
 });
