@@ -132,7 +132,6 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       event.preventDefault();
       event.stopPropagation();
       
-      console.log('Method clicked:', methodName);
       
       // 少し遅延させて確実に処理を実行
       setTimeout(() => {

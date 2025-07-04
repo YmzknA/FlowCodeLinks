@@ -35,13 +35,11 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
   useEffect(() => {
     const highlightCode = async () => {
       if (file.content) {
-        console.log('Starting highlight process for:', file.language);
         
         // Prism.jsを動的に安全にロード
         let prism;
         try {
           if (typeof window !== 'undefined' && !window.Prism) {
-            console.log('Loading Prism.js dynamically...');
             // Prism.jsコアをインポート
             prism = (await import('prismjs')).default;
             
@@ -52,7 +50,6 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
             
             // グローバルに設定
             window.Prism = prism;
-            console.log('Prism.js loaded successfully');
           } else {
             prism = window.Prism;
           }
@@ -69,8 +66,6 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
         }
 
         const language = getPrismLanguage(file.language);
-        console.log('Available languages:', Object.keys(prism.languages));
-        console.log('Requested language:', language);
         
         const grammar = prism.languages[language];
         
@@ -107,13 +102,11 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
             
             // DOMPurifyで安全にサニタイズしてから設定
             setHighlightedCode(sanitizeContent(highlighted, 'prism-code'));
-            console.log('Code highlighted successfully:', highlighted.substring(0, 100) + '...');
           } catch (error) {
             console.error('Prism highlight error:', error);
             setHighlightedCode(sanitizeContent(file.content, 'html-content'));
           }
         } else {
-          console.warn(`Prism language not found: ${language}. Available:`, Object.keys(prism.languages));
           setHighlightedCode(sanitizeContent(file.content, 'html-content'));
         }
       } else {
@@ -179,7 +172,6 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
         if (targetMethod) {
           targetLine = targetMethod.startLine;
         } else {
-          console.log('❌ Method not found:', highlightedMethod.methodName);
           return;
         }
       }

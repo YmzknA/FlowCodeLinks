@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Code Visualizer',
-  description: 'Visualize code structure and method relationships',
+  title: 'FlowCodeLinks',
+  description: 'Visualize code flow and method relationships',
 }
 
 export default function RootLayout({

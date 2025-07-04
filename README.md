@@ -1,6 +1,6 @@
-# Code Visualizer
+# FlowCodeLinks
 
-GitHubリポジトリのコードを可視化し、メソッド間の関係を線で表示するWebアプリケーション
+GitHubリポジトリのコードを読みやすく可視化し、メソッド間の関係を線で結んで表示するWebアプリケーション
 
 ## 🚀 Quick Start
 
@@ -41,23 +41,27 @@ docker-compose exec app npm run test:watch
 - `daily_log/`: 日毎実装ログ
 
 ### 技術スタック
-- Next.js 14 + TypeScript
-- Tailwind CSS
-- Jest + Testing Library
-- Docker環境
+- **フロントエンド**: Next.js 14 + TypeScript
+- **スタイリング**: Tailwind CSS（CSS最小限）
+- **テスト**: Jest + Testing Library (TDD)
+- **ドラッグ&ドロップ**: @dnd-kit/core
+- **シンタックスハイライト**: Prism.js
+- **開発環境**: Docker Compose
 
 ## 🎯 機能概要
 
-1. **ファイル解析**: Repomix生成mdファイルを解析
-2. **フローティングUI**: ドラッグ可能なウィンドウ表示
-3. **関係性可視化**: メソッド間の呼び出し関係を線で表示
-4. **サイドバー制御**: 表示/検索/折りたたみ機能
+1. **ファイルアップロード**: Repomixで生成されたmdファイル
+2. **コード解析**: Ruby(Rails)とJavaScriptのメソッド/関数を解析
+3. **フローティングウィンドウ**: ドラッグ可能なファイル表示
+4. **関係性可視化**: メソッド間の呼び出し関係を矢印で表示
+5. **サイドバー制御**: 表示/非表示、検索、折りたたみ機能
 
 ## 🏗️ 開発方針
 
-- **TDD**: テスト駆動開発
-- **Docker**: 分離環境での開発
-- **学習ログ**: 新入社員向け詳細記録
+- **TDD**: t_wadaのTDD原則に従い、Red-Green-Refactorサイクル
+- **指導ログ**: 新入社員向けに詳細な実装ログを記録
+- **Docker環境**: ホストPCに影響を与えない分離環境
+- **Tailwind中心**: CSSファイルは最小限に抑制
 
 ## 📞 コマンド
 

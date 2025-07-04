@@ -235,7 +235,6 @@ export const useMethodJump = ({
         handleMethodJump(definition);
         return { type: 'jump' as const, target: definition };
       } else {
-        console.warn(`Method definition not found for: ${methodName}`);
         return { type: 'not_found' as const, methodName };
       }
     }
