@@ -52,13 +52,19 @@ export const ZoomableCanvas: React.FC<ZoomableCanvasProps> = ({
   }, [zoom, pan, onZoomChange]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    // 中ボタン（ホイールボタン）でのパン操作のみ有効
-    if (e.button === 1) { // 中ボタン
-      e.preventDefault();
-      setIsDragging(true);
-      setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    // 左ボタンまたは中ボタン（ホイールボタン）でのパン操作を有効
+    if (e.button === 0 || e.button === 1) { // 左ボタンまたは中ボタン
+      // フローティングウィンドウ内でなければパン操作を許可
+      const target = e.target as HTMLElement;
+      const isInsideFloatingWindow = target.closest('.draggable-window') !== null;
+      const isInsideZoomControls = target.closest('.absolute.top-4.right-4') !== null;
+      
+      if (!isInsideFloatingWindow && !isInsideZoomControls) {
+        e.preventDefault();
+        setIsDragging(true);
+        setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+      }
     }
-    // 左ボタンでのパン操作は無効化（フローティングウィンドウのドラッグを優先）
   }, [pan]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -213,7 +219,7 @@ export const ZoomableCanvas: React.FC<ZoomableCanvasProps> = ({
         ref={canvasRef}
         className="w-full h-full overflow-hidden relative"
         style={{ 
-          cursor: isDragging ? 'grabbing' : 'default',
+          cursor: isDragging ? 'grabbing' : 'grab',
           backgroundImage: `radial-gradient(circle, #e5e7eb 1px, transparent 1px)`,
           backgroundSize: `${50 * zoom}px ${50 * zoom}px`,
           backgroundPosition: `${pan.x % (50 * zoom)}px ${pan.y % (50 * zoom)}px`

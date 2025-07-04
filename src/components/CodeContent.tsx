@@ -213,7 +213,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
   return (
     <div 
       ref={containerRef} 
-      className="p-4 h-full overflow-auto"
+      className="p-4 h-full overflow-auto cursor-default"
       onWheel={handleWheel}
     >
       <pre 

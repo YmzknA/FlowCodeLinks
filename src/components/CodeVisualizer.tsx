@@ -471,7 +471,7 @@ export const CodeVisualizer: React.FC = () => {
   }
 
   return (
-    <div className="h-screen w-full flex bg-gray-100">
+    <div className="h-screen w-full flex bg-gray-100 overflow-hidden">
       {/* サイドバー */}
       <div 
         className={`relative flex-shrink-0 ${sidebarCollapsed ? 'w-12' : ''}`}
@@ -512,22 +512,21 @@ export const CodeVisualizer: React.FC = () => {
         
         {/* 折りたたみ時のミニコントロール */}
         {sidebarCollapsed && (
-          <div className="h-full bg-gray-200 border-r border-gray-300 flex flex-col items-center py-4 space-y-2">
-            <div className="text-xs text-gray-600 transform -rotate-90 whitespace-nowrap">
-              サイドバー
-            </div>
-            <div className="text-xs text-gray-500 mt-4">
-              {files.length}
-            </div>
-            <div className="text-xs text-gray-500">
-              files
+          <div className="h-full bg-gray-200 border-r border-gray-300 flex flex-col items-center justify-center space-y-6">
+            <div className="flex flex-col items-center space-y-1">
+              <div className="text-sm font-semibold text-gray-700">
+                {files.length}
+              </div>
+              <div className="text-xs text-gray-500">
+                files
+              </div>
             </div>
           </div>
         )}
       </div>
       
       {/* メインエリア */}
-      <div className="flex-1 relative bg-gray-50 min-h-screen">
+      <div className="flex-1 relative bg-gray-50 min-h-screen overflow-hidden">
         {/* ファイル変更ボタン */}
         <div className="absolute top-4 left-4 z-50">
           <label className="block">

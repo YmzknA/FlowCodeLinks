@@ -392,7 +392,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       return (
         <div 
           ref={contentRef}
-          className="p-4 overflow-auto h-full"
+          className="p-4 overflow-auto h-full cursor-default"
           style={{ 
             height: 'calc(100% - 64px)'
           }}
@@ -439,7 +439,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
     return (
       <div 
         ref={contentRef}
-        className="p-4 overflow-auto h-full"
+        className="p-4 overflow-auto h-full cursor-default"
         style={{ 
           height: 'calc(100% - 64px)'
         }}
