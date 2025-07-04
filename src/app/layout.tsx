@@ -13,6 +13,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
+      <head>
+        <link rel="stylesheet" href="/prism-theme.css" />
+      </head>
       <body className="bg-gray-100 font-mono">
         {children}
       </body>
