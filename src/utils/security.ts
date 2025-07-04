@@ -7,8 +7,9 @@ import DOMPurify from 'dompurify';
  */
 export const sanitizeExternalLinks = (html: string): string => {
   return html.replace(
-    /<a\s+href="([^"]*)"([^>]*)>/gi,
-    (match, href, attrs) => {
+    /<a\s+href=(?:"([^"]*)"|'([^']*)'|([^>\s]+))([^>]*)>/gi,
+    (match, doubleQuotedHref, singleQuotedHref, unquotedHref, attrs) => {
+      const href = doubleQuotedHref || singleQuotedHref || unquotedHref;
       // 外部リンクでない場合は何もしない
       if (!isExternalLink(href)) {
         return match;
@@ -91,10 +92,14 @@ export const auditHtmlContent = (html: string, source: string = 'unknown'): void
   suspiciousPatterns.forEach(pattern => {
     const matches = html.match(pattern);
     if (matches) {
+      const matchIndex = html.search(pattern);
+      const startIndex = Math.max(0, matchIndex - 20);
+      const endIndex = Math.min(html.length, matchIndex + 50);
+      
       console.warn(`[Security Audit] Suspicious pattern found in ${source}:`, {
         pattern: pattern.toString(),
         matches: matches,
-        context: html.substring(html.search(pattern) - 20, html.search(pattern) + 50)
+        context: matchIndex >= 0 ? html.substring(startIndex, endIndex) : 'Pattern not found'
       });
     }
   });
