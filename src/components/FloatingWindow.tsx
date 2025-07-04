@@ -110,15 +110,15 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
     
     let target = event.target as HTMLElement;
     
-    // クリックされた要素から上に向かって.clickable-methodを探す
+    // クリックされた要素から上に向かってdata-method-nameを探す
     let currentElement: HTMLElement | null = target;
     let foundClickableMethod = false;
     let methodName: string | null = null;
     
-    // 最大5レベル上まで遡って.clickable-methodを探す
+    // 最大5レベル上まで遡ってdata-method-nameを探す
     for (let i = 0; i < 5 && currentElement; i++) {
-      if (currentElement.classList.contains('clickable-method')) {
-        methodName = currentElement.getAttribute('data-method-name');
+      methodName = currentElement.getAttribute('data-method-name');
+      if (methodName) {
         foundClickableMethod = true;
         break;
       }
@@ -218,7 +218,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                     const methodRegex = new RegExp(`\\b(${escapedMethodName})\\b`, 'g');
                     
                     highlighted = highlighted.replace(methodRegex, 
-                      `<span class="clickable-method" data-method-name="${methodName}" style="cursor: pointer;">$1</span>`
+                      `<span class="cursor-pointer" data-method-name="${methodName}">$1</span>`
                     );
                   }
                 });
@@ -283,8 +283,8 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       
       // 実際の行高さを測定（クライアントサイドでのみ）
       const preElement = contentRef.current.querySelector('pre');
-      const actualLineHeight = preElement && typeof window !== 'undefined' && window.getComputedStyle ? 
-        parseFloat(window.getComputedStyle(preElement).lineHeight) : 18;
+      const actualLineHeight = preElement && typeof window !== 'undefined' && (window as any).getComputedStyle ? 
+        parseFloat((window as any).getComputedStyle(preElement).lineHeight) : 18;
       
       const lineHeight = actualLineHeight;
       // 実際の表示領域の高さを使用（ヘッダーなどを除いた実際のコンテンツエリア）

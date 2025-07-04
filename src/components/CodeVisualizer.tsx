@@ -55,14 +55,17 @@ export const CodeVisualizer: React.FC = () => {
   // 解析結果に基づいてローディング状態とエラー状態を更新
   useEffect(() => {
     if (repomixContent) {
-      setIsLoading(true);
       // 解析結果の反映
       if ((analysisResult as any).error) {
         setError((analysisResult as any).error);
+        setIsLoading(false);
       } else {
         setError(null);
+        // ファイルが正常に解析された場合のみローディングを停止
+        if ((analysisResult as any).files?.length > 0) {
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
     }
   }, [repomixContent, analysisResult]);
 
@@ -88,7 +91,6 @@ export const CodeVisualizer: React.FC = () => {
         setVisibleFiles([]);
       } catch (err) {
         setError('ファイルの読み込みに失敗しました');
-      } finally {
         setIsLoading(false);
       }
     }

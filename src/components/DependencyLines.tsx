@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useRef } from 'react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { FloatingWindow, Dependency, ScrollInfo } from '@/types/codebase';
 
 interface DependencyLinesProps {
@@ -302,6 +302,13 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
   const [hoveredLine, setHoveredLine] = useState<number | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
   const usedCurveParams = useRef(new Map<string, Set<string>>());
+
+  // コンポーネントアンマウント時のメモリクリーンアップ
+  useEffect(() => {
+    return () => {
+      usedCurveParams.current.clear();
+    };
+  }, []);
 
   // 矢印クリック時のハンドラー
   const handleArrowClick = (dependency: Dependency) => {
