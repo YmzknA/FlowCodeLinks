@@ -394,7 +394,8 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
           ref={contentRef}
           className="p-4 overflow-auto h-full"
           style={{ 
-            height: 'calc(100% - 64px)'
+            height: 'calc(100% - 64px)',
+            cursor: 'default'
           }}
           onScroll={handleScroll}
           onWheel={handleWheel}
@@ -441,7 +442,8 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
         ref={contentRef}
         className="p-4 overflow-auto h-full"
         style={{ 
-          height: 'calc(100% - 64px)'
+          height: 'calc(100% - 64px)',
+          cursor: 'default'
         }}
         onScroll={handleScroll}
         onClick={handleCodeClick}
