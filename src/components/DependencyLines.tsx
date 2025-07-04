@@ -75,7 +75,7 @@ const isMethodInVisibleRange = (
   return methodLineRatio >= visibleStartRatio && methodLineRatio <= visibleEndRatio;
 };
 
-// 曲線の制御点を計算する関数（重複回避機能付き）
+// Z字曲線の制御点を計算する関数（重複回避機能付き）
 const calculateControlPoints = (
   x1: number, 
   y1: number, 
@@ -104,24 +104,19 @@ const calculateControlPoints = (
   };
 
   const distance = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-  const midX = (x1 + x2) / 2;
-  const midY = (y1 + y2) / 2;
   
-  // 線の垂直方向のベクトルを計算
-  const angle = Math.atan2(y2 - y1, x2 - x1);
-  const perpAngle = angle + Math.PI / 2;
+  // Z字曲線用の制御点計算
+  const deltaX = x2 - x1;
+  const deltaY = y2 - y1;
   
-  // 曲線の方向を決定（上下どちらにも曲がる可能性）
-  const direction = random(0, 1, 0) > 0.5 ? 1 : -1; // 上下の方向
-  
-  // 曲線の強さを段階的に試す（重複回避）
-  let curvature = 0;
+  // 曲線の強さを決定（重複回避）
+  let curvatureMultiplier = 0.4; // Z字曲線用の基本強度（少し強く）
   let attempts = 0;
   const maxAttempts = 10;
   
   while (attempts < maxAttempts) {
-    curvature = distance * (0.15 + random(0.05, 0.4, attempts + 1)) * direction;
-    const curveSignature = `${Math.round(curvature * 100)}`;
+    const adjustedMultiplier = curvatureMultiplier + random(0.1, 0.3, attempts);
+    const curveSignature = `s-${Math.round(adjustedMultiplier * 100)}`;
     
     // 同じ線で使用済みでないかチェック
     const usedForThisLine = usedCurveParams.get(lineKey) || new Set();
@@ -130,25 +125,24 @@ const calculateControlPoints = (
     if (!usedForThisLine.has(curveSignature) && !usedForReverseLine.has(curveSignature)) {
       usedForThisLine.add(curveSignature);
       usedCurveParams.set(lineKey, usedForThisLine);
+      curvatureMultiplier = adjustedMultiplier;
       break;
     }
     
     attempts++;
   }
   
-  // 最終的に重複した場合は、方向を反転して再試行
-  if (attempts >= maxAttempts) {
-    curvature = distance * (0.2 + random(0.1, 0.3, seed)) * -direction;
-  }
+  // Z字曲線の制御点を計算
+  // より強い水平方向の制御点でZ字のような形状を作る
+  const horizontalStrength = Math.abs(deltaX) * curvatureMultiplier;
   
-  const offsetX = Math.cos(perpAngle) * curvature;
-  const offsetY = Math.sin(perpAngle) * curvature;
+  // 第1制御点: 始点から強く水平方向に延ばす（垂直変化を最小限に）
+  const controlX1 = x1 + horizontalStrength * (deltaX > 0 ? 1 : -1) * random(0.4, 1.2, 1);
+  const controlY1 = y1 + deltaY * 0.05 * random(0.6, 1.4, 2); // 少し垂直にオフセット
   
-  // 2つの制御点を計算（ベジェ曲線用）
-  const controlX1 = x1 + (midX - x1) * 0.5 + offsetX * random(0.6, 1, 2);
-  const controlY1 = y1 + (midY - y1) * 0.5 + offsetY * random(0.6, 1, 3);
-  const controlX2 = x2 + (midX - x2) * 0.5 + offsetX * random(0.6, 1, 4);
-  const controlY2 = y2 + (midY - y2) * 0.5 + offsetY * random(0.6, 1, 5);
+  // 第2制御点: 終点から強く水平方向に戻す（垂直変化を最小限に）
+  const controlX2 = x2 - horizontalStrength * (deltaX > 0 ? 1 : -1) * random(0.4, 1.2, 3);
+  const controlY2 = y2 - deltaY * 0.05 * random(0.6, 1.4, 4); // 少し垂直にオフセット
   
   return { controlX1, controlY1, controlX2, controlY2 };
 };
@@ -160,7 +154,8 @@ const calculateDetailedMethodPosition = (
   zoom: number, 
   pan: { x: number; y: number },
   isEndpoint: boolean = false,
-  targetDirection?: 'left' | 'right' | 'up' | 'down'
+  targetDirection?: 'left' | 'right' | 'up' | 'down',
+  specificLine?: number // 呼び出し行を指定する場合
 ) => {
   // ZoomableCanvasのキャンバスオフセット(2000px, 1000px)を考慮
   const canvasOffset = { x: 2000, y: 1000 };
@@ -176,7 +171,73 @@ const calculateDetailedMethodPosition = (
   
   let methodX: number, methodY: number;
   
-  if (method && method.startLine) {
+  // 特定の行が指定されている場合（呼び出し行）は、メソッド検索せずに直接その行を使用
+  if (specificLine) {
+    // 直接指定された行番号を使用（呼び出し行）
+    const headerHeight = 40;
+    const contentHeight = windowHeight - headerHeight;
+    const lineHeight = 18; // 1行の高さ
+    
+    // ファイルの総行数をより正確に計算
+    const allMethods = window.file.methods || [];
+    const maxEndLine = allMethods.length > 0 
+      ? Math.max(...allMethods.map(m => m.endLine))
+      : 100;
+    const estimatedTotalLines = Math.max(maxEndLine, window.file.totalLines || 100);
+    
+    const methodLineRatio = Math.min(specificLine / estimatedTotalLines, 1);
+    
+    // スクロール情報に基づく垂直位置の調整
+    let adjustedMethodY: number;
+    
+    if (!window.showMethodsOnly && !window.isCollapsed) {
+      // スクロール情報がある場合はそれを使用、ない場合は初期状態として全体表示を仮定
+      const scrollInfo = window.scrollInfo || {
+        scrollTop: 0,
+        scrollHeight: contentHeight,
+        clientHeight: contentHeight,
+        visibleStartRatio: 0,
+        visibleEndRatio: 1
+      };
+      
+      const { visibleStartRatio, visibleEndRatio } = scrollInfo;
+      
+      // 行が表示範囲内にあるかを判定
+      const isInVisibleRange = methodLineRatio >= visibleStartRatio && methodLineRatio <= visibleEndRatio;
+      
+      if (isInVisibleRange) {
+        // 表示範囲内: 実際のスクロール位置に基づいて動的に計算
+        const visibleRangeHeight = visibleEndRatio - visibleStartRatio;
+        const relativePositionInRange = visibleRangeHeight > 0 
+          ? (methodLineRatio - visibleStartRatio) / visibleRangeHeight
+          : methodLineRatio;
+        adjustedMethodY = windowY + headerHeight + (contentHeight * relativePositionInRange);
+      } else {
+        // 表示範囲外: ウィンドウの上部または下部に固定
+        if (methodLineRatio < visibleStartRatio) {
+          // 行が表示範囲より上にある場合: ウィンドウ上部に固定
+          adjustedMethodY = windowY + headerHeight + 10; // 少し下にオフセット
+        } else {
+          // 行が表示範囲より下にある場合: ウィンドウ下部に固定
+          adjustedMethodY = windowY + windowHeight - 10; // 少し上にオフセット
+        }
+      }
+    } else {
+      // メソッドのみ表示や折りたたみの場合は従来の計算
+      adjustedMethodY = windowY + headerHeight + (contentHeight * methodLineRatio);
+    }
+    
+    methodY = adjustedMethodY;
+    
+    // 水平位置は方向に応じて設定
+    if (targetDirection === 'right') {
+      methodX = windowX + windowWidth - 5; // 右端（少し内側）
+    } else if (targetDirection === 'left') {
+      methodX = windowX + 5; // 左端（少し内側）
+    } else {
+      methodX = windowX + windowWidth / 2; // 中央（フォールバック）
+    }
+  } else if (method && method.startLine) {
     // メソッドが見つかった場合、行番号に基づく位置計算
     
     // ウィンドウ内でのメソッドの概算位置
@@ -366,6 +427,11 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
       return 5; // ハイライト時はより太く
     }
     
+    // 同じファイル内の場合は細く
+    if (dependency.type === 'internal') {
+      return Math.min(Math.max(dependency.count * 1.0, 1.5), 3); // internal用: より細く
+    }
+    
     // 呼び出し回数に応じた線の太さ（全体的に太く）
     return Math.min(Math.max(dependency.count * 1.5, 2), 6);
   };
@@ -398,7 +464,8 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
           zoom, 
           pan, 
           false, // 始点
-          direction
+          direction,
+          dependency.fromLine // 呼び出し行を指定
         );
         
         // 終点では方向を反転（右から来る矢印は左端に、左から来る矢印は右端に）
@@ -497,14 +564,14 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
         
         <marker
           id="arrowhead-highlighted"
-          markerWidth="10"
-          markerHeight="7.5"
-          refX="9"
-          refY="3.75"
+          markerWidth="5"
+          markerHeight="3.75"
+          refX="4"
+          refY="1.875"
           orient="auto"
         >
           <polygon
-            points="0 0, 10 3.75, 0 7.5"
+            points="0 0, 5 1.875, 0 3.75"
             fill="#dc2626"
           />
         </marker>
@@ -549,7 +616,19 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
               fill="none"
               markerEnd={isHighlighted ? 'url(#arrowhead-highlighted)' : 'url(#arrowhead)'}
               strokeDasharray={line.dependency.type === 'internal' ? '8,4' : 'none'}
-              opacity={isHovered ? 1 : 0.8}
+              opacity={isHovered ? 1 : (line.dependency.type === 'internal' ? 0.5 : 0.8)}
+              style={{ pointerEvents: 'none' }}
+            />
+            
+            {/* 始点の小さな丸 */}
+            <circle
+              cx={line.x1}
+              cy={line.y1}
+              r={isHighlighted ? 4 : 3}
+              fill={getLineColor(line.dependency, isHighlighted)}
+              stroke="white"
+              strokeWidth="1"
+              opacity={isHovered ? 1 : (line.dependency.type === 'internal' ? 0.6 : 0.9)}
               style={{ pointerEvents: 'none' }}
             />
           </g>
