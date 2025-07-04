@@ -42,9 +42,9 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
             prism = (await import('prismjs')).default;
             
             // 言語サポートを追加
-            await import('prismjs/components/prism-ruby');
-            await import('prismjs/components/prism-javascript');
-            await import('prismjs/components/prism-typescript');
+            await import('prismjs/components/prism-ruby' as any);
+            await import('prismjs/components/prism-javascript' as any);
+            await import('prismjs/components/prism-typescript' as any);
             
             // グローバルに設定
             window.Prism = prism;
@@ -184,6 +184,22 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
     }
   }, [highlightedMethod, file.path, file.methods, debouncedScroll]);
 
+  // ホイールイベントハンドラー（スクロールを確実に処理）
+  const handleWheel = useCallback((event: WheelEvent) => {
+    // 常にイベントの伝播を停止（ズーム機能を完全に無効化）
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
+    
+    const target = event.currentTarget as HTMLElement;
+    
+    // スクロールが可能な場合は手動でスクロールを実行
+    if (target.scrollHeight > target.clientHeight) {
+      const scrollAmount = event.deltaY;
+      target.scrollTop += scrollAmount;
+    }
+  }, []);
+
   // メソッドクリックイベントハンドラー（最適化）
   useEffect(() => {
     const container = containerRef.current;
@@ -197,12 +213,14 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
       };
 
       container.addEventListener('click', handleMethodClick);
+      container.addEventListener('wheel', handleWheel, { passive: false, capture: true });
       
       return () => {
         container.removeEventListener('click', handleMethodClick);
+        container.removeEventListener('wheel', handleWheel, { capture: true });
       };
     }
-  }, [onMethodClick]); // highlightedCodeを依存関係から除外
+  }, [onMethodClick, handleWheel]); // highlightedCodeを依存関係から除外
 
   const prismLanguage = getPrismLanguage(file.language);
 

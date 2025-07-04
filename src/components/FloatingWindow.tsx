@@ -64,6 +64,46 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
     }
   }, [id]);
 
+  // DOM APIでのホイールイベントハンドラー（より確実な制御）
+  useEffect(() => {
+    const container = contentRef.current;
+    if (container) {
+      const domWheelHandler = (event: WheelEvent) => {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        
+        if (container.scrollHeight > container.clientHeight) {
+          const scrollAmount = event.deltaY;
+          container.scrollTop += scrollAmount;
+        }
+      };
+
+      container.addEventListener('wheel', domWheelHandler, { passive: false, capture: true });
+      
+      return () => {
+        container.removeEventListener('wheel', domWheelHandler, { capture: true });
+      };
+    }
+  }, []);
+
+  // ホイールイベントハンドラー（スクロールを確実に処理）
+  const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
+    // 常にイベントの伝播を停止（ズーム機能を完全に無効化）
+    event.preventDefault();
+    event.stopPropagation();
+    event.nativeEvent.stopImmediatePropagation();
+    
+    const target = event.currentTarget;
+    
+    // スクロールが可能な場合は手動でスクロールを実行
+    if (target.scrollHeight > target.clientHeight) {
+      const scrollAmount = event.deltaY;
+      target.scrollTop += scrollAmount;
+    }
+  }, []);
+
+
   // スクロール情報を計算する関数
   const calculateScrollInfo = (element: HTMLDivElement): ScrollInfo => {
     const scrollTop = element.scrollTop;
@@ -90,6 +130,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       onScrollChangeRef.current(id, scrollInfo);
     }
   }, [id]);
+
 
   // メソッドクリックイベントハンドラー（デバウンス機能付き）
   const handleCodeClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -386,8 +427,11 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
         <div 
           ref={contentRef}
           className="p-4 overflow-auto h-full"
-          style={{ height: 'calc(100% - 64px)' }}
+          style={{ 
+            height: 'calc(100% - 64px)'
+          }}
           onScroll={handleScroll}
+          onWheel={handleWheel}
         >
           {file.methods.map((method, index) => (
             <div 
@@ -430,18 +474,23 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       <div 
         ref={contentRef}
         className="p-4 overflow-auto h-full"
-        style={{ height: 'calc(100% - 64px)' }}
+        style={{ 
+          height: 'calc(100% - 64px)'
+        }}
         onScroll={handleScroll}
         onClick={handleCodeClick}
+        onWheel={handleWheel}
       >
         <pre 
-          className={`language-${prismLanguage} text-sm p-3 rounded overflow-auto`}
+          className={`language-${prismLanguage} text-sm p-3 rounded`}
           style={{ 
             whiteSpace: 'pre', 
             tabSize: 2,
             fontFamily: 'Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace',
             backgroundColor: '#2d2d2d',
-            color: '#ccc'
+            color: '#ccc',
+            margin: 0,
+            overflow: 'auto'
           }}
         >
           <code 
