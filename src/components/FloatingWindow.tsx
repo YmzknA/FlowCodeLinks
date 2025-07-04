@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { FloatingWindow as FloatingWindowType, ScrollInfo } from '@/types/codebase';
+import { useWheelScrollIsolation } from '@/hooks/useWheelScrollIsolation';
 
 interface FloatingWindowProps {
   window: FloatingWindowType;
@@ -49,6 +50,9 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
   const lastClickTime = useRef<number>(0);
   const onScrollChangeRef = useRef(onScrollChange);
   const onMethodClickRef = useRef(onMethodClick);
+  
+  // ホイールスクロール分離フックを使用
+  const { handleWheel } = useWheelScrollIsolation(contentRef);
 
   // Refを常に最新の値に更新
   useEffect(() => {
@@ -64,44 +68,6 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
     }
   }, [id]);
 
-  // DOM APIでのホイールイベントハンドラー（より確実な制御）
-  useEffect(() => {
-    const container = contentRef.current;
-    if (container) {
-      const domWheelHandler = (event: WheelEvent) => {
-        event.preventDefault();
-        event.stopPropagation();
-        event.stopImmediatePropagation();
-        
-        if (container.scrollHeight > container.clientHeight) {
-          const scrollAmount = event.deltaY;
-          container.scrollTop += scrollAmount;
-        }
-      };
-
-      container.addEventListener('wheel', domWheelHandler, { passive: false, capture: true });
-      
-      return () => {
-        container.removeEventListener('wheel', domWheelHandler, { capture: true });
-      };
-    }
-  }, []);
-
-  // ホイールイベントハンドラー（スクロールを確実に処理）
-  const handleWheel = useCallback((event: React.WheelEvent<HTMLDivElement>) => {
-    // 常にイベントの伝播を停止（ズーム機能を完全に無効化）
-    event.preventDefault();
-    event.stopPropagation();
-    event.nativeEvent.stopImmediatePropagation();
-    
-    const target = event.currentTarget;
-    
-    // スクロールが可能な場合は手動でスクロールを実行
-    if (target.scrollHeight > target.clientHeight) {
-      const scrollAmount = event.deltaY;
-      target.scrollTop += scrollAmount;
-    }
-  }, []);
 
 
   // スクロール情報を計算する関数
