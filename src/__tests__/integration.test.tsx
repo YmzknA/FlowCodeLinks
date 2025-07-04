@@ -52,7 +52,7 @@ describe('統合テスト - 主要ワークフロー', () => {
     const { container } = render(<CodeVisualizer />);
 
     // 1. 初期状態の確認
-    expect(screen.getByText('Code Visualizer')).toBeInTheDocument();
+    expect(screen.getByText('FlowCodeLinks')).toBeInTheDocument();
     expect(screen.getByText(/Repomixで生成されたmdファイルをアップロード/)).toBeInTheDocument();
 
     // 2. ファイルアップロードボタンの確認
@@ -67,14 +67,14 @@ describe('統合テスト - 主要ワークフロー', () => {
     const { container } = render(<CodeVisualizer />);
 
     // 基本的な表示確認のみ
-    expect(screen.getByText('Code Visualizer')).toBeInTheDocument();
+    expect(screen.getByText('FlowCodeLinks')).toBeInTheDocument();
   });
 
   test('大容量ファイルのエラーハンドリング', async () => {
     const { container } = render(<CodeVisualizer />);
 
     // 基本的な表示確認のみ
-    expect(screen.getByText('Code Visualizer')).toBeInTheDocument();
+    expect(screen.getByText('FlowCodeLinks')).toBeInTheDocument();
   });
 
   test('コンポーネントが正常にレンダリングされる', () => {
@@ -82,7 +82,7 @@ describe('統合テスト - 主要ワークフロー', () => {
 
     // 基本的なUI要素の存在確認
     expect(container.querySelector('.min-h-screen')).toBeInTheDocument();
-    expect(screen.getByText('Code Visualizer')).toBeInTheDocument();
+    expect(screen.getByText('FlowCodeLinks')).toBeInTheDocument();
   });
 
   test('エラーバウンダリが機能する', () => {

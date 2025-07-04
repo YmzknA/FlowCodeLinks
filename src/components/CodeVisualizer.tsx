@@ -384,7 +384,6 @@ export const CodeVisualizer: React.FC = () => {
       if (definition) {
         handleMethodJump(definition);
       } else {
-        console.warn(`Method definition not found for: ${methodName}`);
       }
     }
   }, [files, findAllMethodCallers, findMethodDefinition, handleMethodJump]);
@@ -414,7 +413,7 @@ export const CodeVisualizer: React.FC = () => {
           <div className="text-center">
             <div className="text-blue-500 text-6xl mb-4">📁</div>
             <h1 className="text-xl font-bold text-gray-900 mb-2">
-              Code Visualizer
+              FlowCodeLinks
             </h1>
             <p className="text-gray-600 mb-4">
               Repomixで生成されたmdファイルをアップロードして、コードの関係性を可視化しましょう。
