@@ -1,33 +1,7 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { ParsedFile } from '@/types/codebase';
-import DOMPurify from 'dompurify';
-import { sanitizeExternalLinks, auditHtmlContent } from '@/utils/security';
-
-// DOMPurifyを使用した安全なHTMLサニタイズ関数
-const sanitizeHighlightedCode = (highlightedHtml: string): string => {
-  // 開発環境でのセキュリティ監査
-  auditHtmlContent(highlightedHtml, 'PrismJS-highlighted-code');
-  
-  // 外部リンクを安全化
-  const linkSafeHtml = sanitizeExternalLinks(highlightedHtml);
-  
-  // DOMPurifyでサニタイズ
-  return DOMPurify.sanitize(linkSafeHtml, {
-    ALLOWED_TAGS: ['span', 'code', 'pre', 'a'],
-    ALLOWED_ATTR: ['class', 'data-method-name', 'style', 'href', 'rel', 'target'],
-    KEEP_CONTENT: true
-  });
-};
-
-// フォールバック用の基本的なHTMLエスケープ関数
-const escapeHtml = (unsafe: string): string => {
-  return unsafe
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-};
+import { sanitizeContent } from '@/utils/security';
+import { debounce, optimizedScroll } from '@/utils/performance';
 
 interface CodeContentProps {
   file: ParsedFile;
@@ -59,76 +33,84 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
       if (file.content) {
         console.log('Starting highlight process for:', file.language);
         
-        // Prism.jsが利用可能になるまで待つ
-        let attempts = 0;
-        const maxAttempts = 20;
-        
-        const waitForPrism = () => new Promise<void>((resolve) => {
-          const checkPrism = setInterval(() => {
-            attempts++;
-            console.log(`Checking Prism (attempt ${attempts}):`, !!window.Prism);
-            if (window.Prism || attempts >= maxAttempts) {
-              clearInterval(checkPrism);
-              resolve();
-            }
-          }, 100);
-        });
-
-        await waitForPrism();
-
-        if (window.Prism && window.Prism.languages) {
-          const language = getPrismLanguage(file.language);
-          console.log('Available languages:', Object.keys(window.Prism.languages));
-          console.log('Requested language:', language);
-          
-          const grammar = window.Prism.languages[language];
-          
-          if (grammar) {
-            try {
-              // Prism.highlightでHTMLを生成（安全に処理）
-              let highlighted = window.Prism.highlight(file.content, grammar, language);
-              
-              // 全てのメソッド名をクリック可能にする
-              if (onMethodClick && file.methods) {
-                // 全てのメソッド名を収集（定義されているメソッドと呼び出されているメソッド）
-                const clickableMethodNames = new Set<string>();
-                
-                // このファイル内で定義されているメソッド名を追加
-                file.methods.forEach(method => {
-                  clickableMethodNames.add(method.name);
-                });
-                
-                // このファイル内で呼び出されているメソッド名を追加
-                file.methods.forEach(method => {
-                  method.calls?.forEach(call => {
-                    clickableMethodNames.add(call.methodName);
-                  });
-                });
-                
-                // 全てのメソッド名をクリック可能にする（HTMLエスケープ済みのメソッド名を使用）
-                clickableMethodNames.forEach(methodName => {
-                  const escapedMethodName = escapeHtml(methodName);
-                  const methodNameRegex = new RegExp(`\\b(${methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'g');
-                  highlighted = highlighted.replace(methodNameRegex, 
-                    `<span class="clickable-method" data-method-name="${escapedMethodName}" style="cursor: pointer;">$1</span>`
-                  );
-                });
-              }
-              
-              // DOMPurifyで安全にサニタイズしてから設定
-              setHighlightedCode(sanitizeHighlightedCode(highlighted));
-              console.log('Code highlighted successfully:', highlighted.substring(0, 100) + '...');
-            } catch (error) {
-              console.error('Prism highlight error:', error);
-              setHighlightedCode(DOMPurify.sanitize(escapeHtml(file.content)));
-            }
+        // Prism.jsを動的に安全にロード
+        let prism;
+        try {
+          if (typeof window !== 'undefined' && !window.Prism) {
+            console.log('Loading Prism.js dynamically...');
+            // Prism.jsコアをインポート
+            prism = (await import('prismjs')).default;
+            
+            // 言語サポートを追加
+            await import('prismjs/components/prism-ruby');
+            await import('prismjs/components/prism-javascript');
+            await import('prismjs/components/prism-typescript');
+            
+            // グローバルに設定
+            window.Prism = prism;
+            console.log('Prism.js loaded successfully');
           } else {
-            console.warn(`Prism language not found: ${language}. Available:`, Object.keys(window.Prism.languages));
-            setHighlightedCode(DOMPurify.sanitize(escapeHtml(file.content)));
+            prism = window.Prism;
+          }
+        } catch (error) {
+          console.error('Failed to load Prism.js:', error);
+          setHighlightedCode(sanitizeContent(file.content, 'html-content'));
+          return;
+        }
+        
+        if (!prism) {
+          console.warn('Prism.js not available, using fallback');
+          setHighlightedCode(sanitizeContent(file.content, 'html-content'));
+          return;
+        }
+
+        const language = getPrismLanguage(file.language);
+        console.log('Available languages:', Object.keys(prism.languages));
+        console.log('Requested language:', language);
+        
+        const grammar = prism.languages[language];
+        
+        if (grammar) {
+          try {
+            // Prism.highlightでHTMLを生成（安全に処理）
+            let highlighted = prism.highlight(file.content, grammar, language);
+            
+            // 全てのメソッド名をクリック可能にする
+            if (onMethodClick && file.methods) {
+              // 全てのメソッド名を収集（定義されているメソッドと呼び出されているメソッド）
+              const clickableMethodNames = new Set<string>();
+              
+              // このファイル内で定義されているメソッド名を追加
+              file.methods.forEach(method => {
+                clickableMethodNames.add(method.name);
+              });
+              
+              // このファイル内で呼び出されているメソッド名を追加
+              file.methods.forEach(method => {
+                method.calls?.forEach(call => {
+                  clickableMethodNames.add(call.methodName);
+                });
+              });
+              
+              // 全てのメソッド名をクリック可能にする（エスケープ処理を削除し、sanitizeContentに統一）
+              clickableMethodNames.forEach(methodName => {
+                const methodNameRegex = new RegExp(`\\b(${methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'g');
+                highlighted = highlighted.replace(methodNameRegex, 
+                  `<span class="cursor-pointer" data-method-name="${methodName}">$1</span>`
+                );
+              });
+            }
+            
+            // DOMPurifyで安全にサニタイズしてから設定
+            setHighlightedCode(sanitizeContent(highlighted, 'prism-code'));
+            console.log('Code highlighted successfully:', highlighted.substring(0, 100) + '...');
+          } catch (error) {
+            console.error('Prism highlight error:', error);
+            setHighlightedCode(sanitizeContent(file.content, 'html-content'));
           }
         } else {
-          console.warn('Prism not available');
-          setHighlightedCode(DOMPurify.sanitize(escapeHtml(file.content)));
+          console.warn(`Prism language not found: ${language}. Available:`, Object.keys(prism.languages));
+          setHighlightedCode(sanitizeContent(file.content, 'html-content'));
         }
       } else {
         // コンテンツがない場合は空文字列をセット
@@ -139,20 +121,48 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
     highlightCode();
   }, [file.content, file.language]);
 
-  // ハイライトされたメソッドにスクロール
-  useEffect(() => {
+  // 最適化されたスクロール計算
+  const calculateScrollPosition = useCallback((targetLine: number, containerElement: HTMLElement) => {
+    // 実際の行高さを測定（メモ化）
+    const preElement = containerElement.querySelector('pre');
+    const actualLineHeight = preElement ? 
+      parseFloat(window.getComputedStyle(preElement).lineHeight) : 18;
     
+    const containerHeight = containerElement.getBoundingClientRect().height;
+    const totalLines = file.totalLines;
+    const positionRatio = targetLine / totalLines;
+    
+    // スクロール可能な範囲を取得
+    const scrollableHeight = containerElement.scrollHeight;
+    const viewportHeight = containerHeight;
+    
+    // 対象行を中央に表示するためのスクロール位置
+    const targetScrollTop = (scrollableHeight * positionRatio) - (viewportHeight / 2);
+    
+    // スクロール範囲内に制限
+    const maxScrollTop = scrollableHeight - viewportHeight;
+    return Math.max(0, Math.min(targetScrollTop, maxScrollTop));
+  }, [file.totalLines]);
+
+  // デバウンスされたスクロール処理
+  const debouncedScroll = useMemo(() => 
+    debounce((targetLine: number) => {
+      const container = containerRef.current;
+      if (container) {
+        requestAnimationFrame(() => {
+          const scrollPosition = calculateScrollPosition(targetLine, container);
+          optimizedScroll(container, scrollPosition, 300);
+        });
+      }
+    }, 100), 
+    [calculateScrollPosition]
+  );
+
+  // ハイライトされたメソッドにスクロール（最適化）
+  useEffect(() => {
     if (highlightedMethod && 
         highlightedMethod.filePath === file.path && 
         containerRef.current) {
-      // 実際の行高さを測定
-      const preElement = containerRef.current.querySelector('pre');
-      const actualLineHeight = preElement ? 
-        parseFloat(window.getComputedStyle(preElement).lineHeight) : 18;
-      
-      const lineHeight = actualLineHeight;
-      // 実際の表示領域の高さを使用（ヘッダーなどを除いた実際のコンテンツエリア）
-      const containerHeight = containerRef.current.getBoundingClientRect().height;
       
       let targetLine: number;
       
@@ -170,53 +180,29 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
         }
       }
       
-      // パーセント方式による中央表示計算
-      const totalLines = file.totalLines;
-      const positionRatio = targetLine / totalLines;
-      
-      // スクロール可能な範囲を取得
-      const scrollableHeight = containerRef.current.scrollHeight;
-      const viewportHeight = containerHeight;
-      
-      // 対象行を中央に表示するためのスクロール位置
-      const targetScrollTop = (scrollableHeight * positionRatio) - (viewportHeight / 2);
-      
-      // スクロール範囲内に制限
-      const maxScrollTop = scrollableHeight - viewportHeight;
-      const scrollPosition = Math.max(0, Math.min(targetScrollTop, maxScrollTop));
-      
-      
-      
-      containerRef.current.scrollTo({
-        top: scrollPosition,
-        behavior: 'smooth'
-      });
-      
+      debouncedScroll(targetLine);
     }
-  }, [highlightedMethod, file.path, file.methods]);
+  }, [highlightedMethod, file.path, file.methods, debouncedScroll]);
 
-  // メソッドクリックイベントハンドラー
+  // メソッドクリックイベントハンドラー（最適化）
   useEffect(() => {
-    if (containerRef.current && onMethodClick) {
+    const container = containerRef.current;
+    if (container && onMethodClick) {
       const handleMethodClick = (e: Event) => {
         const target = e.target as HTMLElement;
-        if (target.classList.contains('clickable-method')) {
-          const methodName = target.dataset.methodName;
-          if (methodName) {
-            onMethodClick(methodName);
-          }
+        const methodName = target.dataset.methodName;
+        if (methodName) {
+          onMethodClick(methodName);
         }
       };
 
-      containerRef.current.addEventListener('click', handleMethodClick);
+      container.addEventListener('click', handleMethodClick);
       
       return () => {
-        if (containerRef.current) {
-          containerRef.current.removeEventListener('click', handleMethodClick);
-        }
+        container.removeEventListener('click', handleMethodClick);
       };
     }
-  }, [onMethodClick, highlightedCode]);
+  }, [onMethodClick]); // highlightedCodeを依存関係から除外
 
   const prismLanguage = getPrismLanguage(file.language);
 
@@ -244,7 +230,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
             fontFamily: 'inherit'
           }}
           dangerouslySetInnerHTML={{ 
-            __html: highlightedCode || DOMPurify.sanitize(escapeHtml(file.content))
+            __html: highlightedCode || sanitizeContent(file.content, 'html-content')
           }}
         />
       </pre>
