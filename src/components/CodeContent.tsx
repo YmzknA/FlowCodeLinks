@@ -1,7 +1,25 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { ParsedFile } from '@/types/codebase';
+import DOMPurify from 'dompurify';
+import { sanitizeExternalLinks, auditHtmlContent } from '@/utils/security';
 
-// HTML エスケープ関数
+// DOMPurifyを使用した安全なHTMLサニタイズ関数
+const sanitizeHighlightedCode = (highlightedHtml: string): string => {
+  // 開発環境でのセキュリティ監査
+  auditHtmlContent(highlightedHtml, 'PrismJS-highlighted-code');
+  
+  // 外部リンクを安全化
+  const linkSafeHtml = sanitizeExternalLinks(highlightedHtml);
+  
+  // DOMPurifyでサニタイズ
+  return DOMPurify.sanitize(linkSafeHtml, {
+    ALLOWED_TAGS: ['span', 'code', 'pre', 'a'],
+    ALLOWED_ATTR: ['class', 'data-method-name', 'style', 'href', 'rel', 'target'],
+    KEEP_CONTENT: true
+  });
+};
+
+// フォールバック用の基本的なHTMLエスケープ関数
 const escapeHtml = (unsafe: string): string => {
   return unsafe
     .replace(/&/g, "&amp;")
@@ -97,19 +115,20 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
                 });
               }
               
-              setHighlightedCode(highlighted);
+              // DOMPurifyで安全にサニタイズしてから設定
+              setHighlightedCode(sanitizeHighlightedCode(highlighted));
               console.log('Code highlighted successfully:', highlighted.substring(0, 100) + '...');
             } catch (error) {
               console.error('Prism highlight error:', error);
-              setHighlightedCode(escapeHtml(file.content));
+              setHighlightedCode(DOMPurify.sanitize(escapeHtml(file.content)));
             }
           } else {
             console.warn(`Prism language not found: ${language}. Available:`, Object.keys(window.Prism.languages));
-            setHighlightedCode(escapeHtml(file.content));
+            setHighlightedCode(DOMPurify.sanitize(escapeHtml(file.content)));
           }
         } else {
           console.warn('Prism not available');
-          setHighlightedCode(escapeHtml(file.content));
+          setHighlightedCode(DOMPurify.sanitize(escapeHtml(file.content)));
         }
       } else {
         // コンテンツがない場合は空文字列をセット
@@ -225,7 +244,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
             fontFamily: 'inherit'
           }}
           dangerouslySetInnerHTML={{ 
-            __html: highlightedCode || escapeHtml(file.content)
+            __html: highlightedCode || DOMPurify.sanitize(escapeHtml(file.content))
           }}
         />
       </pre>
