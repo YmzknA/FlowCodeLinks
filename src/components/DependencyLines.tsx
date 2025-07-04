@@ -184,9 +184,19 @@ const calculateControlPoints = (
   // 曲線の強さを決定（重複回避）
   let curvatureMultiplier = 0.4; // Z字曲線用の基本強度（少し強く）
   let attempts = 0;
-  const maxAttempts = 10;
+  const maxAttempts = CURVE_CONFIG.Z_CURVE.MAX_ATTEMPTS;
+  
+  // タイムアウト防止機能
+  const startTime = Date.now();
+  const timeout = CURVE_CONFIG.PERFORMANCE.CALCULATION_TIMEOUT;
   
   while (attempts < maxAttempts) {
+    // タイムアウトチェック
+    if (Date.now() - startTime > timeout) {
+      console.warn('Z-curve calculation timeout, using fallback');
+      break;
+    }
+    
     const adjustedMultiplier = curvatureMultiplier + random(0.1, 0.3, attempts);
     const curveSignature = `s-${Math.round(adjustedMultiplier * 100)}`;
     

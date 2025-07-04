@@ -67,15 +67,16 @@ export const CURVE_CONFIG = {
   
   // パフォーマンス設定
   PERFORMANCE: {
-    // LRUキャッシュの最大サイズ
-    LRU_CACHE_SIZE: 1000,
+    // LRUキャッシュの最大サイズ（最適化済み）
+    LRU_CACHE_SIZE: 200,
     
     // 計算のタイムアウト（ミリ秒）
     CALCULATION_TIMEOUT: 5000,
     
-    // 安全制限
-    MAX_DEPENDENCIES: 5000,
-    MAX_METHODS_PER_FILE: 1000
+    // 安全制限（DoS攻撃対策）
+    MAX_DEPENDENCIES: 2000,     // より現実的な値に調整
+    MAX_METHODS_PER_FILE: 500,  // メモリ使用量考慮
+    PROCESSING_BATCH_SIZE: 100  // バッチ処理サイズ
   }
 } as const;
 
@@ -104,3 +105,64 @@ export const HIGHLIGHT_COLORS = {
   PRIMARY: '#dc2626', // より濃い赤色
   SECONDARY: '#fbbf24' // 黄色（ツールチップなど）
 } as const;
+
+/**
+ * 設定値の検証とフォールバック機能
+ */
+export const validateConfig = (config: typeof CURVE_CONFIG) => {
+  const errors: string[] = [];
+  
+  // 基本制限値の検証
+  if (config.PERFORMANCE.MAX_DEPENDENCIES < 100) {
+    errors.push('MAX_DEPENDENCIES must be at least 100');
+  }
+  
+  if (config.PERFORMANCE.MAX_METHODS_PER_FILE < 10) {
+    errors.push('MAX_METHODS_PER_FILE must be at least 10');
+  }
+  
+  // タイムアウト値の検証
+  if (config.PERFORMANCE.CALCULATION_TIMEOUT < 1000) {
+    errors.push('CALCULATION_TIMEOUT must be at least 1000ms');
+  }
+  
+  // LRUキャッシュサイズの検証
+  if (config.PERFORMANCE.LRU_CACHE_SIZE < 10) {
+    errors.push('LRU_CACHE_SIZE must be at least 10');
+  }
+  
+  // Z字曲線設定の検証
+  if (config.Z_CURVE.MAX_ATTEMPTS < 1) {
+    errors.push('Z_CURVE.MAX_ATTEMPTS must be at least 1');
+  }
+  
+  if (errors.length > 0) {
+    throw new Error(`Configuration validation failed: ${errors.join(', ')}`);
+  }
+  
+  return true;
+};
+
+/**
+ * 設定値の安全な読み込み（フォールバック付き）
+ */
+export const getSafeConfig = () => {
+  try {
+    validateConfig(CURVE_CONFIG);
+    return CURVE_CONFIG;
+  } catch (error) {
+    console.error('Configuration validation failed, using fallback values:', error);
+    
+    // フォールバック設定
+    return {
+      ...CURVE_CONFIG,
+      PERFORMANCE: {
+        ...CURVE_CONFIG.PERFORMANCE,
+        MAX_DEPENDENCIES: Math.max(CURVE_CONFIG.PERFORMANCE.MAX_DEPENDENCIES, 100),
+        MAX_METHODS_PER_FILE: Math.max(CURVE_CONFIG.PERFORMANCE.MAX_METHODS_PER_FILE, 10),
+        CALCULATION_TIMEOUT: Math.max(CURVE_CONFIG.PERFORMANCE.CALCULATION_TIMEOUT, 1000),
+        LRU_CACHE_SIZE: Math.max(CURVE_CONFIG.PERFORMANCE.LRU_CACHE_SIZE, 10)
+      }
+    };
+  }
+};

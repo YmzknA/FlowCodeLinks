@@ -6,7 +6,10 @@ export class LRUCurveCache {
   private cache = new Map<string, Set<string>>();
   private readonly maxSize: number;
 
-  constructor(maxSize: number = 1000) {
+  constructor(maxSize: number = 200) {  // より適切なデフォルト値
+    if (maxSize < 10) {
+      throw new Error('LRU cache size must be at least 10');
+    }
     this.maxSize = maxSize;
   }
 
