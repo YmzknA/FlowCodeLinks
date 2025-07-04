@@ -11,6 +11,59 @@ const nextConfig = {
   // SSR時のエラーを回避
   experimental: {
     serverComponentsExternalPackages: ['prismjs']
+  },
+  // Content Security Policy設定
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // 開発環境でNext.jsが動作するように緩和
+              "style-src 'self' 'unsafe-inline'", // 開発環境でスタイルが動作するように緩和
+              "img-src 'self' data: blob:",
+              "connect-src 'self'",
+              "font-src 'self'",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'none'"
+            ].join('; ')
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY'
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff'
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin'
+          },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000; includeSubDomains; preload'
+          },
+          {
+            key: 'X-Permitted-Cross-Domain-Policies',
+            value: 'none'
+          },
+          {
+            key: 'Cross-Origin-Embedder-Policy',
+            value: 'require-corp'
+          },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin'
+          }
+        ]
+      }
+    ]
   }
 }
 

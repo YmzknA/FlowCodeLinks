@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { DraggableWindow } from './DraggableWindow';
-import { ParsedFile, Dependency, FloatingWindow, WindowPosition } from '@/types/codebase';
+import { ParsedFile, Dependency, FloatingWindow, WindowPosition, ScrollInfo } from '@/types/codebase';
 
 // コードサイズに基づいてウィンドウサイズを計算する関数
 const calculateDynamicWindowSize = (file: ParsedFile): { width: number; height: number } => {
   // file.code または file.content を使用（後方互換性のため）
   const codeContent = file.code || file.content;
   if (!codeContent) {
-    console.warn(`📏 No code content for file: ${file.path}, using default size`);
     return { width: 400, height: 500 }; // デフォルトサイズ
   }
   
@@ -42,8 +41,6 @@ const calculateDynamicWindowSize = (file: ParsedFile): { width: number; height: 
     minHeight,
     Math.min(maxHeight, totalLines * lineHeight * compressionFactor + headerHeight + paddingY + 30) // 5行分追加
   );
-  
-  console.log(`📏 Window size for ${file.path}: ${calculatedWidth}x${calculatedHeight} (lines: ${totalLines}, maxLen: ${maxLineLength})`);
   
   return {
     width: Math.round(calculatedWidth),
@@ -241,8 +238,6 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
     // グループを配列形式で返す（グループ名順でソート）
     const sortedGroups = Object.keys(groups).sort().map(key => groups[key]);
     
-    console.log('File groups:', Object.keys(groups), 'Total groups:', sortedGroups.length);
-    
     return sortedGroups;
   };
 
@@ -278,8 +273,6 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
       totalCols += groupCols + 1; // グループ間のスペースを考慮
       return layout;
     });
-    
-    console.log('Group-based Layout:', groupLayouts);
     
     return { groupLayouts, totalCols };
   };
@@ -409,6 +402,16 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
     );
   };
 
+  const handleScrollChange = (id: string, scrollInfo: ScrollInfo) => {
+    setWindows(prevWindows =>
+      prevWindows.map(window =>
+        window.id === id
+          ? { ...window, scrollInfo }
+          : window
+      )
+    );
+  };
+
   return (
     <div 
       className="absolute inset-0 w-full h-full"
@@ -422,6 +425,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
           onToggleCollapse={handleToggleCollapse}
           onToggleMethodsOnly={handleToggleMethodsOnly}
           onClose={handleClose}
+          onScrollChange={handleScrollChange}
           zoom={zoom}
           highlightedMethod={highlightedMethod}
           onMethodClick={onMethodClick}

@@ -73,10 +73,10 @@ describe('useFileUpload hook', () => {
   test('大きすぎるファイルでエラーになる', async () => {
     const { result } = renderHook(() => useFileUpload());
     
-    // 5MB超のファイルをモック
+    // 10MB超のファイルをモック
     const largeFile = new File(['content'], 'large.md', { 
       type: 'text/markdown',
-      size: 6 * 1024 * 1024 // 6MB
+      size: 11 * 1024 * 1024 // 11MB
     });
     const event = createMockEvent(largeFile);
 
@@ -84,7 +84,7 @@ describe('useFileUpload hook', () => {
       await result.current.handleFileUpload(event);
     });
 
-    expect(result.current.uploadResult.error).toBe('ファイルサイズが5MBを超えています。より小さなファイルを選択してください。');
+    expect(result.current.uploadResult.error).toBe('ファイルサイズが10MBを超えています。より小さなファイルを選択してください。');
     expect(result.current.uploadResult.isLoading).toBe(false);
   });
 

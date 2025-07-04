@@ -32,7 +32,6 @@ export const CodeVisualizer: React.FC = () => {
     if (!repomixContent) return { files: [], methods: [], dependencies: [] };
 
     try {
-      setIsLoading(true);
       const parseResult = parseRepomixFile(repomixContent);
       
       const filesWithMethods = parseResult.files.map(file => ({
@@ -43,22 +42,34 @@ export const CodeVisualizer: React.FC = () => {
       const allMethods = filesWithMethods.flatMap(file => file.methods);
       const dependencies = extractDependencies(allMethods);
 
-
-      setError(null);
       return {
         files: filesWithMethods,
         methods: allMethods,
         dependencies
       };
     } catch (err) {
-      setError(err instanceof Error ? err.message : '解析エラーが発生しました');
-      return { files: [], methods: [], dependencies: [] };
-    } finally {
-      setIsLoading(false);
+      return { files: [], methods: [], dependencies: [], error: err instanceof Error ? err.message : '解析エラーが発生しました' };
     }
   }, [repomixContent]);
 
-  const { files, dependencies } = analysisResult;
+  // 解析結果に基づいてローディング状態とエラー状態を更新
+  useEffect(() => {
+    if (repomixContent) {
+      // 解析結果の反映
+      if ((analysisResult as any).error) {
+        setError((analysisResult as any).error);
+        setIsLoading(false);
+      } else {
+        setError(null);
+        // ファイルが正常に解析された場合のみローディングを停止
+        if ((analysisResult as any).files?.length > 0) {
+          setIsLoading(false);
+        }
+      }
+    }
+  }, [repomixContent, analysisResult]);
+
+  const { files, dependencies } = analysisResult as { files: ParsedFile[]; methods: Method[]; dependencies: Dependency[] };
   const optimizedCache = useOptimizedAnalysis(files);
   const visibleDependencies = useOptimizedDependencies(dependencies, visibleFiles);
 
@@ -80,7 +91,6 @@ export const CodeVisualizer: React.FC = () => {
         setVisibleFiles([]);
       } catch (err) {
         setError('ファイルの読み込みに失敗しました');
-      } finally {
         setIsLoading(false);
       }
     }
@@ -119,14 +129,7 @@ export const CodeVisualizer: React.FC = () => {
     const jumpDelay = isNewFile ? 350 : 50; // 新規ファイルは350ms、既存ファイルは50ms
     
     setTimeout(() => {
-      // メソッドジャンプ処理をインライン実装
-      setHighlightedMethod(null);
-      setTimeout(() => {
-        setHighlightedMethod(method);
-      }, 10);
-
       // ウィンドウを画面中央に移動する処理
-      setTimeout(() => {
         setFloatingWindows(currentWindows => {
           const targetWindow = currentWindows.find(w => w.file.path === method.filePath);
           
@@ -165,7 +168,6 @@ export const CodeVisualizer: React.FC = () => {
           }
           return currentWindows; // 状態は変更しない
         });
-      }, isNewFile ? 300 : 150);
     }, jumpDelay);
   }, [visibleFiles, currentZoom, sidebarCollapsed, sidebarWidth]);
 
@@ -272,7 +274,6 @@ export const CodeVisualizer: React.FC = () => {
           // メソッドの calls 配列からmethodNameを呼び出しているかチェック
           const call = method.calls?.find(call => call.methodName === methodName);
           if (call) {
-            
             callers.push({
               methodName: method.name,
               filePath: file.path,
@@ -314,10 +315,7 @@ export const CodeVisualizer: React.FC = () => {
       setVisibleFiles(prev => [...prev, method.filePath]);
     }
 
-    setHighlightedMethod(null);
-    setTimeout(() => {
-      setHighlightedMethod(method);
-    }, 10);
+    setHighlightedMethod(method);
 
     const waitTime = wasHidden ? 300 : 150;
     

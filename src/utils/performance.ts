@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import { ParsedFile, Method, Dependency } from '@/types/codebase';
 
 // メモ化されたファイル解析結果
@@ -92,8 +92,18 @@ export const useThrottledCallback = <T extends (...args: any[]) => void>(
   callback: T,
   delay: number
 ): T => {
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // クリーンアップ処理
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
+  
   const throttleRef = useMemo(() => {
-    let timeoutId: NodeJS.Timeout | null = null;
     let lastExecTime = 0;
     
     return ((...args: Parameters<T>) => {
@@ -103,10 +113,13 @@ export const useThrottledCallback = <T extends (...args: any[]) => void>(
         lastExecTime = now;
         callback(...args);
       } else {
-        if (timeoutId) clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
+        if (timeoutRef.current) {
+          clearTimeout(timeoutRef.current);
+        }
+        timeoutRef.current = setTimeout(() => {
           lastExecTime = Date.now();
           callback(...args);
+          timeoutRef.current = null;
         }, delay - (now - lastExecTime));
       }
     }) as T;
@@ -117,23 +130,67 @@ export const useThrottledCallback = <T extends (...args: any[]) => void>(
 
 // デバウンスされた検索
 export const useDebouncedValue = <T>(value: T, delay: number): T => {
-  const [debouncedValue, setDebouncedValue] = useMemo(() => {
-    let timeoutId: NodeJS.Timeout;
-    
-    const setValue = (newValue: T) => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => setDebouncedValue(newValue), delay);
-    };
-    
-    return [value, setValue] as const;
-  }, [delay]);
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
   
-  useMemo(() => {
+  useEffect(() => {
     const timeoutId = setTimeout(() => setDebouncedValue(value), delay);
     return () => clearTimeout(timeoutId);
-  }, [value, delay, setDebouncedValue]);
+  }, [value, delay]);
   
   return debouncedValue;
+};
+
+/**
+ * デバウンス処理関数
+ */
+export const debounce = <T extends (...args: any[]) => any>(
+  func: T,
+  delay: number
+): ((...args: Parameters<T>) => void) => {
+  let timeoutId: NodeJS.Timeout | null = null;
+  
+  return (...args: Parameters<T>) => {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    
+    timeoutId = setTimeout(() => {
+      func(...args);
+    }, delay);
+  };
+};
+
+/**
+ * RequestAnimationFrameを使用した最適化されたスクロール処理
+ */
+export const optimizedScroll = (
+  element: HTMLElement,
+  targetPosition: number,
+  duration: number = 300
+): Promise<void> => {
+  return new Promise((resolve) => {
+    const start = element.scrollTop;
+    const distance = targetPosition - start;
+    const startTime = performance.now();
+    
+    const animateScroll = (currentTime: number) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // イーズアウト関数
+      const easeOut = 1 - Math.pow(1 - progress, 3);
+      
+      element.scrollTop = start + distance * easeOut;
+      
+      if (progress < 1) {
+        requestAnimationFrame(animateScroll);
+      } else {
+        resolve();
+      }
+    };
+    
+    requestAnimationFrame(animateScroll);
+  });
 };
 
 // メモリ使用量の監視
