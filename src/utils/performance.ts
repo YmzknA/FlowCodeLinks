@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo, useCallback, useRef, useEffect, useState } from 'react';
 import { ParsedFile, Method, Dependency } from '@/types/codebase';
 
 // メモ化されたファイル解析結果
@@ -117,21 +117,12 @@ export const useThrottledCallback = <T extends (...args: any[]) => void>(
 
 // デバウンスされた検索
 export const useDebouncedValue = <T>(value: T, delay: number): T => {
-  const [debouncedValue, setDebouncedValue] = useMemo(() => {
-    let timeoutId: NodeJS.Timeout;
-    
-    const setValue = (newValue: T) => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => setDebouncedValue(newValue), delay);
-    };
-    
-    return [value, setValue] as const;
-  }, [delay]);
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
   
-  useMemo(() => {
+  useEffect(() => {
     const timeoutId = setTimeout(() => setDebouncedValue(value), delay);
     return () => clearTimeout(timeoutId);
-  }, [value, delay, setDebouncedValue]);
+  }, [value, delay]);
   
   return debouncedValue;
 };

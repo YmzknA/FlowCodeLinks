@@ -79,6 +79,15 @@ export interface WindowPosition {
   height: number;
 }
 
+// スクロール情報を表す型
+export interface ScrollInfo {
+  scrollTop: number;
+  scrollHeight: number;
+  clientHeight: number;
+  visibleStartRatio: number; // 表示開始位置の割合 (0-1)
+  visibleEndRatio: number; // 表示終了位置の割合 (0-1)
+}
+
 export interface FloatingWindow {
   id: string;
   file: ParsedFile;
@@ -86,4 +95,5 @@ export interface FloatingWindow {
   isVisible: boolean;
   isCollapsed: boolean;
   showMethodsOnly: boolean;
+  scrollInfo?: ScrollInfo; // スクロール情報
 }
