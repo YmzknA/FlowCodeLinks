@@ -1,4 +1,5 @@
 // セキュリティ関連のユーティリティ関数
+import DOMPurify from 'dompurify';
 
 /**
  * 外部リンクを安全化する関数
@@ -97,4 +98,51 @@ export const auditHtmlContent = (html: string, source: string = 'unknown'): void
       });
     }
   });
+};
+
+/**
+ * 統一されたコンテンツサニタイズ関数
+ */
+export const sanitizeContent = (content: string, contentType: 'prism-code' | 'html-content' = 'html-content'): string => {
+  // 開発環境でのセキュリティ監査
+  auditHtmlContent(content, contentType);
+  
+  // 外部リンクを安全化
+  const linkSafeHtml = sanitizeExternalLinks(content);
+  
+  // コンテンツタイプに応じたサニタイズ設定
+  const sanitizeOptions = contentType === 'prism-code' 
+    ? {
+        ALLOWED_TAGS: ['span', 'code', 'pre', 'a'],
+        ALLOWED_ATTR: ['class', 'data-method-name', 'href', 'rel', 'target'], // style属性を削除：CSS外部ファイルで管理
+        KEEP_CONTENT: true
+      }
+    : {
+        ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'a', 'span'],
+        ALLOWED_ATTR: ['class', 'href', 'rel', 'target'],
+        KEEP_CONTENT: true
+      };
+  
+  // DOMPurifyでサニタイズ
+  return DOMPurify.sanitize(linkSafeHtml, sanitizeOptions);
+};
+
+/**
+ * 後方互換性のためのエイリアス関数
+ * @deprecated sanitizeContent を使用してください
+ */
+export const sanitizeHighlightedCode = (highlightedHtml: string): string => {
+  return sanitizeContent(highlightedHtml, 'prism-code');
+};
+
+/**
+ * フォールバック用の基本的なHTMLエスケープ関数
+ */
+export const escapeHtml = (unsafe: string): string => {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 };
