@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { ParsedFile } from '@/types/codebase';
 import { sanitizeContent } from '@/utils/security';
 import { debounce, optimizedScroll } from '@/utils/performance';
+import { useWheelScrollIsolation } from '@/hooks/useWheelScrollIsolation';
 
 interface CodeContentProps {
   file: ParsedFile;
@@ -12,6 +13,9 @@ interface CodeContentProps {
 export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMethod, onMethodClick }) => {
   const [highlightedCode, setHighlightedCode] = useState<string>('');
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // ホイールスクロール分離フックを使用
+  const { handleWheel } = useWheelScrollIsolation(containerRef);
 
   // 言語に応じたPrismの言語識別子を取得
   const getPrismLanguage = (language: string): string => {
@@ -184,22 +188,6 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
     }
   }, [highlightedMethod, file.path, file.methods, debouncedScroll]);
 
-  // ホイールイベントハンドラー（スクロールを確実に処理）
-  const handleWheel = useCallback((event: WheelEvent) => {
-    // 常にイベントの伝播を停止（ズーム機能を完全に無効化）
-    event.preventDefault();
-    event.stopPropagation();
-    event.stopImmediatePropagation();
-    
-    const target = event.currentTarget as HTMLElement;
-    
-    // スクロールが可能な場合は手動でスクロールを実行
-    if (target.scrollHeight > target.clientHeight) {
-      const scrollAmount = event.deltaY;
-      target.scrollTop += scrollAmount;
-    }
-  }, []);
-
   // メソッドクリックイベントハンドラー（最適化）
   useEffect(() => {
     const container = containerRef.current;
@@ -213,19 +201,21 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
       };
 
       container.addEventListener('click', handleMethodClick);
-      container.addEventListener('wheel', handleWheel, { passive: false, capture: true });
       
       return () => {
         container.removeEventListener('click', handleMethodClick);
-        container.removeEventListener('wheel', handleWheel, { capture: true });
       };
     }
-  }, [onMethodClick, handleWheel]); // highlightedCodeを依存関係から除外
+  }, [onMethodClick]); // highlightedCodeを依存関係から除外
 
   const prismLanguage = getPrismLanguage(file.language);
 
   return (
-    <div ref={containerRef} className="p-4 h-full overflow-auto">
+    <div 
+      ref={containerRef} 
+      className="p-4 h-full overflow-auto"
+      onWheel={handleWheel}
+    >
       <pre 
         className={`language-${prismLanguage} text-sm p-3 rounded`}
         style={{ 
