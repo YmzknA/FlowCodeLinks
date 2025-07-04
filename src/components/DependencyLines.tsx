@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { FloatingWindow, Dependency } from '@/types/codebase';
+import { FloatingWindow, Dependency, ScrollInfo } from '@/types/codebase';
 
 interface DependencyLinesProps {
   windows: FloatingWindow[];
@@ -27,6 +27,52 @@ interface LineData {
 
 const findWindowByMethod = (windowList: FloatingWindow[], method: { methodName: string; filePath: string }) => {
   return windowList.find(window => window.file.path === method.filePath);
+};
+
+// メソッドが表示範囲内にあるかを判定する関数
+const isMethodInVisibleRange = (
+  window: FloatingWindow,
+  methodName: string
+): boolean => {
+  // ウィンドウが表示されていない場合は false
+  if (!window.isVisible) {
+    return false;
+  }
+  
+  // 折りたたまれている場合は false
+  if (window.isCollapsed) {
+    return false;
+  }
+  
+  // スクロール情報がない場合は表示されていると仮定
+  if (!window.scrollInfo) {
+    return true;
+  }
+  
+  // メソッドのみ表示の場合は、全て表示されていると仮定
+  if (window.showMethodsOnly) {
+    return true;
+  }
+  
+  // メソッドを検索
+  const method = window.file.methods?.find(m => m.name === methodName);
+  if (!method || !method.startLine) {
+    return false;
+  }
+  
+  // ファイルの総行数を取得
+  const allMethods = window.file.methods || [];
+  const maxEndLine = allMethods.length > 0 
+    ? Math.max(...allMethods.map(m => m.endLine))
+    : 100;
+  const estimatedTotalLines = Math.max(maxEndLine, window.file.totalLines || 100);
+  
+  // メソッドの行番号の割合を計算
+  const methodLineRatio = method.startLine / estimatedTotalLines;
+  
+  // 表示範囲内にあるかを判定
+  const { visibleStartRatio, visibleEndRatio } = window.scrollInfo;
+  return methodLineRatio >= visibleStartRatio && methodLineRatio <= visibleEndRatio;
 };
 
 // 使用済みの曲線パラメータを記録
@@ -146,17 +192,54 @@ const calculateDetailedMethodPosition = (
     const maxEndLine = allMethods.length > 0 
       ? Math.max(...allMethods.map(m => m.endLine))
       : 100;
-    const estimatedTotalLines = Math.max(maxEndLine, 100);
+    const estimatedTotalLines = Math.max(maxEndLine, window.file.totalLines || 100);
     
     const methodLineRatio = Math.min(method.startLine / estimatedTotalLines, 1);
     
-    // ウィンドウ内での垂直位置
-    const idealMethodY = windowY + headerHeight + (contentHeight * methodLineRatio);
+    // スクロール情報に基づく垂直位置の調整
+    let adjustedMethodY: number;
+    
+    if (!window.showMethodsOnly && !window.isCollapsed) {
+      // スクロール情報がある場合はそれを使用、ない場合は初期状態として全体表示を仮定
+      const scrollInfo = window.scrollInfo || {
+        scrollTop: 0,
+        scrollHeight: contentHeight,
+        clientHeight: contentHeight,
+        visibleStartRatio: 0,
+        visibleEndRatio: 1
+      };
+      
+      const { visibleStartRatio, visibleEndRatio } = scrollInfo;
+      
+      // メソッドが表示範囲内にあるかを判定
+      const isInVisibleRange = methodLineRatio >= visibleStartRatio && methodLineRatio <= visibleEndRatio;
+      
+      if (isInVisibleRange) {
+        // 表示範囲内: 実際のスクロール位置に基づいて動的に計算
+        const visibleRangeHeight = visibleEndRatio - visibleStartRatio;
+        const relativePositionInRange = visibleRangeHeight > 0 
+          ? (methodLineRatio - visibleStartRatio) / visibleRangeHeight
+          : methodLineRatio;
+        adjustedMethodY = windowY + headerHeight + (contentHeight * relativePositionInRange);
+      } else {
+        // 表示範囲外: ウィンドウの上部または下部に固定
+        if (methodLineRatio < visibleStartRatio) {
+          // メソッドが表示範囲より上にある場合: ウィンドウ上部に固定
+          adjustedMethodY = windowY + headerHeight + 10; // 少し下にオフセット
+        } else {
+          // メソッドが表示範囲より下にある場合: ウィンドウ下部に固定
+          adjustedMethodY = windowY + windowHeight - 10; // 少し上にオフセット
+        }
+      }
+    } else {
+      // メソッドのみ表示や折りたたみの場合は従来の計算
+      adjustedMethodY = windowY + headerHeight + (contentHeight * methodLineRatio);
+    }
     
     // 垂直位置の計算
     if (isEndpoint) {
       // 終点は少し下にオフセット（1行分程度）
-      methodY = idealMethodY + lineHeight;
+      methodY = adjustedMethodY + lineHeight;
       // 終点は矢印の方向に応じて左右のエッジ
       if (targetDirection === 'right') {
         methodX = windowX + windowWidth - 5; // 右端（少し内側）
@@ -166,8 +249,8 @@ const calculateDetailedMethodPosition = (
         methodX = windowX + windowWidth / 2; // 中央（フォールバック）
       }
     } else {
-      // 始点の垂直位置は理想位置を使用
-      methodY = idealMethodY;
+      // 始点の垂直位置は調整済み位置を使用
+      methodY = adjustedMethodY;
       
       // 始点は左右のエッジ
       if (targetDirection === 'right') {
@@ -293,6 +376,7 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
       const toWindow = findWindowByMethod(visibleWindows, dependency.to);
       
       if (fromWindow && toWindow) {
+        // 矢印は常に表示し、位置のみを動的に調整する
         // まず基本位置を取得して方向を判定
         const fromBasic = calculateMethodPosition(fromWindow, dependency.from.methodName, zoom, pan);
         const toBasic = calculateMethodPosition(toWindow, dependency.to.methodName, zoom, pan);
