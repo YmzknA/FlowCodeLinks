@@ -1,6 +1,16 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { ParsedFile } from '@/types/codebase';
 
+// HTML エスケープ関数
+const escapeHtml = (unsafe: string): string => {
+  return unsafe
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+};
+
 interface CodeContentProps {
   file: ParsedFile;
   highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null;
@@ -57,7 +67,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
           
           if (grammar) {
             try {
-              // Prism.highlightでHTMLを生成
+              // Prism.highlightでHTMLを生成（安全に処理）
               let highlighted = window.Prism.highlight(file.content, grammar, language);
               
               // 全てのメソッド名をクリック可能にする
@@ -77,11 +87,12 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
                   });
                 });
                 
-                // 全てのメソッド名をクリック可能にする
+                // 全てのメソッド名をクリック可能にする（HTMLエスケープ済みのメソッド名を使用）
                 clickableMethodNames.forEach(methodName => {
+                  const escapedMethodName = escapeHtml(methodName);
                   const methodNameRegex = new RegExp(`\\b(${methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'g');
                   highlighted = highlighted.replace(methodNameRegex, 
-                    `<span class="clickable-method" data-method-name="${methodName}" style="cursor: pointer;">$1</span>`
+                    `<span class="clickable-method" data-method-name="${escapedMethodName}" style="cursor: pointer;">$1</span>`
                   );
                 });
               }
@@ -90,15 +101,15 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
               console.log('Code highlighted successfully:', highlighted.substring(0, 100) + '...');
             } catch (error) {
               console.error('Prism highlight error:', error);
-              setHighlightedCode(file.content);
+              setHighlightedCode(escapeHtml(file.content));
             }
           } else {
             console.warn(`Prism language not found: ${language}. Available:`, Object.keys(window.Prism.languages));
-            setHighlightedCode(file.content);
+            setHighlightedCode(escapeHtml(file.content));
           }
         } else {
           console.warn('Prism not available');
-          setHighlightedCode(file.content);
+          setHighlightedCode(escapeHtml(file.content));
         }
       } else {
         // コンテンツがない場合は空文字列をセット
@@ -214,7 +225,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
             fontFamily: 'inherit'
           }}
           dangerouslySetInnerHTML={{ 
-            __html: highlightedCode || file.content
+            __html: highlightedCode || escapeHtml(file.content)
           }}
         />
       </pre>
