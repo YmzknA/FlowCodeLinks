@@ -30,10 +30,6 @@ export const DraggableWindow: React.FC<DraggableWindowProps> = ({
   const [startPosition, setStartPosition] = useState({ x: 0, y: 0 });
   const windowRef = useRef<HTMLDivElement>(null);
 
-  if (!window.isVisible) {
-    return null;
-  }
-
   const handleMouseDown = (e: React.MouseEvent) => {
     if (e.target !== e.currentTarget && !isHeaderElement(e.target as Element)) {
       return;
@@ -114,7 +110,11 @@ export const DraggableWindow: React.FC<DraggableWindowProps> = ({
       document.removeEventListener('touchmove', handleTouchMove);
       document.removeEventListener('touchend', handleEnd);
     };
-  }, [isDragging, dragStart, startPosition, window.id, window.position.width, window.position.height, onPositionChange]);
+  }, [isDragging, dragStart, startPosition, window.id, window.position.width, window.position.height, onPositionChange, zoom]);
+
+  if (!window.isVisible) {
+    return null;
+  }
 
   return (
     <div
