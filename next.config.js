@@ -22,8 +22,8 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // Prism.jsとNext.jsで必要
-              "style-src 'self' 'unsafe-inline'", // Tailwind CSSで必要
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // 開発環境でNext.jsが動作するように緩和
+              "style-src 'self' 'unsafe-inline'", // 開発環境でスタイルが動作するように緩和
               "img-src 'self' data: blob:",
               "connect-src 'self'",
               "font-src 'self'",
@@ -44,6 +44,22 @@ const nextConfig = {
           {
             key: 'Referrer-Policy',
             value: 'strict-origin-when-cross-origin'
+          },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=31536000; includeSubDomains; preload'
+          },
+          {
+            key: 'X-Permitted-Cross-Domain-Policies',
+            value: 'none'
+          },
+          {
+            key: 'Cross-Origin-Embedder-Policy',
+            value: 'require-corp'
+          },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin'
           }
         ]
       }
