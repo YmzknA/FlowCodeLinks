@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useRef } from 'react';
 import { FloatingWindow, Dependency, ScrollInfo } from '@/types/codebase';
 
 interface DependencyLinesProps {
@@ -75,9 +75,6 @@ const isMethodInVisibleRange = (
   return methodLineRatio >= visibleStartRatio && methodLineRatio <= visibleEndRatio;
 };
 
-// 使用済みの曲線パラメータを記録
-const usedCurveParams = new Map<string, Set<string>>();
-
 // 曲線の制御点を計算する関数（重複回避機能付き）
 const calculateControlPoints = (
   x1: number, 
@@ -85,7 +82,8 @@ const calculateControlPoints = (
   x2: number, 
   y2: number, 
   methodName: string,
-  existingLines: Array<{x1: number, y1: number, x2: number, y2: number}>
+  existingLines: Array<{x1: number, y1: number, x2: number, y2: number}>,
+  usedCurveParams: Map<string, Set<string>>
 ) => {
   // 線の一意キーを生成
   const lineKey = `${Math.round(x1)},${Math.round(y1)}-${Math.round(x2)},${Math.round(y2)}`;
@@ -303,6 +301,7 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
 }) => {
   const [hoveredLine, setHoveredLine] = useState<number | null>(null);
   const [tooltipPosition, setTooltipPosition] = useState<{ x: number; y: number } | null>(null);
+  const usedCurveParams = useRef(new Map<string, Set<string>>());
 
   // 矢印クリック時のハンドラー
   const handleArrowClick = (dependency: Dependency) => {
@@ -366,7 +365,7 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
 
   const lineData = useMemo(() => {
     // 各レンダリング時に曲線パラメータをリセット
-    usedCurveParams.clear();
+    usedCurveParams.current.clear();
     
     const lines: LineData[] = [];
     const existingLines: Array<{x1: number, y1: number, x2: number, y2: number}> = [];
@@ -423,7 +422,8 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
           adjustedEndCoords.x, 
           adjustedEndCoords.y, 
           dependency.from.methodName,
-          existingLines
+          existingLines,
+          usedCurveParams.current
         );
         
         const isHighlighted = highlightedMethod && (
