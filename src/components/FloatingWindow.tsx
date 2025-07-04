@@ -23,23 +23,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
   highlightedMethod,
   onMethodClick
 }) => {
-  if (!window.isVisible) {
-    return null;
-  }
-
   const { id, file, position, isCollapsed, showMethodsOnly } = window;
-
-  const handleToggleCollapse = () => {
-    onToggleCollapse(id);
-  };
-
-  const handleToggleMethodsOnly = () => {
-    onToggleMethodsOnly(id);
-  };
-
-  const handleClose = () => {
-    onClose(id);
-  };
 
   const [highlightedCode, setHighlightedCode] = useState<string>('');
   const processedContentRef = useRef<string>('');
@@ -53,6 +37,18 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
   
   // ホイールスクロール分離フックを使用
   const { handleWheel } = useWheelScrollIsolation(contentRef);
+
+  const handleToggleCollapse = () => {
+    onToggleCollapse(id);
+  };
+
+  const handleToggleMethodsOnly = () => {
+    onToggleMethodsOnly(id);
+  };
+
+  const handleClose = () => {
+    onClose(id);
+  };
 
   // Refを常に最新の値に更新
   useEffect(() => {
@@ -255,7 +251,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       processedContentRef.current = currentContentKey;
       highlightCode();
     }
-  }, [file.content, isCollapsed, showMethodsOnly, file.language]);
+  }, [file.content, isCollapsed, showMethodsOnly, file.language, file.methods]);
 
   // コンテンツ変更後にスクロール情報を更新
   useEffect(() => {
@@ -382,6 +378,11 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       }
     }
   }, [highlightedMethod, file.path, isCollapsed, showMethodsOnly, id]);
+
+  // 非表示の場合は早期リターン
+  if (!window.isVisible) {
+    return null;
+  }
 
   const renderContent = () => {
     if (isCollapsed) {
