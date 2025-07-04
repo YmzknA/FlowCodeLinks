@@ -10,6 +10,7 @@ const mockFile: ParsedFile = {
   content: 'class DraggableTest\nend',
   directory: 'test',
   fileName: 'draggable.rb',
+  totalLines: 2,
   methods: []
 };
 

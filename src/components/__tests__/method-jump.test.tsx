@@ -12,21 +12,28 @@ describe('Method Jump Functionality', () => {
       content: 'class User\n  def initialize(name)\n    @name = name\n  end\n\n  def greet\n    puts "Hello, #{@name}!"\n  end\nend',
       language: 'ruby',
       directory: 'src',
+      totalLines: 9,
       methods: [
         {
           name: 'initialize',
           type: 'method',
           filePath: 'src/user.rb',
-          line: 2,
-          params: ['name'],
+          startLine: 2,
+          endLine: 4,
+          code: '  def initialize(name)\n    @name = name\n  end',
+          parameters: ['name'],
+          isPrivate: false,
           calls: []
         },
         {
           name: 'greet',
           type: 'method',
           filePath: 'src/user.rb',
-          line: 6,
-          params: [],
+          startLine: 6,
+          endLine: 8,
+          code: '  def greet\n    puts "Hello, #{@name}!"\n  end',
+          parameters: [],
+          isPrivate: false,
           calls: []
         }
       ]
@@ -37,16 +44,20 @@ describe('Method Jump Functionality', () => {
       content: 'class Application\n  def run\n    user = User.new("Alice")\n    user.greet\n  end\nend',
       language: 'ruby',
       directory: 'src',
+      totalLines: 6,
       methods: [
         {
           name: 'run',
           type: 'method',
           filePath: 'src/application.rb',
-          line: 2,
-          params: [],
+          startLine: 2,
+          endLine: 5,
+          code: '  def run\n    user = User.new("Alice")\n    user.greet\n  end',
+          parameters: [],
+          isPrivate: false,
           calls: [
-            { methodName: 'new', line: 3 },
-            { methodName: 'greet', line: 4 }
+            { methodName: 'new', line: 3, context: 'user = User.new("Alice")' },
+            { methodName: 'greet', line: 4, context: 'user.greet' }
           ]
         }
       ]

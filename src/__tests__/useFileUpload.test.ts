@@ -10,7 +10,17 @@ global.File = class MockFile {
 
   constructor(parts: any[], filename: string, options: any = {}) {
     this.name = filename;
-    this.size = options.size || 1000;
+    // partsの内容からサイズを計算
+    if (options.size !== undefined) {
+      this.size = options.size;
+    } else {
+      this.size = parts.reduce((acc, part) => {
+        if (typeof part === 'string') {
+          return acc + part.length;
+        }
+        return acc + (part.length || 0);
+      }, 0);
+    }
     this.type = options.type || 'text/markdown';
   }
 
@@ -73,11 +83,15 @@ describe('useFileUpload hook', () => {
   test('大きすぎるファイルでエラーになる', async () => {
     const { result } = renderHook(() => useFileUpload());
     
-    // 10MB超のファイルをモック
-    const largeFile = new File(['content'], 'large.md', { 
-      type: 'text/markdown',
-      size: 11 * 1024 * 1024 // 11MB
+    // 10MB超のファイルをモック - ファイルサイズを明示的に設定
+    const largeContent = 'a'.repeat(11 * 1024 * 1024); // 11MB
+    const largeFile = new File([largeContent], 'large.md', { 
+      type: 'text/markdown'
     });
+    
+    // ファイルサイズが正しいことを確認
+    expect(largeFile.size).toBeGreaterThan(10 * 1024 * 1024);
+    
     const event = createMockEvent(largeFile);
 
     await act(async () => {

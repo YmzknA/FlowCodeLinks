@@ -13,6 +13,7 @@ const mockWindows: FloatingWindow[] = [
       content: 'class User\nend',
       directory: 'app/models',
       fileName: 'user.rb',
+      totalLines: 2,
       methods: [
         {
           name: 'full_name',
@@ -40,6 +41,7 @@ const mockWindows: FloatingWindow[] = [
       content: 'class UsersController\nend',
       directory: 'app/controllers',
       fileName: 'users_controller.rb',
+      totalLines: 2,
       methods: [
         {
           name: 'show',

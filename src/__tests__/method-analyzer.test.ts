@@ -9,6 +9,7 @@ describe('メソッド解析機能のテスト', () => {
       content,
       directory: '',
       fileName: 'test.rb',
+      totalLines: content.split('\n').length,
       methods: []
     });
 
@@ -102,6 +103,7 @@ end`;
       content,
       directory: '',
       fileName: 'test.js',
+      totalLines: content.split('\n').length,
       methods: []
     });
 
@@ -190,6 +192,7 @@ const formatDate = (date) => date.toISOString().split('T')[0];`;
         content: '',
         directory: '',
         fileName: 'empty.rb',
+        totalLines: 0,
         methods: []
       };
       
@@ -204,6 +207,7 @@ const formatDate = (date) => date.toISOString().split('T')[0];`;
         content: 'def hello():\n    print("hello")',
         directory: '',
         fileName: 'test.py',
+        totalLines: 2,
         methods: []
       };
       
@@ -215,6 +219,7 @@ const formatDate = (date) => date.toISOString().split('T')[0];`;
       const file: ParsedFile = {
         path: 'app/controllers/milestones_controller.rb',
         language: 'ruby',
+        totalLines: 10,
         content: `class MilestonesController < ApplicationController
   def show
     @milestone_tasks = tasks_ransack_from_milestone(@milestone)

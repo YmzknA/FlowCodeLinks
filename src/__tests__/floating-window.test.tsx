@@ -15,6 +15,7 @@ const mockFile: ParsedFile = {
 end`,
   directory: 'test',
   fileName: 'example.rb',
+  totalLines: 5,
   methods: [
     {
       name: 'hello',

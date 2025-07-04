@@ -61,7 +61,9 @@ function extractMethodDependencies(method: Method, methodMap: Map<string, Method
           filePath: targetMethod.filePath
         },
         count: 1, // 後でマージ時に集約
-        type: dependencyType
+        type: dependencyType,
+        fromLine: call.line, // 呼び出し元の行番号を追加
+        toLine: targetMethod.startLine // 呼び出し先の開始行番号を追加
       });
     }
   }

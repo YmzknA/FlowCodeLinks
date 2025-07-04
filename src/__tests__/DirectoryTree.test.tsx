@@ -11,6 +11,7 @@ const mockFiles: ParsedFile[] = [
     content: 'class User\nend',
     directory: 'app/models',
     fileName: 'user.rb',
+    totalLines: 2,
     methods: [
       {
         name: 'full_name',
@@ -31,6 +32,7 @@ const mockFiles: ParsedFile[] = [
     content: 'class UsersController\nend',
     directory: 'app/controllers',
     fileName: 'users_controller.rb',
+    totalLines: 2,
     methods: [
       {
         name: 'index',
@@ -51,6 +53,7 @@ const mockFiles: ParsedFile[] = [
     content: 'function helper() {}',
     directory: 'lib',
     fileName: 'utils.js',
+    totalLines: 1,
     methods: [
       {
         name: 'helper',
