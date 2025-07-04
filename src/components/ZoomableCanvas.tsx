@@ -54,9 +54,12 @@ export const ZoomableCanvas: React.FC<ZoomableCanvasProps> = ({
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     // 左ボタンまたは中ボタン（ホイールボタン）でのパン操作を有効
     if (e.button === 0 || e.button === 1) { // 左ボタンまたは中ボタン
-      // data属性で背景かどうかを明確に判定
+      // フローティングウィンドウ内でなければパン操作を許可
       const target = e.target as HTMLElement;
-      if (target.dataset.isCanvasBackground === 'true') {
+      const isInsideFloatingWindow = target.closest('.draggable-window') !== null;
+      const isInsideZoomControls = target.closest('.absolute.top-4.right-4') !== null;
+      
+      if (!isInsideFloatingWindow && !isInsideZoomControls) {
         e.preventDefault();
         setIsDragging(true);
         setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
@@ -214,7 +217,6 @@ export const ZoomableCanvas: React.FC<ZoomableCanvasProps> = ({
       {/* メインキャンバス */}
       <div
         ref={canvasRef}
-        data-is-canvas-background="true"
         className="w-full h-full overflow-hidden relative"
         style={{ 
           cursor: isDragging ? 'grabbing' : 'grab',
