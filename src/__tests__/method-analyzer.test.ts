@@ -91,8 +91,11 @@ end`;
       const methods = analyzeMethodsInFile(file);
       
       const greetingMethod = methods.find(m => m.name === 'greeting');
-      expect(greetingMethod?.calls).toHaveLength(1);
-      expect(greetingMethod?.calls[0].methodName).toBe('full_name');
+      expect(greetingMethod?.calls).toHaveLength(2);
+      
+      const callNames = greetingMethod?.calls.map(c => c.methodName) || [];
+      expect(callNames).toContain('full_name');
+      expect(callNames).toContain('send_email');
     });
   });
 
@@ -258,6 +261,219 @@ end`,
       // updateメソッドでtasks_ransack_from_milestoneが呼び出されているか
       const updateCalls = updateMethod!.calls.map(call => call.methodName);
       expect(updateCalls).toContain('tasks_ransack_from_milestone');
+    });
+
+    it('should detect methods with question marks', () => {
+      const file: ParsedFile = {
+        path: 'test.rb',
+        content: `
+class User
+  def admin?
+    role == 'admin'
+  end
+
+  def valid?
+    name.present? && email.present?
+  end
+
+  def check_status
+    return unless valid?
+    return if admin?
+    
+    # Method calls with question marks
+    if user.active? && profile.complete?
+      notify_user
+    end
+  end
+end
+`,
+        language: 'ruby'
+      };
+
+      const methods = analyzeMethodsInFile(file);
+      
+      // Check method definitions with ? are detected
+      const adminMethod = methods.find(m => m.name === 'admin?');
+      const validMethod = methods.find(m => m.name === 'valid?');
+      
+      expect(adminMethod).toBeDefined();
+      expect(validMethod).toBeDefined();
+      
+      // Check method calls with ? are detected
+      const checkStatusMethod = methods.find(m => m.name === 'check_status');
+      const methodCalls = checkStatusMethod!.calls.map(call => call.methodName);
+      
+      expect(methodCalls).toContain('valid?');
+      expect(methodCalls).toContain('admin?');
+      expect(methodCalls).toContain('active?');
+      expect(methodCalls).toContain('complete?');
+    });
+
+    it('should correctly distinguish method calls without parentheses from method definitions', () => {
+      const file: ParsedFile = {
+        path: 'test.rb',
+        content: `
+class TaskController
+  def update
+    # This is a method call, not a definition
+    update_task_milestone_and_load_tasks
+    
+    # Multiple method calls without parentheses
+    validate_user_permissions
+    send_notification_email
+    log_activity
+  end
+
+  def update_task_milestone_and_load_tasks
+    # This is the actual method definition
+    @task.update(milestone: params[:milestone])
+    load_tasks
+  end
+  
+  private
+  
+  def validate_user_permissions
+    # method body
+  end
+end
+`,
+        language: 'ruby'
+      };
+
+      const methods = analyzeMethodsInFile(file);
+      
+      // Check that method definitions are detected
+      const updateMethod = methods.find(m => m.name === 'update');
+      const updateTaskMethod = methods.find(m => m.name === 'update_task_milestone_and_load_tasks');
+      const validateMethod = methods.find(m => m.name === 'validate_user_permissions');
+      
+      expect(updateMethod).toBeDefined();
+      expect(updateTaskMethod).toBeDefined();
+      expect(validateMethod).toBeDefined();
+      
+      // Check that method calls are detected correctly
+      const updateCalls = updateMethod!.calls.map(call => call.methodName);
+      
+      expect(updateCalls).toContain('update_task_milestone_and_load_tasks');
+      expect(updateCalls).toContain('validate_user_permissions');
+      expect(updateCalls).toContain('send_notification_email');
+      expect(updateCalls).toContain('log_activity');
+      
+      // Ensure method calls are not mistaken for definitions
+      expect(methods.filter(m => m.name === 'update_task_milestone_and_load_tasks').length).toBe(1);
+    });
+
+    it('should handle Ruby methods with special characters (!)', () => {
+      const file: ParsedFile = {
+        path: 'test.rb',
+        content: `
+class Article
+  def save!
+    # Force save
+    @persisted = true
+  end
+
+  def destroy!
+    # Force destroy
+    @destroyed = true
+  end
+
+  def publish_article
+    validate!
+    save!
+    notify_subscribers!
+  end
+  
+  private
+  
+  def validate!
+    raise unless valid?
+  end
+end
+`,
+        language: 'ruby'
+      };
+
+      const methods = analyzeMethodsInFile(file);
+      
+      // Check method definitions with ! are detected
+      const saveMethod = methods.find(m => m.name === 'save!');
+      const destroyMethod = methods.find(m => m.name === 'destroy!');
+      const validateMethod = methods.find(m => m.name === 'validate!');
+      
+      expect(saveMethod).toBeDefined();
+      expect(destroyMethod).toBeDefined();
+      expect(validateMethod).toBeDefined();
+      
+      // Check method calls with ! are detected
+      const publishMethod = methods.find(m => m.name === 'publish_article');
+      const methodCalls = publishMethod!.calls.map(call => call.methodName);
+      
+      expect(methodCalls).toContain('validate!');
+      expect(methodCalls).toContain('save!');
+      expect(methodCalls).toContain('notify_subscribers!');
+    });
+
+    it('should handle complex Ruby method call patterns', () => {
+      const file: ParsedFile = {
+        path: 'test.rb',
+        content: `
+class ComplexExample
+  def process
+    # Method calls with different formats
+    simple_method
+    method_with_args(1, 2, 3)
+    method_with_hash(key: value)
+    
+    # Chained method calls
+    object.method1.method2.method3
+    
+    # Methods on variables
+    user = find_user
+    user.admin?
+    user.update_attributes(name: "Test")
+    
+    # Methods in conditions
+    if user.active? && !user.suspended?
+      user.notify!
+    end
+    
+    # Block methods
+    users.each do |user|
+      user.process!
+    end
+  end
+end
+`,
+        language: 'ruby'
+      };
+
+      const methods = analyzeMethodsInFile(file);
+      const processMethod = methods.find(m => m.name === 'process');
+      const methodCalls = processMethod!.calls.map(call => call.methodName);
+      
+      // Basic method calls
+      expect(methodCalls).toContain('simple_method');
+      expect(methodCalls).toContain('method_with_args');
+      expect(methodCalls).toContain('method_with_hash');
+      
+      // Chained methods
+      expect(methodCalls).toContain('method1');
+      expect(methodCalls).toContain('method2');
+      expect(methodCalls).toContain('method3');
+      
+      // Methods on objects
+      expect(methodCalls).toContain('find_user');
+      expect(methodCalls).toContain('admin?');
+      expect(methodCalls).toContain('update_attributes');
+      
+      // Methods in conditions
+      expect(methodCalls).toContain('active?');
+      expect(methodCalls).toContain('suspended?');
+      expect(methodCalls).toContain('notify!');
+      
+      // Methods in blocks
+      expect(methodCalls).toContain('process!');
     });
   });
 });

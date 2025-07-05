@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { FloatingWindow as FloatingWindowType, ScrollInfo } from '@/types/codebase';
 import { useWheelScrollIsolation } from '@/hooks/useWheelScrollIsolation';
+import { replaceMethodNameInText } from '@/utils/method-highlighting';
 
 interface FloatingWindowProps {
   window: FloatingWindowType;
@@ -211,19 +212,90 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                   });
                 });
                 
-                // 各メソッド名をクリック可能にする（重複チェック付き）
-                clickableMethodNames.forEach(methodName => {
+                // 各メソッド名をクリック可能にする（HTML属性を保護しながら）
+                // 長いメソッド名から先に処理して部分置換を防ぐ
+                const sortedMethodNames = Array.from(clickableMethodNames).sort((a, b) => b.length - a.length);
+                sortedMethodNames.forEach(methodName => {
                   // 既にこのメソッド名がclickable-methodで囲まれているかチェック
                   const alreadyWrapped = highlighted.includes(`data-method-name="${methodName}"`);
                   if (!alreadyWrapped) {
-                    const escapedMethodName = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    const methodRegex = new RegExp(`\\b(${escapedMethodName})\\b`, 'g');
-                    
-                    highlighted = highlighted.replace(methodRegex, 
-                      `<span class="cursor-pointer" data-method-name="${methodName}">$1</span>`
-                    );
+                    if (methodName.endsWith('?') || methodName.endsWith('!')) {
+                      // 特殊文字（?や!）を含むメソッド名は、HTML属性を保護しつつ特別な処理
+                      const baseMethodName = methodName.slice(0, -1);
+                      const suffix = methodName.slice(-1);
+                      const escapedBase = baseMethodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                      const escapedSuffix = suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                      
+                      // HTML属性を保護
+                      let tempHighlighted = highlighted;
+                      const protectMarker = `__PROTECT_${Math.random().toString(36).substr(2, 9)}__`;
+                      const protectMap = new Map<string, string>();
+                      let protectIndex = 0;
+                      
+                      // HTML属性内のメソッド名を保護
+                      tempHighlighted = tempHighlighted.replace(/\w+\s*=\s*["'][^"']*["']/g, (match) => {
+                        if (match.includes(methodName)) {
+                          const protectedValue = `${protectMarker}_INDEX_${protectIndex}_END__`;
+                          protectMap.set(protectedValue, match);
+                          protectIndex++;
+                          return protectedValue;
+                        }
+                        return match;
+                      });
+                      
+                      // パターン1: メソッド定義
+                      const definitionPattern = new RegExp(
+                        `(<span class="token method-definition"><span class="token function">${escapedBase}</span></span>)(<span class="token operator">${escapedSuffix}</span>)`,
+                        'g'
+                      );
+                      tempHighlighted = tempHighlighted.replace(definitionPattern, 
+                        `<span class="cursor-pointer" data-method-name="${methodName}">$1$2</span>`
+                      );
+                      
+                      // パターン2: メソッド呼び出し
+                      const callPattern = new RegExp(
+                        `(?<![\\w])(${escapedBase})(<span class="token operator">${escapedSuffix}</span>)`,
+                        'g'
+                      );
+                      tempHighlighted = tempHighlighted.replace(callPattern, 
+                        `<span class="cursor-pointer" data-method-name="${methodName}">$1$2</span>`
+                      );
+                      
+                      // 保護されたHTML属性を復元
+                      protectMap.forEach((originalContent, marker) => {
+                        // デバッグログを追加
+                        if (process.env.NODE_ENV === 'development') {
+                          console.log('=== Marker Restoration Debug ===');
+                          console.log('Marker:', marker);
+                          console.log('Original content:', originalContent);
+                          console.log('Before restoration:', tempHighlighted.substring(0, 200));
+                        }
+                        
+                        // マーカーをエスケープして安全に置換
+                        const escapedMarker = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        tempHighlighted = tempHighlighted.replace(new RegExp(escapedMarker, 'g'), originalContent);
+                        
+                        if (process.env.NODE_ENV === 'development') {
+                          console.log('After restoration:', tempHighlighted.substring(0, 200));
+                          console.log('=== End Marker Restoration Debug ===');
+                        }
+                      });
+                      
+                      highlighted = tempHighlighted;
+                    } else {
+                      // 通常のメソッド名はユーティリティ関数を使用
+                      const escapedMethodName = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                      highlighted = replaceMethodNameInText(highlighted, methodName, escapedMethodName);
+                    }
                   }
                 });
+              }
+              
+              // デバッグ用：処理後の内容をログ出力
+              if (process.env.NODE_ENV === 'development' && highlighted.includes('notifications_enabled')) {
+                console.log('=== FloatingWindow Debug ===');
+                console.log('Processed HTML:', highlighted.substring(0, 500));
+                console.log('=== End FloatingWindow Debug ===');
               }
               
               setHighlightedCode(highlighted);

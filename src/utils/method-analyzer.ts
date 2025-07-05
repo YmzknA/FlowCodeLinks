@@ -28,6 +28,15 @@ function analyzeRubyMethods(file: ParsedFile): Method[] {
   const lines = file.content.split('\n');
   let isPrivate = false;
 
+  // まず、すべてのメソッド名を収集
+  const definedMethods = new Set<string>();
+  for (let i = 0; i < lines.length; i++) {
+    const methodMatch = lines[i].trim().match(/^def\s+(self\.)?(\w+[?!]?)(\([^)]*\))?/);
+    if (methodMatch) {
+      definedMethods.add(methodMatch[2]);
+    }
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmedLine = line.trim();
@@ -44,8 +53,8 @@ function analyzeRubyMethods(file: ParsedFile): Method[] {
       continue;
     }
 
-    // メソッド定義の検出
-    const methodMatch = trimmedLine.match(/^def\s+(self\.)?(\w+)(\([^)]*\))?/);
+    // メソッド定義の検出（?や!を含むメソッド名にも対応）
+    const methodMatch = trimmedLine.match(/^def\s+(self\.)?(\w+[?!]?)(\([^)]*\))?/);
     if (methodMatch) {
       const [, selfPrefix, methodName, params] = methodMatch;
       const isClassMethod = !!selfPrefix;
@@ -53,7 +62,7 @@ function analyzeRubyMethods(file: ParsedFile): Method[] {
       // メソッドの終端を探す
       const methodEndLine = findRubyMethodEnd(lines, i);
       const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
-      const methodCalls = extractRubyMethodCalls(methodCode, i + 1); // 開始行番号を渡す
+      const methodCalls = extractRubyMethodCalls(methodCode, i + 1, definedMethods); // definedMethodsを渡す
 
       methods.push({
         name: methodName,
@@ -202,7 +211,7 @@ function findJavaScriptArrowFunctionEnd(lines: string[], startIndex: number): nu
   return findJavaScriptFunctionEnd(lines, startIndex);
 }
 
-function extractRubyMethodCalls(code: string, startLineNumber: number): MethodCall[] {
+function extractRubyMethodCalls(code: string, startLineNumber: number, definedMethods: Set<string> = new Set()): MethodCall[] {
   const calls: MethodCall[] = [];
   const lines = code.split('\n');
   
@@ -210,9 +219,25 @@ function extractRubyMethodCalls(code: string, startLineNumber: number): MethodCa
     const line = lines[i];
     const absoluteLineNumber = startLineNumber + i; // ファイル内での絶対行番号
     
-    // 文字列補間内のメソッド呼び出し #{method_name}
-    const interpolationMatches = Array.from(line.matchAll(/#\{(\w+)(?:\s*\()?\}/g));
+    // コメント行をスキップ
+    if (line.trim().startsWith('#')) continue;
+    
+    // 文字列補間内のメソッド呼び出し #{method_name} および #{object.method_name}
+    const interpolationMatches = Array.from(line.matchAll(/#\{(\w+[?!]?)(?:\s*\()?\}/g));
     for (const match of interpolationMatches) {
+      const methodName = match[1];
+      if (methodName && !isRubyKeyword(methodName)) {
+        calls.push({
+          methodName,
+          line: absoluteLineNumber,
+          context: line.trim()
+        });
+      }
+    }
+    
+    // 文字列補間内のオブジェクトメソッド呼び出し #{object.method_name}
+    const objectInterpolationMatches = Array.from(line.matchAll(/#\{\w+\.(\w+[?!]?)(?:\s*\()?\}/g));
+    for (const match of objectInterpolationMatches) {
       const methodName = match[1];
       if (methodName && !isRubyKeyword(methodName)) {
         calls.push({
@@ -225,12 +250,37 @@ function extractRubyMethodCalls(code: string, startLineNumber: number): MethodCa
     
     // 通常のメソッド呼び出し（関数定義行は除外）
     if (!line.trim().startsWith('def ')) {
-      // より柔軟なメソッド呼び出しの検出パターン
-      const methodCallMatches = Array.from(line.matchAll(/(\w+)(?:\s*\(|\.|\s)/g));
-      
-      for (const match of methodCallMatches) {
+      // メソッド呼び出しパターンを改善
+      // 1. オブジェクト.メソッド名の形式（例: user.admin?）- チェーンも含む
+      const dotMethodMatches = Array.from(line.matchAll(/\.(\w+[?!]?)(?=\s*\(|\s*\.|\s|$)/g));
+      for (const match of dotMethodMatches) {
         const methodName = match[1];
-        if (methodName && !isRubyKeyword(methodName) && !isRubyBuiltin(methodName) && !isRubyCrudMethod(methodName)) {
+        if (methodName && !isRubyBuiltin(methodName) && (!isRubyCrudMethod(methodName) || definedMethods.has(methodName))) {
+          calls.push({
+            methodName,
+            line: absoluteLineNumber,
+            context: line.trim()
+          });
+        }
+      }
+      
+      // 2. 行頭または空白の後のメソッド呼び出し（例: update_task_milestone_and_load_tasks）
+      const standaloneMethodMatches = Array.from(line.matchAll(/(?:^|\s)(\w+[?!]?)(?:\s*\(|\s*$|\s+)/g));
+      for (const match of standaloneMethodMatches) {
+        const methodName = match[1];
+        // 変数代入（=）、文字列内、コメント内でないことを確認
+        const beforeMethod = line.substring(0, line.indexOf(methodName));
+        const afterMethod = line.substring(line.indexOf(methodName) + methodName.length);
+        
+        // 変数代入の左側（変数名）でない、かつRubyキーワードでない場合のみ
+        // 右側（値）のメソッド呼び出しは検出対象
+        const isAssignmentTarget = beforeMethod.trim().match(/\w+\s*$/) && afterMethod.trim().startsWith('=');
+        
+        if (methodName && 
+            !isAssignmentTarget &&
+            !isRubyKeyword(methodName) && 
+            !isRubyBuiltin(methodName) && 
+            (!isRubyCrudMethod(methodName) || definedMethods.has(methodName))) {
           calls.push({
             methodName,
             line: absoluteLineNumber,
@@ -241,7 +291,14 @@ function extractRubyMethodCalls(code: string, startLineNumber: number): MethodCa
     }
   }
   
-  return calls;
+  // 重複を除去
+  const uniqueCalls = calls.filter((call, index, self) =>
+    index === self.findIndex((c) => 
+      c.methodName === call.methodName && c.line === call.line
+    )
+  );
+  
+  return uniqueCalls;
 }
 
 function extractJavaScriptMethodCalls(code: string, startLineNumber: number): MethodCall[] {

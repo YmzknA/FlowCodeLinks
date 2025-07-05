@@ -3,12 +3,14 @@ import { ParsedFile } from '@/types/codebase';
 import { sanitizeContent } from '@/utils/security';
 import { debounce, optimizedScroll } from '@/utils/performance';
 import { useWheelScrollIsolation } from '@/hooks/useWheelScrollIsolation';
+import { replaceMethodNameInText } from '@/utils/method-highlighting';
 
 interface CodeContentProps {
   file: ParsedFile;
   highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null;
   onMethodClick?: (methodName: string) => void;
 }
+
 
 export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMethod, onMethodClick }) => {
   const [highlightedCode, setHighlightedCode] = useState<string>('');
@@ -92,16 +94,62 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
               });
               
               // 全てのメソッド名をクリック可能にする（エスケープ処理を削除し、sanitizeContentに統一）
-              clickableMethodNames.forEach(methodName => {
-                const methodNameRegex = new RegExp(`\\b(${methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})\\b`, 'g');
-                highlighted = highlighted.replace(methodNameRegex, 
-                  `<span class="cursor-pointer" data-method-name="${methodName}">$1</span>`
-                );
+              // 長いメソッド名から先に処理して部分置換を防ぐ
+              const sortedMethodNames = Array.from(clickableMethodNames).sort((a, b) => b.length - a.length);
+              sortedMethodNames.forEach(methodName => {
+                if (methodName.endsWith('?') || methodName.endsWith('!')) {
+                  // 特殊文字（?や!）を含むメソッド名の処理
+                  // Prism.jsは?や!を別のトークンとして分離するため、特別な処理が必要
+                  const baseMethodName = methodName.slice(0, -1);
+                  const suffix = methodName.slice(-1);
+                  const escapedBase = baseMethodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                  const escapedSuffix = suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                  
+                  // パターン1: メソッド定義 - <span class="token method-definition"><span class="token function">method_name</span></span><span class="token operator">?</span>
+                  const definitionPattern = new RegExp(
+                    `(<span class="token method-definition"><span class="token function">${escapedBase}</span></span>)(<span class="token operator">${escapedSuffix}</span>)`,
+                    'g'
+                  );
+                  
+                  highlighted = highlighted.replace(definitionPattern, 
+                    `<span class="cursor-pointer" data-method-name="${methodName}">$1$2</span>`
+                  );
+                  
+                  // パターン2: メソッド呼び出し - method_name<span class="token operator">?</span>
+                  const callPattern = new RegExp(
+                    `(?<![\\w])(${escapedBase})(<span class="token operator">${escapedSuffix}</span>)`,
+                    'g'
+                  );
+                  
+                  highlighted = highlighted.replace(callPattern, 
+                    `<span class="cursor-pointer" data-method-name="${methodName}">$1$2</span>`
+                  );
+                } else {
+                  // 通常のメソッド名の処理（従来通り）
+                  const escapedMethodName = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                  const methodNameRegex = new RegExp(`(?<![\\w])${escapedMethodName}(?![\\w])`, 'g');
+                  highlighted = highlighted.replace(methodNameRegex, 
+                    `<span class="cursor-pointer" data-method-name="${methodName}">$&</span>`
+                  );
+                }
               });
             }
             
+            // デバッグ用：サニタイズ前後の内容をログ出力
+            if (process.env.NODE_ENV === 'development' && highlighted.includes('notifications_enabled')) {
+              console.log('=== CodeContent Debug ===');
+              console.log('Before sanitize:', highlighted.substring(0, 500));
+            }
+            
             // DOMPurifyで安全にサニタイズしてから設定
-            setHighlightedCode(sanitizeContent(highlighted, 'prism-code'));
+            const sanitized = sanitizeContent(highlighted, 'prism-code');
+            
+            if (process.env.NODE_ENV === 'development' && highlighted.includes('notifications_enabled')) {
+              console.log('After sanitize:', sanitized.substring(0, 500));
+              console.log('=== End Debug ===');
+            }
+            
+            setHighlightedCode(sanitized);
           } catch (error) {
             console.error('Prism highlight error:', error);
             setHighlightedCode(sanitizeContent(file.content, 'html-content'));
