@@ -30,14 +30,8 @@ function analyzeRubyMethods(file: ParsedFile): Method[] {
   const lines = file.content.split('\n');
   let isPrivate = false;
 
-  // まず、すべてのメソッド名を収集
+  // 単一ループでメソッド名収集と解析を同時実行（パフォーマンス最適化）
   const definedMethods = new Set<string>();
-  for (let i = 0; i < lines.length; i++) {
-    const methodMatch = lines[i].trim().match(COMMON_PATTERNS.METHOD_DEFINITION);
-    if (methodMatch) {
-      definedMethods.add(methodMatch[2]);
-    }
-  }
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -61,10 +55,13 @@ function analyzeRubyMethods(file: ParsedFile): Method[] {
       const [, selfPrefix, methodName, params] = methodMatch;
       const isClassMethod = !!selfPrefix;
       
+      // メソッド名を収集
+      definedMethods.add(methodName);
+      
       // メソッドの終端を探す
       const methodEndLine = findRubyMethodEnd(lines, i);
       const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
-      const methodCalls = extractRubyMethodCalls(methodCode, i + 1, definedMethods); // definedMethodsを渡す
+      const methodCalls = extractRubyMethodCalls(methodCode, i + 1, definedMethods);
 
       methods.push({
         name: methodName,
