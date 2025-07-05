@@ -1,8 +1,8 @@
 import { ParsedFile, Method, MethodCall } from '@/types/codebase';
-import { isRubyKeyword, isRubyBuiltin, isRubyCrudMethod } from '@/config/ruby-keywords';
+import { isRubyKeyword, isRubyBuiltin, isRubyCrudMethod, isRailsStandardMethod } from '@/config/ruby-keywords';
 import { COMMON_PATTERNS, MethodPatternBuilder } from '@/utils/regex-patterns';
 
-export function analyzeMethodsInFile(file: ParsedFile): Method[] {
+export function analyzeMethodsInFile(file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
   if (!file.content.trim() || file.language === 'unknown') {
     return [];
   }
@@ -11,10 +11,10 @@ export function analyzeMethodsInFile(file: ParsedFile): Method[] {
   
   switch (file.language) {
     case 'ruby':
-      methods = analyzeRubyMethods(file);
+      methods = analyzeRubyMethods(file, allDefinedMethods);
       break;
     case 'erb':
-      methods = analyzeErbMethods(file);
+      methods = analyzeErbMethods(file, allDefinedMethods);
       break;
     case 'javascript':
     case 'typescript':
@@ -28,13 +28,33 @@ export function analyzeMethodsInFile(file: ParsedFile): Method[] {
   return methods;
 }
 
-function analyzeRubyMethods(file: ParsedFile): Method[] {
+/**
+ * 全ファイルからメソッド定義名の一覧を抽出
+ * 変数フィルタリングのために使用
+ */
+export function extractAllMethodDefinitions(files: ParsedFile[]): Set<string> {
+  const methodNames = new Set<string>();
+  
+  for (const file of files) {
+    if (file.language === 'ruby') {
+      // メソッド定義のみを抽出（呼び出し検出はしない）
+      const methods = extractRubyMethodDefinitionsOnly(file);
+      methods.forEach(method => methodNames.add(method.name));
+    }
+    // ERBファイルはメソッド定義を持たないのでスキップ
+    // JavaScriptは後で対応
+  }
+  
+  return methodNames;
+}
+
+/**
+ * Rubyファイルからメソッド定義のみを抽出（呼び出し検出なし）
+ */
+function extractRubyMethodDefinitionsOnly(file: ParsedFile): Method[] {
   const methods: Method[] = [];
   const lines = file.content.split('\n');
   let isPrivate = false;
-
-  // 単一ループでメソッド名収集と解析を同時実行（パフォーマンス最適化）
-  const definedMethods = new Set<string>();
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -52,19 +72,86 @@ function analyzeRubyMethods(file: ParsedFile): Method[] {
       continue;
     }
 
-    // メソッド定義の検出（?や!を含むメソッド名にも対応）
+    // メソッド定義の検出
     const methodMatch = trimmedLine.match(COMMON_PATTERNS.METHOD_DEFINITION);
     if (methodMatch) {
       const [, selfPrefix, methodName, params] = methodMatch;
       const isClassMethod = !!selfPrefix;
       
-      // メソッド名を収集
-      definedMethods.add(methodName);
+      // メソッドの終端を探す
+      const methodEndLine = findRubyMethodEnd(lines, i);
+      const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
+
+      methods.push({
+        name: methodName,
+        type: isClassMethod ? 'class_method' : 'method',
+        startLine: i + 1,
+        endLine: methodEndLine + 1,
+        filePath: file.path,
+        code: methodCode,
+        calls: [], // 定義抽出段階では呼び出しは空
+        isPrivate,
+        parameters: parseRubyParameters(params || '()')
+      });
+    }
+  }
+
+  return methods;
+}
+
+function analyzeRubyMethods(file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
+  const methods: Method[] = [];
+  const lines = file.content.split('\n');
+  let isPrivate = false;
+
+  // このファイル内で定義されているメソッド名を収集
+  const localDefinedMethods = new Set<string>();
+  
+  // まず、このファイル内のメソッド定義を抽出
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmedLine = line.trim();
+    const methodMatch = trimmedLine.match(COMMON_PATTERNS.METHOD_DEFINITION);
+    if (methodMatch) {
+      const [, , methodName] = methodMatch;
+      localDefinedMethods.add(methodName);
+    }
+  }
+
+  // 全体の定義済みメソッド一覧とローカル定義を結合
+  const combinedDefinedMethods = new Set([
+    ...(allDefinedMethods || []),
+    ...localDefinedMethods
+  ]);
+
+  // メソッド定義とメソッド呼び出しを解析
+  isPrivate = false; // リセット
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmedLine = line.trim();
+
+    // プライベートセクションの検出
+    if (trimmedLine === 'private') {
+      isPrivate = true;
+      continue;
+    }
+
+    // publicやprotectedでプライベート解除
+    if (trimmedLine === 'public' || trimmedLine === 'protected') {
+      isPrivate = false;
+      continue;
+    }
+
+    // メソッド定義の検出
+    const methodMatch = trimmedLine.match(COMMON_PATTERNS.METHOD_DEFINITION);
+    if (methodMatch) {
+      const [, selfPrefix, methodName, params] = methodMatch;
+      const isClassMethod = !!selfPrefix;
       
       // メソッドの終端を探す
       const methodEndLine = findRubyMethodEnd(lines, i);
       const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
-      const methodCalls = extractRubyMethodCalls(methodCode, i + 1, definedMethods);
+      const methodCalls = extractRubyMethodCalls(methodCode, i + 1, combinedDefinedMethods);
 
       methods.push({
         name: methodName,
@@ -83,7 +170,7 @@ function analyzeRubyMethods(file: ParsedFile): Method[] {
   return methods;
 }
 
-function analyzeErbMethods(file: ParsedFile): Method[] {
+function analyzeErbMethods(file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
   const methods: Method[] = [];
   const lines = file.content.split('\n');
   const methodCallMap = new Map<string, { lines: number[], contexts: string[] }>();
@@ -91,7 +178,7 @@ function analyzeErbMethods(file: ParsedFile): Method[] {
   // ERBファイル全体からメソッド呼び出しを収集
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const methodCalls = extractErbMethodCalls(line, i + 1);
+    const methodCalls = extractErbMethodCalls(line, i + 1, allDefinedMethods);
     
     // メソッド呼び出しを集計
     for (const call of methodCalls) {
@@ -151,12 +238,11 @@ function analyzeErbMethods(file: ParsedFile): Method[] {
 
 /**
  * ERB用のRubyメソッド呼び出し抽出
- * 通常のRubyファイルと異なり、ERBではすべてのCRUDメソッドも検出対象とする
+ * 定義済みメソッド一覧を使って変数フィルタリングを行う
  */
-function extractErbRubyMethodCalls(code: string, lineNumber: number): MethodCall[] {
+function extractErbRubyMethodCalls(code: string, lineNumber: number, allDefinedMethods?: Set<string>): MethodCall[] {
   const calls: MethodCall[] = [];
   const lines = code.split('\n');
-  const definedMethods = new Set<string>(); // ERBでは空のSet
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
@@ -168,11 +254,11 @@ function extractErbRubyMethodCalls(code: string, lineNumber: number): MethodCall
     // 文字列補間内のメソッド呼び出し
     calls.push(...extractInterpolationMethodCalls(line, absoluteLineNumber));
     
-    // ドット記法のメソッド呼び出し（ERB用：CRUDメソッドも含める）
-    calls.push(...extractErbDotMethodCalls(line, absoluteLineNumber));
+    // ドット記法のメソッド呼び出し（定義済みメソッドでフィルタリング）
+    calls.push(...extractErbDotMethodCalls(line, absoluteLineNumber, allDefinedMethods));
     
-    // スタンドアロンのメソッド呼び出し（ERB用：CRUDメソッドも含める）
-    calls.push(...extractErbStandaloneMethodCalls(line, absoluteLineNumber));
+    // スタンドアロンのメソッド呼び出し（定義済みメソッドでフィルタリング）
+    calls.push(...extractErbStandaloneMethodCalls(line, absoluteLineNumber, allDefinedMethods));
   }
   
   // 重複を除去
@@ -187,15 +273,19 @@ function extractErbRubyMethodCalls(code: string, lineNumber: number): MethodCall
 
 /**
  * ERB用のドット記法メソッド呼び出し抽出
- * CRUDメソッドも検出対象とする
+ * 定義済みメソッド一覧でフィルタリング
  */
-function extractErbDotMethodCalls(line: string, lineNumber: number): MethodCall[] {
+function extractErbDotMethodCalls(line: string, lineNumber: number, allDefinedMethods?: Set<string>): MethodCall[] {
   const calls: MethodCall[] = [];
   
   const dotMethodMatches = Array.from(line.matchAll(COMMON_PATTERNS.DOT_METHOD));
   for (const match of dotMethodMatches) {
     const methodName = match[1];
-    if (methodName && !isRubyBuiltin(methodName)) {
+    
+    // ビルトインメソッドまたは定義済みメソッドのみ検出
+    if (methodName && 
+        !isRubyBuiltin(methodName) && 
+        (isRubyCrudMethod(methodName) || (allDefinedMethods && allDefinedMethods.has(methodName)))) {
       calls.push({
         methodName,
         line: lineNumber,
@@ -209,9 +299,9 @@ function extractErbDotMethodCalls(line: string, lineNumber: number): MethodCall[
 
 /**
  * ERB用のスタンドアロンメソッド呼び出し抽出
- * CRUDメソッドも検出対象とする
+ * 定義済みメソッド一覧でフィルタリング
  */
-function extractErbStandaloneMethodCalls(line: string, lineNumber: number): MethodCall[] {
+function extractErbStandaloneMethodCalls(line: string, lineNumber: number, allDefinedMethods?: Set<string>): MethodCall[] {
   const calls: MethodCall[] = [];
   
   const standaloneMethodMatches = Array.from(line.matchAll(COMMON_PATTERNS.STANDALONE_METHOD));
@@ -226,7 +316,8 @@ function extractErbStandaloneMethodCalls(line: string, lineNumber: number): Meth
     if (methodName && 
         !isAssignmentTarget &&
         !isRubyKeyword(methodName) && 
-        !isRubyBuiltin(methodName)) {
+        !isRubyBuiltin(methodName) &&
+        (isRubyCrudMethod(methodName) || isRailsStandardMethod(methodName) || (allDefinedMethods && allDefinedMethods.has(methodName)))) {
       calls.push({
         methodName,
         line: lineNumber,
@@ -415,7 +506,7 @@ function extractDotMethodCalls(line: string, lineNumber: number, definedMethods:
   const dotMethodMatches = Array.from(line.matchAll(COMMON_PATTERNS.DOT_METHOD));
   for (const match of dotMethodMatches) {
     const methodName = match[1];
-    if (methodName && !isRubyBuiltin(methodName) && (!isRubyCrudMethod(methodName) || definedMethods.has(methodName))) {
+    if (methodName && !isRubyBuiltin(methodName) && (definedMethods.has(methodName) || isRubyCrudMethod(methodName))) {
       calls.push({
         methodName,
         line: lineNumber,
@@ -447,11 +538,12 @@ function extractStandaloneMethodCalls(line: string, lineNumber: number, definedM
     // 右側（値）のメソッド呼び出しは検出対象
     const isAssignmentTarget = beforeMethod.trim().match(/\w+\s*$/) && afterMethod.trim().startsWith('=');
     
+    // 定義済みメソッドまたはCRUDメソッドのみ検出（変数を除外）
     if (methodName && 
         !isAssignmentTarget &&
         !isRubyKeyword(methodName) && 
         !isRubyBuiltin(methodName) && 
-        (!isRubyCrudMethod(methodName) || definedMethods.has(methodName))) {
+        (definedMethods.has(methodName) || isRubyCrudMethod(methodName) || isRailsStandardMethod(methodName))) {
       calls.push({
         methodName,
         line: lineNumber,
@@ -546,7 +638,7 @@ function parseJavaScriptParameters(paramString: string): string[] {
 /**
  * ERBタグからRubyコードを抽出してメソッド呼び出しを検出
  */
-function extractErbMethodCalls(line: string, lineNumber: number): MethodCall[] {
+function extractErbMethodCalls(line: string, lineNumber: number, allDefinedMethods?: Set<string>): MethodCall[] {
   const calls: MethodCall[] = [];
   
   // ERBタグパターンを使用してRubyコードを抽出
@@ -556,7 +648,7 @@ function extractErbMethodCalls(line: string, lineNumber: number): MethodCall[] {
     const rubyCode = match[1];
     if (rubyCode.trim()) {
       // 抽出したRubyコードからメソッド呼び出しを検出（ERB専用）
-      const rubyMethodCalls = extractErbRubyMethodCalls(rubyCode, lineNumber);
+      const rubyMethodCalls = extractErbRubyMethodCalls(rubyCode, lineNumber, allDefinedMethods);
       calls.push(...rubyMethodCalls);
     }
   }
