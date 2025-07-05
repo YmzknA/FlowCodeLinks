@@ -1,4 +1,5 @@
 import { ParsedFile, Method, MethodCall } from '@/types/codebase';
+import { isRubyKeyword, isRubyBuiltin, isRubyCrudMethod } from '@/config/ruby-keywords';
 
 export function analyzeMethodsInFile(file: ParsedFile): Method[] {
   if (!file.content.trim() || file.language === 'unknown') {
@@ -217,8 +218,13 @@ function findJavaScriptArrowFunctionEnd(lines: string[], startIndex: number): nu
 function extractInterpolationMethodCalls(line: string, lineNumber: number): MethodCall[] {
   const calls: MethodCall[] = [];
   
-  // 文字列補間内の単純なメソッド呼び出し #{method_name}
-  const interpolationMatches = Array.from(line.matchAll(/#\{(\w+[?!]?)(?:\s*\()?\}/g));
+  /**
+   * 文字列補間内の単純なメソッド呼び出しパターン: #{method_name} または #{method_name(}
+   * 例: "Hello #{user_name}" → "user_name"を抽出
+   * 例: "Count: #{get_count()}" → "get_count"を抽出
+   */
+  const INTERPOLATION_SIMPLE_PATTERN = /#\{(\w+[?!]?)(?:\s*\()?\}/g;
+  const interpolationMatches = Array.from(line.matchAll(INTERPOLATION_SIMPLE_PATTERN));
   for (const match of interpolationMatches) {
     const methodName = match[1];
     if (methodName && !isRubyKeyword(methodName)) {
@@ -230,7 +236,11 @@ function extractInterpolationMethodCalls(line: string, lineNumber: number): Meth
     }
   }
   
-  // 文字列補間内のオブジェクトメソッド呼び出し #{object.method_name}
+  /**
+   * 文字列補間内のオブジェクトメソッド呼び出しパターン: #{object.method_name}
+   * 例: "User: #{user.name}" → "name"を抽出
+   * 例: "Status: #{task.completed?}" → "completed?"を抽出
+   */
   const objectInterpolationMatches = Array.from(line.matchAll(/#\{\w+\.(\w+[?!]?)(?:\s*\()?\}/g));
   for (const match of objectInterpolationMatches) {
     const methodName = match[1];
@@ -252,8 +262,13 @@ function extractInterpolationMethodCalls(line: string, lineNumber: number): Meth
 function extractDotMethodCalls(line: string, lineNumber: number, definedMethods: Set<string>): MethodCall[] {
   const calls: MethodCall[] = [];
   
-  // オブジェクト.メソッド名の形式（例: user.admin?）- チェーンも含む
-  const dotMethodMatches = Array.from(line.matchAll(/\.(\w+[?!]?)(?=\s*\(|\s*\.|\s|$)/g));
+  /**
+   * オブジェクト.メソッド名の形式パターン（チェーンメソッド対応）
+   * 例: "user.admin?" → "admin?"を抽出
+   * 例: "post.comments.count" → "comments"と"count"を抽出
+   */
+  const DOT_METHOD_PATTERN = /\.(\w+[?!]?)(?=\s*\(|\s*\.|\s|$)/g;
+  const dotMethodMatches = Array.from(line.matchAll(DOT_METHOD_PATTERN));
   for (const match of dotMethodMatches) {
     const methodName = match[1];
     if (methodName && !isRubyBuiltin(methodName) && (!isRubyCrudMethod(methodName) || definedMethods.has(methodName))) {
@@ -274,8 +289,14 @@ function extractDotMethodCalls(line: string, lineNumber: number, definedMethods:
 function extractStandaloneMethodCalls(line: string, lineNumber: number, definedMethods: Set<string>): MethodCall[] {
   const calls: MethodCall[] = [];
   
-  // 行頭または空白の後のメソッド呼び出し（例: update_task_milestone_and_load_tasks）
-  const standaloneMethodMatches = Array.from(line.matchAll(/(?:^|\s)(\w+[?!]?)(?:\s*\(|\s*$|\s+)/g));
+  /**
+   * 行頭または空白の後のスタンドアロンメソッド呼び出しパターン
+   * 例: "update_task_milestone_and_load_tasks" → "update_task_milestone_and_load_tasks"を抽出
+   * 例: "  method_call()" → "method_call"を抽出
+   * 例: "validate!" → "validate!"を抽出
+   */
+  const STANDALONE_METHOD_PATTERN = /(?:^|\s)(\w+[?!]?)(?:\s*\(|\s*$|\s+)/g;
+  const standaloneMethodMatches = Array.from(line.matchAll(STANDALONE_METHOD_PATTERN));
   for (const match of standaloneMethodMatches) {
     const methodName = match[1];
     
@@ -382,31 +403,6 @@ function parseJavaScriptParameters(paramString: string): string[] {
   return params ? params.split(',').map(p => p.trim()) : [];
 }
 
-function isRubyKeyword(word: string): boolean {
-  const keywords = ['if', 'unless', 'while', 'until', 'for', 'case', 'when', 'begin', 'rescue', 'ensure', 'end', 'def', 'class', 'module', 'return', 'yield', 'break', 'next'];
-  return keywords.includes(word);
-}
-
-function isRubyBuiltin(word: string): boolean {
-  const builtins = ['puts', 'print', 'p', 'require', 'include', 'extend', 'attr_reader', 'attr_writer', 'attr_accessor'];
-  return builtins.includes(word);
-}
-
-function isRubyCrudMethod(word: string): boolean {
-  const crudMethods = [
-    // ActiveRecord生成メソッド
-    'new', 'create', 'create!',
-    // ActiveRecord更新メソッド 
-    'update', 'update!', 'save', 'save!', 'update_attribute', 'update_column', 'update_columns',
-    // ActiveRecord削除メソッド
-    'delete', 'destroy', 'destroy!',
-    // ActiveRecord検索メソッド（明確にActiveRecordのもの）
-    'find_by', 'find_each', 'find_in_batches', 'exists?', 'pluck', 'ids', 'reload',
-    // ActiveRecord状態変更メソッド
-    'touch', 'increment', 'decrement', 'toggle'
-  ];
-  return crudMethods.includes(word);
-}
 
 function isJavaScriptKeyword(word: string): boolean {
   const keywords = ['if', 'else', 'while', 'for', 'switch', 'case', 'try', 'catch', 'finally', 'return', 'break', 'continue', 'function', 'var', 'let', 'const', 'class', 'new'];
