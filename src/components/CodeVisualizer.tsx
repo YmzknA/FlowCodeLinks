@@ -6,7 +6,7 @@ import { DependencyLines } from './DependencyLines';
 import { ZoomableCanvas } from './ZoomableCanvas';
 import { CallersModal } from './CallersModal';
 import { parseRepomixFile } from '@/utils/parser';
-import { analyzeMethodsInFile } from '@/utils/method-analyzer';
+import { analyzeMethodsInFile, extractAllMethodDefinitions } from '@/utils/method-analyzer';
 import { extractDependencies } from '@/utils/dependency-extractor';
 import { useOptimizedAnalysis, useOptimizedDependencies } from '@/utils/performance';
 import { ParsedFile, Method, Dependency, FloatingWindow } from '@/types/codebase';
@@ -27,16 +27,20 @@ export const CodeVisualizer: React.FC = () => {
   const [callersList, setCallersList] = useState<{ methodName: string; callers: Array<{ methodName: string; filePath: string; lineNumber?: number }> } | null>(null);
   const [showOpenWindowsOnly, setShowOpenWindowsOnly] = useState(true);
 
-  // ファイル解析と最適化
+  // ファイル解析と最適化（2段階解析）
   const analysisResult = useMemo(() => {
     if (!repomixContent) return { files: [], methods: [], dependencies: [] };
 
     try {
       const parseResult = parseRepomixFile(repomixContent);
       
+      // 第1段階: 全ファイルからメソッド定義名を抽出
+      const allDefinedMethods = extractAllMethodDefinitions(parseResult.files);
+      
+      // 第2段階: 定義済みメソッド一覧を使ってメソッド解析（変数フィルタリング）
       const filesWithMethods = parseResult.files.map(file => ({
         ...file,
-        methods: analyzeMethodsInFile(file)
+        methods: analyzeMethodsInFile(file, allDefinedMethods)
       }));
 
       const allMethods = filesWithMethods.flatMap(file => file.methods);
