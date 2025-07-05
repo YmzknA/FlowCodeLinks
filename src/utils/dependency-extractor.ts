@@ -25,6 +25,11 @@ function createMethodMap(methods: Method[]): Map<string, Method[]> {
   const map = new Map<string, Method[]>();
   
   for (const method of methods) {
+    // ERBファイル内のメソッド呼び出しは定義として扱わない
+    if (method.type === 'erb_call') {
+      continue;
+    }
+    
     if (!map.has(method.name)) {
       map.set(method.name, []);
     }
