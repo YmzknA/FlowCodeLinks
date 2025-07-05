@@ -219,61 +219,9 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                   // 既にこのメソッド名がclickable-methodで囲まれているかチェック
                   const alreadyWrapped = highlighted.includes(`data-method-name="${methodName}"`);
                   if (!alreadyWrapped) {
-                    if (methodName.endsWith('?') || methodName.endsWith('!')) {
-                      // 特殊文字（?や!）を含むメソッド名は、HTML属性を保護しつつ特別な処理
-                      const baseMethodName = methodName.slice(0, -1);
-                      const suffix = methodName.slice(-1);
-                      const escapedBase = baseMethodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                      const escapedSuffix = suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                      
-                      // HTML属性を保護
-                      let tempHighlighted = highlighted;
-                      const protectMarker = `__PROTECT_${Math.random().toString(36).substr(2, 9)}__`;
-                      const protectMap = new Map<string, string>();
-                      let protectIndex = 0;
-                      
-                      // HTML属性内のメソッド名を保護
-                      tempHighlighted = tempHighlighted.replace(/\w+\s*=\s*["'][^"']*["']/g, (match) => {
-                        if (match.includes(methodName)) {
-                          const protectedValue = `${protectMarker}_INDEX_${protectIndex}_END__`;
-                          protectMap.set(protectedValue, match);
-                          protectIndex++;
-                          return protectedValue;
-                        }
-                        return match;
-                      });
-                      
-                      // パターン1: メソッド定義
-                      const definitionPattern = new RegExp(
-                        `(<span class="token method-definition"><span class="token function">${escapedBase}</span></span>)(<span class="token operator">${escapedSuffix}</span>)`,
-                        'g'
-                      );
-                      tempHighlighted = tempHighlighted.replace(definitionPattern, 
-                        `<span class="cursor-pointer" data-method-name="${methodName}">$1$2</span>`
-                      );
-                      
-                      // パターン2: メソッド呼び出し
-                      const callPattern = new RegExp(
-                        `(?<![\\w])(${escapedBase})(<span class="token operator">${escapedSuffix}</span>)`,
-                        'g'
-                      );
-                      tempHighlighted = tempHighlighted.replace(callPattern, 
-                        `<span class="cursor-pointer" data-method-name="${methodName}">$1$2</span>`
-                      );
-                      
-                      // 保護されたHTML属性を復元
-                      protectMap.forEach((originalContent, marker) => {
-                        // マーカーをエスケープして安全に置換
-                        const escapedMarker = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                        tempHighlighted = tempHighlighted.replace(new RegExp(escapedMarker, 'g'), originalContent);
-                      });
-                      
-                      highlighted = tempHighlighted;
-                    } else {
-                      // 通常のメソッド名はユーティリティ関数を使用
-                      const escapedMethodName = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                      highlighted = replaceMethodNameInText(highlighted, methodName, escapedMethodName);
-                    }
+                    // 全てのメソッド名に対してユーティリティ関数を使用（コード重複解消）
+                    const escapedMethodName = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    highlighted = replaceMethodNameInText(highlighted, methodName, escapedMethodName);
                   }
                 });
               }

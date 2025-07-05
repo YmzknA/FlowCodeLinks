@@ -4,8 +4,8 @@
 const createProtectMarker = (): string => {
   try {
     const timestamp = Date.now().toString(36);
-    const random1 = Math.random().toString(36).substr(2, 9);
-    const random2 = Math.random().toString(36).substr(2, 9);
+    const random1 = Math.random().toString(36).slice(2, 11);
+    const random2 = Math.random().toString(36).slice(2, 11);
     
     return `__PROTECT_${timestamp}_${random1}_${random2}__`;
   } catch (error) {
