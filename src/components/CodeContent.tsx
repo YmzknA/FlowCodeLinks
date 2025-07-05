@@ -135,19 +135,8 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
               });
             }
             
-            // デバッグ用：サニタイズ前後の内容をログ出力
-            if (process.env.NODE_ENV === 'development' && highlighted.includes('notifications_enabled')) {
-              console.log('=== CodeContent Debug ===');
-              console.log('Before sanitize:', highlighted.substring(0, 500));
-            }
-            
             // DOMPurifyで安全にサニタイズしてから設定
             const sanitized = sanitizeContent(highlighted, 'prism-code');
-            
-            if (process.env.NODE_ENV === 'development' && highlighted.includes('notifications_enabled')) {
-              console.log('After sanitize:', sanitized.substring(0, 500));
-              console.log('=== End Debug ===');
-            }
             
             setHighlightedCode(sanitized);
           } catch (error) {

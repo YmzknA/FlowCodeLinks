@@ -211,83 +211,122 @@ function findJavaScriptArrowFunctionEnd(lines: string[], startIndex: number): nu
   return findJavaScriptFunctionEnd(lines, startIndex);
 }
 
+/**
+ * 文字列補間内のメソッド呼び出しを抽出
+ */
+function extractInterpolationMethodCalls(line: string, lineNumber: number): MethodCall[] {
+  const calls: MethodCall[] = [];
+  
+  // 文字列補間内の単純なメソッド呼び出し #{method_name}
+  const interpolationMatches = Array.from(line.matchAll(/#\{(\w+[?!]?)(?:\s*\()?\}/g));
+  for (const match of interpolationMatches) {
+    const methodName = match[1];
+    if (methodName && !isRubyKeyword(methodName)) {
+      calls.push({
+        methodName,
+        line: lineNumber,
+        context: line.trim()
+      });
+    }
+  }
+  
+  // 文字列補間内のオブジェクトメソッド呼び出し #{object.method_name}
+  const objectInterpolationMatches = Array.from(line.matchAll(/#\{\w+\.(\w+[?!]?)(?:\s*\()?\}/g));
+  for (const match of objectInterpolationMatches) {
+    const methodName = match[1];
+    if (methodName && !isRubyKeyword(methodName)) {
+      calls.push({
+        methodName,
+        line: lineNumber,
+        context: line.trim()
+      });
+    }
+  }
+  
+  return calls;
+}
+
+/**
+ * ドット記法のメソッド呼び出しを抽出（チェーンメソッドを含む）
+ */
+function extractDotMethodCalls(line: string, lineNumber: number, definedMethods: Set<string>): MethodCall[] {
+  const calls: MethodCall[] = [];
+  
+  // オブジェクト.メソッド名の形式（例: user.admin?）- チェーンも含む
+  const dotMethodMatches = Array.from(line.matchAll(/\.(\w+[?!]?)(?=\s*\(|\s*\.|\s|$)/g));
+  for (const match of dotMethodMatches) {
+    const methodName = match[1];
+    if (methodName && !isRubyBuiltin(methodName) && (!isRubyCrudMethod(methodName) || definedMethods.has(methodName))) {
+      calls.push({
+        methodName,
+        line: lineNumber,
+        context: line.trim()
+      });
+    }
+  }
+  
+  return calls;
+}
+
+/**
+ * スタンドアロンのメソッド呼び出しを抽出
+ */
+function extractStandaloneMethodCalls(line: string, lineNumber: number, definedMethods: Set<string>): MethodCall[] {
+  const calls: MethodCall[] = [];
+  
+  // 行頭または空白の後のメソッド呼び出し（例: update_task_milestone_and_load_tasks）
+  const standaloneMethodMatches = Array.from(line.matchAll(/(?:^|\s)(\w+[?!]?)(?:\s*\(|\s*$|\s+)/g));
+  for (const match of standaloneMethodMatches) {
+    const methodName = match[1];
+    
+    // 変数代入（=）、文字列内、コメント内でないことを確認
+    const beforeMethod = line.substring(0, line.indexOf(methodName));
+    const afterMethod = line.substring(line.indexOf(methodName) + methodName.length);
+    
+    // 変数代入の左側（変数名）でない、かつRubyキーワードでない場合のみ
+    // 右側（値）のメソッド呼び出しは検出対象
+    const isAssignmentTarget = beforeMethod.trim().match(/\w+\s*$/) && afterMethod.trim().startsWith('=');
+    
+    if (methodName && 
+        !isAssignmentTarget &&
+        !isRubyKeyword(methodName) && 
+        !isRubyBuiltin(methodName) && 
+        (!isRubyCrudMethod(methodName) || definedMethods.has(methodName))) {
+      calls.push({
+        methodName,
+        line: lineNumber,
+        context: line.trim()
+      });
+    }
+  }
+  
+  return calls;
+}
+
+/**
+ * Rubyコード内からメソッド呼び出しを抽出
+ */
 function extractRubyMethodCalls(code: string, startLineNumber: number, definedMethods: Set<string> = new Set()): MethodCall[] {
   const calls: MethodCall[] = [];
   const lines = code.split('\n');
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const absoluteLineNumber = startLineNumber + i; // ファイル内での絶対行番号
+    const absoluteLineNumber = startLineNumber + i;
     
     // コメント行をスキップ
     if (line.trim().startsWith('#')) continue;
     
-    // 文字列補間内のメソッド呼び出し #{method_name} および #{object.method_name}
-    const interpolationMatches = Array.from(line.matchAll(/#\{(\w+[?!]?)(?:\s*\()?\}/g));
-    for (const match of interpolationMatches) {
-      const methodName = match[1];
-      if (methodName && !isRubyKeyword(methodName)) {
-        calls.push({
-          methodName,
-          line: absoluteLineNumber,
-          context: line.trim()
-        });
-      }
-    }
+    // 文字列補間内のメソッド呼び出し
+    calls.push(...extractInterpolationMethodCalls(line, absoluteLineNumber));
     
-    // 文字列補間内のオブジェクトメソッド呼び出し #{object.method_name}
-    const objectInterpolationMatches = Array.from(line.matchAll(/#\{\w+\.(\w+[?!]?)(?:\s*\()?\}/g));
-    for (const match of objectInterpolationMatches) {
-      const methodName = match[1];
-      if (methodName && !isRubyKeyword(methodName)) {
-        calls.push({
-          methodName,
-          line: absoluteLineNumber,
-          context: line.trim()
-        });
-      }
-    }
-    
-    // 通常のメソッド呼び出し（関数定義行は除外）
+    // メソッド定義行以外で通常のメソッド呼び出しを解析
     if (!line.trim().startsWith('def ')) {
-      // メソッド呼び出しパターンを改善
-      // 1. オブジェクト.メソッド名の形式（例: user.admin?）- チェーンも含む
-      const dotMethodMatches = Array.from(line.matchAll(/\.(\w+[?!]?)(?=\s*\(|\s*\.|\s|$)/g));
-      for (const match of dotMethodMatches) {
-        const methodName = match[1];
-        if (methodName && !isRubyBuiltin(methodName) && (!isRubyCrudMethod(methodName) || definedMethods.has(methodName))) {
-          calls.push({
-            methodName,
-            line: absoluteLineNumber,
-            context: line.trim()
-          });
-        }
-      }
+      // ドット記法のメソッド呼び出し
+      calls.push(...extractDotMethodCalls(line, absoluteLineNumber, definedMethods));
       
-      // 2. 行頭または空白の後のメソッド呼び出し（例: update_task_milestone_and_load_tasks）
-      const standaloneMethodMatches = Array.from(line.matchAll(/(?:^|\s)(\w+[?!]?)(?:\s*\(|\s*$|\s+)/g));
-      for (const match of standaloneMethodMatches) {
-        const methodName = match[1];
-        // 変数代入（=）、文字列内、コメント内でないことを確認
-        const beforeMethod = line.substring(0, line.indexOf(methodName));
-        const afterMethod = line.substring(line.indexOf(methodName) + methodName.length);
-        
-        // 変数代入の左側（変数名）でない、かつRubyキーワードでない場合のみ
-        // 右側（値）のメソッド呼び出しは検出対象
-        const isAssignmentTarget = beforeMethod.trim().match(/\w+\s*$/) && afterMethod.trim().startsWith('=');
-        
-        if (methodName && 
-            !isAssignmentTarget &&
-            !isRubyKeyword(methodName) && 
-            !isRubyBuiltin(methodName) && 
-            (!isRubyCrudMethod(methodName) || definedMethods.has(methodName))) {
-          calls.push({
-            methodName,
-            line: absoluteLineNumber,
-            context: line.trim()
-          });
-        }
-      }
+      // スタンドアロンのメソッド呼び出し
+      calls.push(...extractStandaloneMethodCalls(line, absoluteLineNumber, definedMethods));
     }
   }
   

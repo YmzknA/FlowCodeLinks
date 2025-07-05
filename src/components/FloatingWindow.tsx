@@ -263,22 +263,9 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                       
                       // 保護されたHTML属性を復元
                       protectMap.forEach((originalContent, marker) => {
-                        // デバッグログを追加
-                        if (process.env.NODE_ENV === 'development') {
-                          console.log('=== Marker Restoration Debug ===');
-                          console.log('Marker:', marker);
-                          console.log('Original content:', originalContent);
-                          console.log('Before restoration:', tempHighlighted.substring(0, 200));
-                        }
-                        
                         // マーカーをエスケープして安全に置換
                         const escapedMarker = marker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                         tempHighlighted = tempHighlighted.replace(new RegExp(escapedMarker, 'g'), originalContent);
-                        
-                        if (process.env.NODE_ENV === 'development') {
-                          console.log('After restoration:', tempHighlighted.substring(0, 200));
-                          console.log('=== End Marker Restoration Debug ===');
-                        }
                       });
                       
                       highlighted = tempHighlighted;
@@ -291,12 +278,6 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                 });
               }
               
-              // デバッグ用：処理後の内容をログ出力
-              if (process.env.NODE_ENV === 'development' && highlighted.includes('notifications_enabled')) {
-                console.log('=== FloatingWindow Debug ===');
-                console.log('Processed HTML:', highlighted.substring(0, 500));
-                console.log('=== End FloatingWindow Debug ===');
-              }
               
               setHighlightedCode(highlighted);
             } catch (error) {

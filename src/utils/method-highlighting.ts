@@ -6,8 +6,8 @@ export const replaceMethodNameInText = (html: string, methodName: string, escape
   // 特定のケースのみ保護する、より安全なアプローチ
   let result = html;
   
-  // 一時的な保護マーカー
-  const protectMarker = `__PROTECT_${Math.random().toString(36).substr(2, 9)}__`;
+  // 一時的な保護マーカー（より予測困難で衝突リスクが低い）
+  const protectMarker = `__PROTECT_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${Math.random().toString(36).substr(2, 9)}__`;
   const protectMap = new Map<string, string>();
   let protectIndex = 0;
   
