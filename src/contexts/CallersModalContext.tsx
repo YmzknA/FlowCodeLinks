@@ -25,6 +25,20 @@ const CallersModalContext = createContext<CallersModalContextValue | null>(null)
 export const useCallersModal = (): CallersModalContextValue => {
   const context = useContext(CallersModalContext);
   if (!context) {
+    // SSR時はデフォルト値を返す
+    if (typeof window === 'undefined') {
+      return {
+        state: {
+          isOpen: false,
+          methodName: null,
+          callers: [],
+          showOpenWindowsOnly: true
+        },
+        openModal: () => {},
+        closeModal: () => {},
+        toggleShowOpenWindowsOnly: () => {}
+      };
+    }
     throw new Error('useCallersModal must be used within a CallersModalProvider');
   }
   return context;

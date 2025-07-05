@@ -1,4 +1,6 @@
 import { ParsedFile, Method, MethodCall } from '@/types/codebase';
+import { isRubyKeyword, isRubyBuiltin, isRubyCrudMethod } from '@/config/ruby-keywords';
+import { COMMON_PATTERNS, MethodPatternBuilder } from '@/utils/regex-patterns';
 
 export function analyzeMethodsInFile(file: ParsedFile): Method[] {
   if (!file.content.trim() || file.language === 'unknown') {
@@ -28,6 +30,9 @@ function analyzeRubyMethods(file: ParsedFile): Method[] {
   const lines = file.content.split('\n');
   let isPrivate = false;
 
+  // 単一ループでメソッド名収集と解析を同時実行（パフォーマンス最適化）
+  const definedMethods = new Set<string>();
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmedLine = line.trim();
@@ -44,16 +49,19 @@ function analyzeRubyMethods(file: ParsedFile): Method[] {
       continue;
     }
 
-    // メソッド定義の検出
-    const methodMatch = trimmedLine.match(/^def\s+(self\.)?(\w+)(\([^)]*\))?/);
+    // メソッド定義の検出（?や!を含むメソッド名にも対応）
+    const methodMatch = trimmedLine.match(COMMON_PATTERNS.METHOD_DEFINITION);
     if (methodMatch) {
       const [, selfPrefix, methodName, params] = methodMatch;
       const isClassMethod = !!selfPrefix;
       
+      // メソッド名を収集
+      definedMethods.add(methodName);
+      
       // メソッドの終端を探す
       const methodEndLine = findRubyMethodEnd(lines, i);
       const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
-      const methodCalls = extractRubyMethodCalls(methodCode, i + 1); // 開始行番号を渡す
+      const methodCalls = extractRubyMethodCalls(methodCode, i + 1, definedMethods);
 
       methods.push({
         name: methodName,
@@ -202,46 +210,136 @@ function findJavaScriptArrowFunctionEnd(lines: string[], startIndex: number): nu
   return findJavaScriptFunctionEnd(lines, startIndex);
 }
 
-function extractRubyMethodCalls(code: string, startLineNumber: number): MethodCall[] {
+/**
+ * 文字列補間内のメソッド呼び出しを抽出
+ * 改善版: 構造化された正規表現パターンを使用
+ */
+function extractInterpolationMethodCalls(line: string, lineNumber: number): MethodCall[] {
+  const calls: MethodCall[] = [];
+  
+  // 文字列補間内の単純なメソッド呼び出しパターンを使用
+  const interpolationMatches = Array.from(line.matchAll(COMMON_PATTERNS.INTERPOLATION_SIMPLE));
+  for (const match of interpolationMatches) {
+    const methodName = match[1];
+    if (methodName && !isRubyKeyword(methodName)) {
+      calls.push({
+        methodName,
+        line: lineNumber,
+        context: line.trim()
+      });
+    }
+  }
+  
+  // 文字列補間内のオブジェクトメソッド呼び出しパターンを使用
+  const objectInterpolationMatches = Array.from(line.matchAll(COMMON_PATTERNS.INTERPOLATION_OBJECT));
+  for (const match of objectInterpolationMatches) {
+    const methodName = match[1];
+    if (methodName && !isRubyKeyword(methodName)) {
+      calls.push({
+        methodName,
+        line: lineNumber,
+        context: line.trim()
+      });
+    }
+  }
+  
+  return calls;
+}
+
+/**
+ * ドット記法のメソッド呼び出しを抽出（チェーンメソッドを含む）
+ * 改善版: 構造化された正規表現パターンを使用
+ */
+function extractDotMethodCalls(line: string, lineNumber: number, definedMethods: Set<string>): MethodCall[] {
+  const calls: MethodCall[] = [];
+  
+  // ドット記法メソッド呼び出しパターンを使用
+  const dotMethodMatches = Array.from(line.matchAll(COMMON_PATTERNS.DOT_METHOD));
+  for (const match of dotMethodMatches) {
+    const methodName = match[1];
+    if (methodName && !isRubyBuiltin(methodName) && (!isRubyCrudMethod(methodName) || definedMethods.has(methodName))) {
+      calls.push({
+        methodName,
+        line: lineNumber,
+        context: line.trim()
+      });
+    }
+  }
+  
+  return calls;
+}
+
+/**
+ * スタンドアロンのメソッド呼び出しを抽出
+ * 改善版: 構造化された正規表現パターンを使用
+ */
+function extractStandaloneMethodCalls(line: string, lineNumber: number, definedMethods: Set<string>): MethodCall[] {
+  const calls: MethodCall[] = [];
+  
+  // スタンドアロンメソッド呼び出しパターンを使用
+  const standaloneMethodMatches = Array.from(line.matchAll(COMMON_PATTERNS.STANDALONE_METHOD));
+  for (const match of standaloneMethodMatches) {
+    const methodName = match[1];
+    
+    // 変数代入（=）、文字列内、コメント内でないことを確認
+    const beforeMethod = line.substring(0, line.indexOf(methodName));
+    const afterMethod = line.substring(line.indexOf(methodName) + methodName.length);
+    
+    // 変数代入の左側（変数名）でない、かつRubyキーワードでない場合のみ
+    // 右側（値）のメソッド呼び出しは検出対象
+    const isAssignmentTarget = beforeMethod.trim().match(/\w+\s*$/) && afterMethod.trim().startsWith('=');
+    
+    if (methodName && 
+        !isAssignmentTarget &&
+        !isRubyKeyword(methodName) && 
+        !isRubyBuiltin(methodName) && 
+        (!isRubyCrudMethod(methodName) || definedMethods.has(methodName))) {
+      calls.push({
+        methodName,
+        line: lineNumber,
+        context: line.trim()
+      });
+    }
+  }
+  
+  return calls;
+}
+
+/**
+ * Rubyコード内からメソッド呼び出しを抽出
+ */
+function extractRubyMethodCalls(code: string, startLineNumber: number, definedMethods: Set<string> = new Set()): MethodCall[] {
   const calls: MethodCall[] = [];
   const lines = code.split('\n');
   
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
-    const absoluteLineNumber = startLineNumber + i; // ファイル内での絶対行番号
+    const absoluteLineNumber = startLineNumber + i;
     
-    // 文字列補間内のメソッド呼び出し #{method_name}
-    const interpolationMatches = Array.from(line.matchAll(/#\{(\w+)(?:\s*\()?\}/g));
-    for (const match of interpolationMatches) {
-      const methodName = match[1];
-      if (methodName && !isRubyKeyword(methodName)) {
-        calls.push({
-          methodName,
-          line: absoluteLineNumber,
-          context: line.trim()
-        });
-      }
-    }
+    // コメント行をスキップ
+    if (line.trim().startsWith('#')) continue;
     
-    // 通常のメソッド呼び出し（関数定義行は除外）
+    // 文字列補間内のメソッド呼び出し
+    calls.push(...extractInterpolationMethodCalls(line, absoluteLineNumber));
+    
+    // メソッド定義行以外で通常のメソッド呼び出しを解析
     if (!line.trim().startsWith('def ')) {
-      // より柔軟なメソッド呼び出しの検出パターン
-      const methodCallMatches = Array.from(line.matchAll(/(\w+)(?:\s*\(|\.|\s)/g));
+      // ドット記法のメソッド呼び出し
+      calls.push(...extractDotMethodCalls(line, absoluteLineNumber, definedMethods));
       
-      for (const match of methodCallMatches) {
-        const methodName = match[1];
-        if (methodName && !isRubyKeyword(methodName) && !isRubyBuiltin(methodName) && !isRubyCrudMethod(methodName)) {
-          calls.push({
-            methodName,
-            line: absoluteLineNumber,
-            context: line.trim()
-          });
-        }
-      }
+      // スタンドアロンのメソッド呼び出し
+      calls.push(...extractStandaloneMethodCalls(line, absoluteLineNumber, definedMethods));
     }
   }
   
-  return calls;
+  // 重複を除去
+  const uniqueCalls = calls.filter((call, index, self) =>
+    index === self.findIndex((c) => 
+      c.methodName === call.methodName && c.line === call.line
+    )
+  );
+  
+  return uniqueCalls;
 }
 
 function extractJavaScriptMethodCalls(code: string, startLineNumber: number): MethodCall[] {
@@ -286,31 +384,6 @@ function parseJavaScriptParameters(paramString: string): string[] {
   return params ? params.split(',').map(p => p.trim()) : [];
 }
 
-function isRubyKeyword(word: string): boolean {
-  const keywords = ['if', 'unless', 'while', 'until', 'for', 'case', 'when', 'begin', 'rescue', 'ensure', 'end', 'def', 'class', 'module', 'return', 'yield', 'break', 'next'];
-  return keywords.includes(word);
-}
-
-function isRubyBuiltin(word: string): boolean {
-  const builtins = ['puts', 'print', 'p', 'require', 'include', 'extend', 'attr_reader', 'attr_writer', 'attr_accessor'];
-  return builtins.includes(word);
-}
-
-function isRubyCrudMethod(word: string): boolean {
-  const crudMethods = [
-    // ActiveRecord生成メソッド
-    'new', 'create', 'create!',
-    // ActiveRecord更新メソッド 
-    'update', 'update!', 'save', 'save!', 'update_attribute', 'update_column', 'update_columns',
-    // ActiveRecord削除メソッド
-    'delete', 'destroy', 'destroy!',
-    // ActiveRecord検索メソッド（明確にActiveRecordのもの）
-    'find_by', 'find_each', 'find_in_batches', 'exists?', 'pluck', 'ids', 'reload',
-    // ActiveRecord状態変更メソッド
-    'touch', 'increment', 'decrement', 'toggle'
-  ];
-  return crudMethods.includes(word);
-}
 
 function isJavaScriptKeyword(word: string): boolean {
   const keywords = ['if', 'else', 'while', 'for', 'switch', 'case', 'try', 'catch', 'finally', 'return', 'break', 'continue', 'function', 'var', 'let', 'const', 'class', 'new'];

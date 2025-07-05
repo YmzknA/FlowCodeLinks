@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import '../styles/prism-theme.css'
 
 export const metadata: Metadata = {
   title: 'FlowCodeLinks',
@@ -13,9 +14,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
-      <head>
-        <link rel="stylesheet" href="/prism-theme.css" />
-      </head>
       <body className="bg-gray-100 font-mono">
         {children}
       </body>

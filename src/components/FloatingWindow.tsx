@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { FloatingWindow as FloatingWindowType, ScrollInfo } from '@/types/codebase';
 import { useWheelScrollIsolation } from '@/hooks/useWheelScrollIsolation';
+import { replaceMethodNameInText } from '@/utils/method-highlighting';
 
 interface FloatingWindowProps {
   window: FloatingWindowType;
@@ -211,20 +212,20 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                   });
                 });
                 
-                // 各メソッド名をクリック可能にする（重複チェック付き）
-                clickableMethodNames.forEach(methodName => {
+                // 各メソッド名をクリック可能にする（HTML属性を保護しながら）
+                // 長いメソッド名から先に処理して部分置換を防ぐ
+                const sortedMethodNames = Array.from(clickableMethodNames).sort((a, b) => b.length - a.length);
+                sortedMethodNames.forEach(methodName => {
                   // 既にこのメソッド名がclickable-methodで囲まれているかチェック
                   const alreadyWrapped = highlighted.includes(`data-method-name="${methodName}"`);
                   if (!alreadyWrapped) {
+                    // 全てのメソッド名に対してユーティリティ関数を使用（コード重複解消）
                     const escapedMethodName = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    const methodRegex = new RegExp(`\\b(${escapedMethodName})\\b`, 'g');
-                    
-                    highlighted = highlighted.replace(methodRegex, 
-                      `<span class="cursor-pointer" data-method-name="${methodName}">$1</span>`
-                    );
+                    highlighted = replaceMethodNameInText(highlighted, methodName, escapedMethodName);
                   }
                 });
               }
+              
               
               setHighlightedCode(highlighted);
             } catch (error) {
