@@ -1,6 +1,6 @@
 // コードベース解析のための型定義
 
-export type Language = 'ruby' | 'javascript' | 'typescript' | 'yaml' | 'markdown' | 'unknown';
+export type Language = 'ruby' | 'erb' | 'javascript' | 'typescript' | 'yaml' | 'markdown' | 'unknown';
 
 export interface ParsedFile {
   path: string;
