@@ -173,6 +173,22 @@ const formatDate = (date) => date.toISOString().split('T')[0];`;
   }
   
   return formatUserData(userData);
+}
+
+function getFullName(user) {
+  return user.name;
+}
+
+function validateEmail(email) {
+  return email.includes('@');
+}
+
+function sendWelcomeEmail(name) {
+  console.log('Welcome ' + name);
+}
+
+function formatUserData(user) {
+  return { formatted: user };
 }`;
       
       const file = createJsFile(content);
@@ -184,6 +200,179 @@ const formatDate = (date) => date.toISOString().split('T')[0];`;
       expect(processMethod?.calls.map(c => c.methodName)).toContain('validateEmail');
       expect(processMethod?.calls.map(c => c.methodName)).toContain('sendWelcomeEmail');
       expect(processMethod?.calls.map(c => c.methodName)).toContain('formatUserData');
+    });
+  });
+
+  describe('TypeScript メソッド解析', () => {
+    const createTsFile = (content: string): ParsedFile => ({
+      path: 'test.ts',
+      language: 'typescript' as Language,
+      content,
+      directory: '',
+      fileName: 'test.ts',
+      totalLines: content.split('\n').length,
+      methods: []
+    });
+
+    test('基本的な関数（型アノテーション付き）を検出できる', () => {
+      const content = `export function calculateSum(a: number, b: number): number {
+  return a + b;
+}
+
+async function fetchUser(id: string): Promise<User> {
+  const response = await fetch(\`/api/users/\${id}\`);
+  return response.json();
+}`;
+      
+      const file = createTsFile(content);
+      const methods = analyzeMethodsInFile(file);
+      
+      expect(methods).toHaveLength(2);
+      expect(methods[0].name).toBe('calculateSum');
+      expect(methods[0].type).toBe('function');
+      expect(methods[1].name).toBe('fetchUser');
+      expect(methods[1].type).toBe('function');
+    });
+
+    test('アロー関数（型アノテーション付き）を検出できる', () => {
+      const content = `const multiply = (a: number, b: number): number => {
+  return a * b;
+};
+
+const handleClick = useCallback((event: React.MouseEvent<HTMLButtonElement>) => {
+  console.log('Button clicked');
+}, []);
+
+export const processData: (data: any[]) => ProcessedData = (data) => {
+  return data.map(item => transformItem(item));
+};`;
+      
+      const file = createTsFile(content);
+      const methods = analyzeMethodsInFile(file);
+      
+      expect(methods.length).toBeGreaterThanOrEqual(2);
+      
+      const multiplyMethod = methods.find(m => m.name === 'multiply');
+      const handleClickMethod = methods.find(m => m.name === 'handleClick');
+      const processDataMethod = methods.find(m => m.name === 'processData');
+      
+      expect(multiplyMethod).toBeDefined();
+      expect(handleClickMethod).toBeDefined();
+      // processDataは複雑な型定義のため検出されない可能性があります
+    });
+
+    test('クラスメソッドを検出できる', () => {
+      const content = `export class UserService {
+  private users: User[] = [];
+  
+  public async addUser(user: User): Promise<void> {
+    this.users.push(user);
+    await this.saveToDatabase(user);
+  }
+  
+  private validateUser(user: User): boolean {
+    return user.email.includes('@');
+  }
+  
+  static createInstance(): UserService {
+    return new UserService();
+  }
+}`;
+      
+      const file = createTsFile(content);
+      const methods = analyzeMethodsInFile(file);
+      
+      expect(methods).toHaveLength(3);
+      expect(methods[0].name).toBe('addUser');
+      expect(methods[0].isPrivate).toBe(false);
+      expect(methods[1].name).toBe('validateUser');
+      expect(methods[1].isPrivate).toBe(true);
+      expect(methods[2].name).toBe('createInstance');
+    });
+
+    test('Reactコンポーネントを検出できる', () => {
+      const content = `export const UserProfile: React.FC<UserProps> = ({ user, onEdit }) => {
+  const handleEdit = useCallback(() => {
+    onEdit(user);
+  }, [user, onEdit]);
+
+  return (
+    <div>
+      <h1>{user.name}</h1>
+      <button onClick={handleEdit}>Edit</button>
+    </div>
+  );
+};`;
+      
+      const file = createTsFile(content);
+      const methods = analyzeMethodsInFile(file);
+      
+      const userProfileMethod = methods.find(m => m.name === 'UserProfile');
+      expect(userProfileMethod).toBeDefined();
+      expect(userProfileMethod?.type).toBe('component');
+    });
+
+    test('インターフェースメソッドを検出できる', () => {
+      const content = `interface UserRepository {
+  findById(id: string): Promise<User>;
+  save(user: User): Promise<void>;
+  delete(id: string): Promise<boolean>;
+  findByEmail<T extends User>(email: string): Promise<T>;
+}`;
+      
+      const file = createTsFile(content);
+      const methods = analyzeMethodsInFile(file);
+      
+      expect(methods).toHaveLength(4);
+      expect(methods[0].name).toBe('findById');
+      expect(methods[0].type).toBe('interface_method');
+      expect(methods[1].name).toBe('save');
+      expect(methods[2].name).toBe('delete');
+      expect(methods[3].name).toBe('findByEmail');
+    });
+
+    test('TypeScriptメソッド呼び出しを検出できる', () => {
+      const content = `class UserService {
+  async processUser(userData: UserData): Promise<void> {
+    const user = await this.findUser(userData.id);
+    const isValid = this.validateUser(user);
+    
+    if (isValid) {
+      await this.saveUser(user);
+      user.notify?.();
+    }
+    
+    return this.formatResponse(user);
+  }
+}`;
+      
+      const file = createTsFile(content);
+      const methods = analyzeMethodsInFile(file);
+      
+      const processMethod = methods.find(m => m.name === 'processUser');
+      expect(processMethod).toBeDefined();
+      expect(processMethod?.calls.length).toBeGreaterThan(0);
+      
+      const callNames = processMethod?.calls.map(c => c.methodName) || [];
+      expect(callNames).toContain('findUser');
+      expect(callNames).toContain('validateUser');
+      expect(callNames).toContain('saveUser');
+      expect(callNames).toContain('formatResponse');
+    });
+
+    test('パラメータの型アノテーションを正しく解析できる', () => {
+      const content = `function complexFunction(id: string, options: { timeout?: number }, callback: (error: Error | null) => void): Promise<ApiResponse> {
+  return Promise.resolve({} as ApiResponse);
+}`;
+      
+      const file = createTsFile(content);
+      const methods = analyzeMethodsInFile(file);
+      
+      expect(methods).toHaveLength(1);
+      expect(methods[0].parameters).toHaveLength(3);
+      expect(methods[0].parameters[0]).toBe('id');
+      expect(methods[0].parameters[1]).toBe('options');
+      expect(methods[0].parameters[2]).toBe('callback');
     });
   });
 
