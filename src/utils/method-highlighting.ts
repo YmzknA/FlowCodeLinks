@@ -29,7 +29,7 @@ export const replaceMethodNameInText = (html: string, methodName: string, escape
   let protectIndex = 0;
   
   // 1. 完全なHTMLタグを保護（開始タグと終了タグ）
-  result = result.replace(/<\/?[a-zA-Z][^>]*>/g, (match) => {
+  result = result.replace(/<\/?[a-zA-Z][^>]*>/g, (match: string) => {
     if (match.includes(methodName)) {
       const protectedValue = `${protectMarker}_INDEX_${protectIndex}_END__`;
       protectMap.set(protectedValue, match);
@@ -40,7 +40,7 @@ export const replaceMethodNameInText = (html: string, methodName: string, escape
   });
   
   // 2. 属性値の形式を保護 (="value" または ='value' 形式)
-  result = result.replace(/\w+\s*=\s*["'][^"']*["']/g, (match) => {
+  result = result.replace(/\w+\s*=\s*["'][^"']*["']/g, (match: string) => {
     if (match.includes(methodName)) {
       const protectedValue = `${protectMarker}_INDEX_${protectIndex}_END__`;
       protectMap.set(protectedValue, match);
