@@ -1,4 +1,21 @@
 /**
+ * 堅牢なエラーハンドリング付きの保護マーカー生成関数
+ */
+const createProtectMarker = (): string => {
+  try {
+    const timestamp = Date.now().toString(36);
+    const random1 = Math.random().toString(36).substr(2, 9);
+    const random2 = Math.random().toString(36).substr(2, 9);
+    
+    return `__PROTECT_${timestamp}_${random1}_${random2}__`;
+  } catch (error) {
+    console.error('Failed to create protect marker:', error);
+    // フォールバック: 単純な連番
+    return `__PROTECT_${Date.now()}_FALLBACK_${Math.floor(Math.random() * 10000)}__`;
+  }
+};
+
+/**
  * HTMLコンテンツ内でメソッド名を置換する関数
  * HTMLタグ内の属性は置換対象から除外する
  */
@@ -6,8 +23,8 @@ export const replaceMethodNameInText = (html: string, methodName: string, escape
   // 特定のケースのみ保護する、より安全なアプローチ
   let result = html;
   
-  // 一時的な保護マーカー（より予測困難で衝突リスクが低い）
-  const protectMarker = `__PROTECT_${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${Math.random().toString(36).substr(2, 9)}__`;
+  // 一時的な保護マーカー（堅牢なエラーハンドリング付き）
+  const protectMarker = createProtectMarker();
   const protectMap = new Map<string, string>();
   let protectIndex = 0;
   

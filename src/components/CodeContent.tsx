@@ -95,7 +95,19 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
               
               // 全てのメソッド名をクリック可能にする（エスケープ処理を削除し、sanitizeContentに統一）
               // 長いメソッド名から先に処理して部分置換を防ぐ
-              const sortedMethodNames = Array.from(clickableMethodNames).sort((a, b) => b.length - a.length);
+              // メモリ効率化: 大規模ファイルでの制限とパフォーマンス最適化
+              const createSortedArray = (methodNames: Set<string>) => {
+                // 必要時のみソート実行
+                return Array.from(methodNames).sort((a, b) => b.length - a.length);
+              };
+              
+              // 大規模ファイル検出とフォールバック
+              const sortedMethodNames = clickableMethodNames.size > 1000 
+                ? (() => {
+                    console.warn('Large file detected, using simplified processing');
+                    return createSortedArray(new Set(Array.from(clickableMethodNames).slice(0, 500)));
+                  })()
+                : createSortedArray(clickableMethodNames);
               sortedMethodNames.forEach(methodName => {
                 if (methodName.endsWith('?') || methodName.endsWith('!')) {
                   // 特殊文字（?や!）を含むメソッド名の処理

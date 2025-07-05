@@ -1,5 +1,6 @@
 import { ParsedFile, Method, MethodCall } from '@/types/codebase';
 import { isRubyKeyword, isRubyBuiltin, isRubyCrudMethod } from '@/config/ruby-keywords';
+import { COMMON_PATTERNS, MethodPatternBuilder } from '@/utils/regex-patterns';
 
 export function analyzeMethodsInFile(file: ParsedFile): Method[] {
   if (!file.content.trim() || file.language === 'unknown') {
@@ -32,7 +33,7 @@ function analyzeRubyMethods(file: ParsedFile): Method[] {
   // まず、すべてのメソッド名を収集
   const definedMethods = new Set<string>();
   for (let i = 0; i < lines.length; i++) {
-    const methodMatch = lines[i].trim().match(/^def\s+(self\.)?(\w+[?!]?)(\([^)]*\))?/);
+    const methodMatch = lines[i].trim().match(COMMON_PATTERNS.METHOD_DEFINITION);
     if (methodMatch) {
       definedMethods.add(methodMatch[2]);
     }
@@ -55,7 +56,7 @@ function analyzeRubyMethods(file: ParsedFile): Method[] {
     }
 
     // メソッド定義の検出（?や!を含むメソッド名にも対応）
-    const methodMatch = trimmedLine.match(/^def\s+(self\.)?(\w+[?!]?)(\([^)]*\))?/);
+    const methodMatch = trimmedLine.match(COMMON_PATTERNS.METHOD_DEFINITION);
     if (methodMatch) {
       const [, selfPrefix, methodName, params] = methodMatch;
       const isClassMethod = !!selfPrefix;
@@ -214,17 +215,13 @@ function findJavaScriptArrowFunctionEnd(lines: string[], startIndex: number): nu
 
 /**
  * 文字列補間内のメソッド呼び出しを抽出
+ * 改善版: 構造化された正規表現パターンを使用
  */
 function extractInterpolationMethodCalls(line: string, lineNumber: number): MethodCall[] {
   const calls: MethodCall[] = [];
   
-  /**
-   * 文字列補間内の単純なメソッド呼び出しパターン: #{method_name} または #{method_name(}
-   * 例: "Hello #{user_name}" → "user_name"を抽出
-   * 例: "Count: #{get_count()}" → "get_count"を抽出
-   */
-  const INTERPOLATION_SIMPLE_PATTERN = /#\{(\w+[?!]?)(?:\s*\()?\}/g;
-  const interpolationMatches = Array.from(line.matchAll(INTERPOLATION_SIMPLE_PATTERN));
+  // 文字列補間内の単純なメソッド呼び出しパターンを使用
+  const interpolationMatches = Array.from(line.matchAll(COMMON_PATTERNS.INTERPOLATION_SIMPLE));
   for (const match of interpolationMatches) {
     const methodName = match[1];
     if (methodName && !isRubyKeyword(methodName)) {
@@ -236,12 +233,8 @@ function extractInterpolationMethodCalls(line: string, lineNumber: number): Meth
     }
   }
   
-  /**
-   * 文字列補間内のオブジェクトメソッド呼び出しパターン: #{object.method_name}
-   * 例: "User: #{user.name}" → "name"を抽出
-   * 例: "Status: #{task.completed?}" → "completed?"を抽出
-   */
-  const objectInterpolationMatches = Array.from(line.matchAll(/#\{\w+\.(\w+[?!]?)(?:\s*\()?\}/g));
+  // 文字列補間内のオブジェクトメソッド呼び出しパターンを使用
+  const objectInterpolationMatches = Array.from(line.matchAll(COMMON_PATTERNS.INTERPOLATION_OBJECT));
   for (const match of objectInterpolationMatches) {
     const methodName = match[1];
     if (methodName && !isRubyKeyword(methodName)) {
@@ -258,17 +251,13 @@ function extractInterpolationMethodCalls(line: string, lineNumber: number): Meth
 
 /**
  * ドット記法のメソッド呼び出しを抽出（チェーンメソッドを含む）
+ * 改善版: 構造化された正規表現パターンを使用
  */
 function extractDotMethodCalls(line: string, lineNumber: number, definedMethods: Set<string>): MethodCall[] {
   const calls: MethodCall[] = [];
   
-  /**
-   * オブジェクト.メソッド名の形式パターン（チェーンメソッド対応）
-   * 例: "user.admin?" → "admin?"を抽出
-   * 例: "post.comments.count" → "comments"と"count"を抽出
-   */
-  const DOT_METHOD_PATTERN = /\.(\w+[?!]?)(?=\s*\(|\s*\.|\s|$)/g;
-  const dotMethodMatches = Array.from(line.matchAll(DOT_METHOD_PATTERN));
+  // ドット記法メソッド呼び出しパターンを使用
+  const dotMethodMatches = Array.from(line.matchAll(COMMON_PATTERNS.DOT_METHOD));
   for (const match of dotMethodMatches) {
     const methodName = match[1];
     if (methodName && !isRubyBuiltin(methodName) && (!isRubyCrudMethod(methodName) || definedMethods.has(methodName))) {
@@ -285,18 +274,13 @@ function extractDotMethodCalls(line: string, lineNumber: number, definedMethods:
 
 /**
  * スタンドアロンのメソッド呼び出しを抽出
+ * 改善版: 構造化された正規表現パターンを使用
  */
 function extractStandaloneMethodCalls(line: string, lineNumber: number, definedMethods: Set<string>): MethodCall[] {
   const calls: MethodCall[] = [];
   
-  /**
-   * 行頭または空白の後のスタンドアロンメソッド呼び出しパターン
-   * 例: "update_task_milestone_and_load_tasks" → "update_task_milestone_and_load_tasks"を抽出
-   * 例: "  method_call()" → "method_call"を抽出
-   * 例: "validate!" → "validate!"を抽出
-   */
-  const STANDALONE_METHOD_PATTERN = /(?:^|\s)(\w+[?!]?)(?:\s*\(|\s*$|\s+)/g;
-  const standaloneMethodMatches = Array.from(line.matchAll(STANDALONE_METHOD_PATTERN));
+  // スタンドアロンメソッド呼び出しパターンを使用
+  const standaloneMethodMatches = Array.from(line.matchAll(COMMON_PATTERNS.STANDALONE_METHOD));
   for (const match of standaloneMethodMatches) {
     const methodName = match[1];
     
