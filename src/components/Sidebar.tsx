@@ -229,12 +229,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
               >
                 <div className="font-medium text-blue-600 truncate" title={method.name}>
                   {method.name}
+                  {method.type === 'erb_call' && (
+                    <span className="ml-1 text-xs text-purple-500">(called in ERB)</span>
+                  )}
                 </div>
                 <div className="text-xs text-gray-500 truncate" title={method.fileName}>
                   {method.fileName}
                 </div>
                 <div className="text-xs text-gray-400 truncate" title={method.type}>
-                  {method.type}
+                  {method.type === 'erb_call' ? 'erb call' : method.type}
                 </div>
               </div>
             ))}

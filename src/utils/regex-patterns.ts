@@ -10,19 +10,16 @@
 export class MethodPatternBuilder {
   /**
    * スタンドアロンメソッド検出パターンを構築
-   * 例: "method_call", "  validate!", "update_task"
+   * 例: "method_call", "  validate!", "update_task", "if user_signed_in?"
    */
   static createStandalonePattern(): RegExp {
-    // 行頭または空白文字の後
-    const wordBoundary = '(?:^|\\s)';
-    
     // メソッド名: 英数字・アンダースコア + 任意の?または!
     const methodName = '(\\w+[?!]?)';
     
-    // メソッド終端: 括弧開始、行末、または空白
-    const methodEnd = '(?:\\s*\\(|\\s*$|\\s+)';
+    // 前方先読みで単語境界を検出（空白、行末、括弧、演算子など）
+    const wordEnd = '(?=\\s|$|\\(|\\)|,|&&|\\|\\|)';
     
-    return new RegExp(`${wordBoundary}${methodName}${methodEnd}`, 'g');
+    return new RegExp(`${methodName}${wordEnd}`, 'g');
   }
 
   /**
@@ -33,8 +30,8 @@ export class MethodPatternBuilder {
     // ドット + メソッド名
     const dotMethod = '\\.(\\w+[?!]?)';
     
-    // 後続: 括弧、ドット、空白、または行末
-    const methodEnd = '(?=\\s*\\(|\\s*\\.|\\s|$)';
+    // 後続: 括弧、ドット、空白、行末、カンマ、閉じ括弧など
+    const methodEnd = '(?=\\s*\\(|\\s*\\.|\\s|$|,|\\))';
     
     return new RegExp(`${dotMethod}${methodEnd}`, 'g');
   }
@@ -105,6 +102,23 @@ export class MethodPatternBuilder {
     // 単語境界を使用した厳密な検索
     return new RegExp(`(?<!\\w)(${escapedName})(?![\\w])`, 'g');
   }
+
+  /**
+   * ERBタグ内のメソッド呼び出しパターンを構築
+   * 例: "<%= user.name %>", "<% if current_user %>"
+   */
+  static createErbTagPattern(): RegExp {
+    // ERBタグ開始: <%= または <%
+    const erbStart = '<%=?\\s*';
+    
+    // 内容をキャプチャ
+    const content = '(.*?)';
+    
+    // ERBタグ終了
+    const erbEnd = '\\s*%>';
+    
+    return new RegExp(`${erbStart}${content}${erbEnd}`, 'g');
+  }
 }
 
 /**
@@ -165,4 +179,10 @@ export const COMMON_PATTERNS = {
    * def method_name 形式を検出
    */
   METHOD_DEFINITION: MethodPatternBuilder.createMethodDefinitionPattern(),
+
+  /**
+   * ERBタグパターン
+   * <%= %> と <% %> 形式を検出
+   */
+  ERB_TAG: MethodPatternBuilder.createErbTagPattern(),
 } as const;

@@ -98,6 +98,8 @@ function detectLanguage(filePath: string): Language {
     case 'md':
     case 'markdown':
       return 'markdown';
+    case 'erb':
+      return 'erb';
     default:
       return 'unknown';
   }

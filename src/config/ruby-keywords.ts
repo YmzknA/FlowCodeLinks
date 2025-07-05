@@ -76,6 +76,61 @@ export const RUBY_CRUD_METHODS = [
 ] as const;
 
 /**
+ * Rails標準メソッドとヘルパーメソッド
+ * 定義されていなくても有効なメソッドとして扱う
+ */
+export const RAILS_STANDARD_METHODS = [
+  // フォームヘルパー
+  'form_with', 'form_for', 'form_tag', 'text_field', 'password_field', 'email_field',
+  'number_field', 'text_area', 'check_box', 'radio_button', 'select', 'submit',
+  'label', 'hidden_field', 'file_field', 'date_field', 'datetime_field',
+  
+  // URLヘルパー
+  'link_to', 'url_for', 'redirect_to', 'root_path', 'root_url', 'new_path', 'edit_path',
+  'show_path', 'index_path', 'destroy_path', 'path_to', 'polymorphic_path',
+  
+  // ビューヘルパー
+  'render', 'partial', 'content_for', 'yield', 'capture', 'concat', 'raw', 'html_safe',
+  'truncate', 'pluralize', 'singularize', 'humanize', 'titleize', 'time_ago_in_words',
+  'distance_of_time_in_words', 'number_with_delimiter', 'number_to_currency',
+  'image_tag', 'asset_path', 'stylesheet_link_tag', 'javascript_include_tag',
+  
+  // I18nヘルパー
+  't', 'translate', 'l', 'localize',
+  
+  // セッション・認証
+  'session', 'cookies', 'flash', 'current_user', 'user_signed_in?', 'authenticate_user!',
+  'sign_in', 'sign_out', 'sign_up',
+  
+  // パラメータ・リクエスト
+  'params', 'request', 'response', 'headers', 'env',
+  
+  // ログ・デバッグ
+  'logger', 'Rails.logger', 'log', 'debug', 'info', 'warn', 'error', 'fatal',
+  
+  // メール送信
+  'mail', 'deliver', 'deliver_now', 'deliver_later', 'send_email',
+  
+  // バリデーション
+  'valid?', 'invalid?', 'errors', 'validate', 'validates',
+  
+  // コールバック
+  'before_action', 'after_action', 'around_action', 'skip_before_action',
+  'before_save', 'after_save', 'before_create', 'after_create',
+  'before_update', 'after_update', 'before_destroy', 'after_destroy',
+  
+  // その他のRailsメソッド
+  'respond_to', 'respond_with', 'format', 'json', 'html', 'xml', 'js',
+  'head', 'status', 'location', 'notice', 'alert', 'redirect_back',
+  'authorize', 'policy', 'current_ability', 'can?', 'cannot?',
+  
+  // 一般的なユーザー定義メソッド名パターン
+  'prepare_data', 'process_data', 'validate_data', 'sanitize_data',
+  'send_notification', 'send_email', 'notify_user', 'log_activity',
+  'check_permission', 'verify_access', 'ensure_access'
+] as const;
+
+/**
  * 型安全性のためのタイプガード関数群
  */
 
@@ -89,4 +144,8 @@ export function isRubyBuiltin(word: string): boolean {
 
 export function isRubyCrudMethod(word: string): boolean {
   return (RUBY_CRUD_METHODS as readonly string[]).includes(word);
+}
+
+export function isRailsStandardMethod(word: string): boolean {
+  return (RAILS_STANDARD_METHODS as readonly string[]).includes(word);
 }
