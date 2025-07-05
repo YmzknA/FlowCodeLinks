@@ -2,7 +2,7 @@
 
 // ======== コードベース解析の型定義 ========
 
-export type Language = 'ruby' | 'javascript' | 'typescript' | 'yaml' | 'markdown' | 'unknown';
+export type Language = 'ruby' | 'javascript' | 'typescript' | 'yaml' | 'markdown' | 'erb' | 'unknown';
 
 export interface ParsedFile {
   path: string;
@@ -17,7 +17,7 @@ export interface ParsedFile {
 
 export interface Method {
   name: string;
-  type: 'function' | 'method' | 'class_method';
+  type: 'function' | 'method' | 'class_method' | 'erb_call';
   startLine: number;
   endLine: number;
   filePath: string;
