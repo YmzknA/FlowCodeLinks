@@ -90,7 +90,8 @@ export class MethodPatternBuilder {
     // 任意のパラメータ
     const parameters = '(\\([^)]*\\))?';
     
-    return new RegExp(`${defKeyword}${selfPrefix}${methodName}${parameters}`, '');
+    // フラグなし: 単一のメソッド定義をマッチングするため
+    return new RegExp(`${defKeyword}${selfPrefix}${methodName}${parameters}`);
   }
 
   /**
