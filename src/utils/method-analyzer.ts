@@ -130,10 +130,10 @@ function analyzeRubyMethods(file: ParsedFile, allDefinedMethods?: Set<string>): 
   }
 
   // 全体の定義済みメソッド一覧とローカル定義を結合
-  const combinedDefinedMethods = new Set([
-    ...(allDefinedMethods || []),
-    ...localDefinedMethods
-  ]);
+  const combinedDefinedMethods = new Set(localDefinedMethods);
+  if (allDefinedMethods) {
+    allDefinedMethods.forEach(method => combinedDefinedMethods.add(method));
+  }
 
   // メソッド定義とメソッド呼び出しを解析
   isPrivate = false; // リセット
@@ -436,10 +436,10 @@ function analyzeJavaScriptMethodsWithFiltering(file: ParsedFile, allDefinedMetho
   definitionsOnly.forEach(method => localDefinedMethods.add(method.name));
 
   // 全体の定義済みメソッド一覧とローカル定義を結合
-  const combinedDefinedMethods = new Set([
-    ...(allDefinedMethods || []),
-    ...localDefinedMethods
-  ]);
+  const combinedDefinedMethods = new Set(localDefinedMethods);
+  if (allDefinedMethods) {
+    allDefinedMethods.forEach(method => combinedDefinedMethods.add(method));
+  }
 
 
   for (let i = 0; i < lines.length; i++) {
