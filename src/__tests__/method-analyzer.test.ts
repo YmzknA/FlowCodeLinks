@@ -476,4 +476,150 @@ end
       expect(methodCalls).toContain('process!');
     });
   });
+
+  describe('ERB メソッド解析', () => {
+    const createErbFile = (content: string): ParsedFile => ({
+      path: 'test.html.erb',
+      language: 'erb' as Language,
+      content,
+      directory: '',
+      fileName: 'test.html.erb',
+      totalLines: content.split('\n').length,
+      methods: []
+    });
+
+    test('ERBタグ内のメソッド呼び出しを検出できる', () => {
+      const content = `<h1><%= user.name %></h1>
+<p><%= current_user.email %></p>
+<% if user_signed_in? %>
+  <p>Welcome back!</p>
+<% end %>
+<%= link_to "Home", root_path %>`;
+      
+      const file = createErbFile(content);
+      const methods = analyzeMethodsInFile(file);
+      
+      // ERBファイルからメソッド呼び出しが個別に検出される
+      expect(methods.length).toBeGreaterThan(0);
+      
+      // メソッド名を抽出
+      const methodNames = methods
+        .filter(m => m.type === 'erb_call' && !m.name.startsWith('[ERB File:'))
+        .map(m => m.name);
+      
+      expect(methodNames).toContain('name');
+      expect(methodNames).toContain('email');
+      expect(methodNames).toContain('user_signed_in?');
+      expect(methodNames).toContain('link_to');
+      expect(methodNames).toContain('root_path');
+    });
+
+    test('複雑なERBタグ内のメソッド呼び出しを検出できる', () => {
+      const content = `<div class="user-info">
+  <%= form_with model: @user do |form| %>
+    <% if @user.errors.any? %>
+      <div class="error">
+        <%= pluralize(@user.errors.count, "error") %>
+      </div>
+    <% end %>
+    
+    <%= form.label :name %>
+    <%= form.text_field :name, class: "form-control" %>
+    
+    <%= form.submit "Save", class: button_class %>
+  <% end %>
+</div>`;
+      
+      const file = createErbFile(content);
+      const methods = analyzeMethodsInFile(file);
+      
+      expect(methods.length).toBeGreaterThan(0);
+      
+      const methodNames = methods
+        .filter(m => m.type === 'erb_call' && !m.name.startsWith('[ERB File:'))
+        .map(m => m.name);
+      
+      expect(methodNames).toContain('form_with');
+      expect(methodNames).toContain('any?');
+      expect(methodNames).toContain('pluralize');
+      expect(methodNames).toContain('count');
+      expect(methodNames).toContain('label');
+      expect(methodNames).toContain('text_field');
+      expect(methodNames).toContain('submit');
+      expect(methodNames).toContain('button_class');
+    });
+
+    test('ERBタグ内のチェーンメソッド呼び出しを検出できる', () => {
+      const content = `<%= @tasks.where(completed: false).order(:created_at).limit(5).map(&:title) %>
+<%= current_user.profile.display_name.upcase %>`;
+      
+      const file = createErbFile(content);
+      const methods = analyzeMethodsInFile(file);
+      
+      expect(methods.length).toBeGreaterThan(0);
+      
+      const methodNames = methods
+        .filter(m => m.type === 'erb_call' && !m.name.startsWith('[ERB File:'))
+        .map(m => m.name);
+      
+      expect(methodNames).toContain('where');
+      expect(methodNames).toContain('order');
+      expect(methodNames).toContain('limit');
+      expect(methodNames).toContain('map');
+      expect(methodNames).toContain('display_name');
+      expect(methodNames).toContain('upcase');
+    });
+
+    test('ERBタグ内の条件文でメソッド呼び出しを検出できる', () => {
+      const content = `<% if current_user.admin? && project.active? %>
+  <div class="admin-panel">
+    <%= render 'admin_controls' %>
+  </div>
+<% elsif current_user.member? %>
+  <div class="member-panel">
+    <%= render 'member_controls' %>
+  </div>
+<% end %>`;
+      
+      const file = createErbFile(content);
+      const methods = analyzeMethodsInFile(file);
+      
+      expect(methods.length).toBeGreaterThan(0);
+      
+      const methodNames = methods
+        .filter(m => m.type === 'erb_call' && !m.name.startsWith('[ERB File:'))
+        .map(m => m.name);
+      
+      expect(methodNames).toContain('admin?');
+      expect(methodNames).toContain('active?');
+      expect(methodNames).toContain('member?');
+      expect(methodNames).toContain('render');
+    });
+
+    test('ERBタグが含まれない行は無視される', () => {
+      const content = `<div class="container">
+  <h1>Plain HTML</h1>
+  <p>No ERB tags here</p>
+</div>`;
+      
+      const file = createErbFile(content);
+      const methods = analyzeMethodsInFile(file);
+      
+      expect(methods).toHaveLength(0);
+    });
+
+    test('空のERBタグは無視される', () => {
+      const content = `<div>
+  <% %>
+  <%= %>
+  <% # comment only %>
+</div>`;
+      
+      const file = createErbFile(content);
+      const methods = analyzeMethodsInFile(file);
+      
+      expect(methods).toHaveLength(0);
+    });
+
+  });
 });
