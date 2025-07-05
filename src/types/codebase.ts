@@ -15,7 +15,7 @@ export interface ParsedFile {
 
 export interface Method {
   name: string;
-  type: 'function' | 'method' | 'class_method';
+  type: 'function' | 'method' | 'class_method' | 'erb_call' | 'component' | 'interface_method';
   startLine: number;
   endLine: number;
   filePath: string;
