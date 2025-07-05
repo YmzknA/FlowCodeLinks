@@ -1,5 +1,6 @@
 import { ParsedFile, Method, MethodCall } from '@/types/codebase';
 import { isRubyKeyword, isRubyBuiltin, isRubyCrudMethod, isRailsStandardMethod } from '@/config/ruby-keywords';
+import { isJavaScriptKeyword, isJavaScriptBuiltin, isJavaScriptFrameworkMethod, isJavaScriptControlPattern, isValidJavaScriptMethod } from '@/config/javascript-keywords';
 import { COMMON_PATTERNS, MethodPatternBuilder } from '@/utils/regex-patterns';
 
 export function analyzeMethodsInFile(file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
@@ -17,8 +18,10 @@ export function analyzeMethodsInFile(file: ParsedFile, allDefinedMethods?: Set<s
       methods = analyzeErbMethods(file, allDefinedMethods);
       break;
     case 'javascript':
+      methods = analyzeJavaScriptMethodsWithFiltering(file, allDefinedMethods);
+      break;
     case 'typescript':
-      methods = analyzeJavaScriptMethods(file);
+      methods = analyzeTypeScriptMethodsWithFiltering(file, allDefinedMethods);
       break;
     default:
       return [];
@@ -40,9 +43,12 @@ export function extractAllMethodDefinitions(files: ParsedFile[]): Set<string> {
       // メソッド定義のみを抽出（呼び出し検出はしない）
       const methods = extractRubyMethodDefinitionsOnly(file);
       methods.forEach(method => methodNames.add(method.name));
+    } else if (file.language === 'javascript' || file.language === 'typescript') {
+      // JavaScript/TypeScriptのメソッド定義を抽出
+      const methods = extractJavaScriptMethodDefinitionsOnly(file);
+      methods.forEach(method => methodNames.add(method.name));
     }
     // ERBファイルはメソッド定義を持たないのでスキップ
-    // JavaScriptは後で対応
   }
   
   return methodNames;
@@ -103,6 +109,11 @@ function analyzeRubyMethods(file: ParsedFile, allDefinedMethods?: Set<string>): 
   const methods: Method[] = [];
   const lines = file.content.split('\n');
   let isPrivate = false;
+
+  // JavaScriptファイルでもローカル定義メソッドを収集
+  if (file.language === 'javascript' || file.language === 'typescript') {
+    return analyzeJavaScriptMethodsWithFiltering(file, allDefinedMethods);
+  }
 
   // このファイル内で定義されているメソッド名を収集
   const localDefinedMethods = new Set<string>();
@@ -329,6 +340,217 @@ function extractErbStandaloneMethodCalls(line: string, lineNumber: number, allDe
   return calls;
 }
 
+/**
+ * JavaScript/TypeScriptメソッド定義のみを抽出（Ruby同様のフィルタリング用）
+ */
+function extractJavaScriptMethodDefinitionsOnly(file: ParsedFile): Method[] {
+  const methods: Method[] = [];
+  const lines = file.content.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const cleanLine = cleanJavaScriptLine(line);
+    const trimmedLine = cleanLine.trim();
+
+    if (!trimmedLine || isCommentLine(trimmedLine)) {
+      continue;
+    }
+
+    // 1. 通常の関数宣言
+    const functionMatch = trimmedLine.match(/^(?:export\s+)?(?:async\s+)?function\s+(\w+)(?:<[^>]*>)?\s*\(/);
+    if (functionMatch) {
+      const [, functionName] = functionMatch;
+      if (!isJavaScriptControlPattern(functionName)) {
+        methods.push({
+          name: functionName,
+          type: 'function',
+          startLine: i + 1,
+          endLine: i + 1,
+          filePath: file.path,
+          code: trimmedLine,
+          calls: [],
+          isPrivate: false,
+          parameters: []
+        });
+      }
+      continue;
+    }
+
+    // 2. アロー関数・変数関数
+    const arrowMatch = trimmedLine.match(/^(?:export\s+)?(?:const|let|var)\s+(\w+)(?:\s*:\s*[^=]+)?\s*=\s*(?:useCallback\s*\()?\s*(?:\([^)]*\)\s*=>|function)/);
+    if (arrowMatch) {
+      const [, functionName] = arrowMatch;
+      if (!isJavaScriptControlPattern(functionName)) {
+        methods.push({
+          name: functionName,
+          type: 'function',
+          startLine: i + 1,
+          endLine: i + 1,
+          filePath: file.path,
+          code: trimmedLine,
+          calls: [],
+          isPrivate: false,
+          parameters: []
+        });
+      }
+      continue;
+    }
+
+    // 3. クラスメソッド（アクセス修飾子が必須）
+    const classMethodMatch = trimmedLine.match(/^(public|private|protected|static)\s+(?:static\s+)?(?:async\s+)?(\w+)(?:<[^>]*>)?\s*\(/);
+    if (classMethodMatch) {
+      const [, , methodName] = classMethodMatch;
+      if (!isJavaScriptControlPattern(methodName) && methodName !== 'constructor') {
+        methods.push({
+          name: methodName,
+          type: 'method',
+          startLine: i + 1,
+          endLine: i + 1,
+          filePath: file.path,
+          code: trimmedLine,
+          calls: [],
+          isPrivate: trimmedLine.includes('private'),
+          parameters: []
+        });
+      }
+      continue;
+    }
+
+    // 4. オブジェクトメソッド（制御構造を除外、呼び出しと区別）
+    // 簡潔な形式: { methodName() { ... } } は除外して重複を防ぐ
+  }
+
+  return methods;
+}
+
+/**
+ * JavaScript解析（Ruby同等の精度を持つ改良版）
+ */
+function analyzeJavaScriptMethodsWithFiltering(file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
+  const methods: Method[] = [];
+  const lines = file.content.split('\n');
+
+  // このファイル内で定義されているメソッド名を収集
+  const localDefinedMethods = new Set<string>();
+  const definitionsOnly = extractJavaScriptMethodDefinitionsOnly(file);
+  definitionsOnly.forEach(method => localDefinedMethods.add(method.name));
+
+  // 全体の定義済みメソッド一覧とローカル定義を結合
+  const combinedDefinedMethods = new Set([
+    ...(allDefinedMethods || []),
+    ...localDefinedMethods
+  ]);
+
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const cleanLine = cleanJavaScriptLine(line);
+    const trimmedLine = cleanLine.trim();
+
+    if (!trimmedLine || isCommentLine(trimmedLine)) {
+      continue;
+    }
+
+    // 1. 通常の関数宣言
+    const functionMatch = trimmedLine.match(/^(?:export\s+)?(?:async\s+)?function\s+(\w+)(?:<[^>]*>)?\s*\(([^)]*)\)/);
+    if (functionMatch) {
+      const [, functionName, params] = functionMatch;
+      if (!isJavaScriptControlPattern(functionName)) {
+        const methodEndLine = findJavaScriptFunctionEnd(lines, i);
+        const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
+        const methodCalls = extractJavaScriptMethodCallsWithFiltering(methodCode, i + 1, combinedDefinedMethods);
+
+
+        methods.push({
+          name: functionName,
+          type: 'function',
+          startLine: i + 1,
+          endLine: methodEndLine + 1,
+          filePath: file.path,
+          code: methodCode,
+          calls: methodCalls,
+          isPrivate: false,
+          parameters: parseJavaScriptParameters(params)
+        });
+      }
+      continue;
+    }
+
+    // 2. アロー関数
+    const arrowMatch = trimmedLine.match(/^(?:export\s+)?(?:const|let|var)\s+(\w+)(?:\s*:\s*[^=]+)?\s*=\s*(?:useCallback\s*\()?\s*\(([^)]*)\)(?:\s*:\s*[^=>]+)?\s*=>/);
+    if (arrowMatch) {
+      const [, functionName, params] = arrowMatch;
+      if (!isJavaScriptControlPattern(functionName)) {
+        const methodEndLine = findJavaScriptArrowFunctionEnd(lines, i);
+        const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
+        const methodCalls = extractJavaScriptMethodCallsWithFiltering(methodCode, i + 1, combinedDefinedMethods);
+
+        methods.push({
+          name: functionName,
+          type: 'function',
+          startLine: i + 1,
+          endLine: methodEndLine + 1,
+          filePath: file.path,
+          code: methodCode,
+          calls: methodCalls,
+          isPrivate: false,
+          parameters: parseJavaScriptParameters(params || '')
+        });
+      }
+      continue;
+    }
+
+    // 3. クラスメソッド
+    const classMethodMatch = trimmedLine.match(/^(?:public|private|protected)?\s*(?:static\s+)?(?:async\s+)?(\w+)(?:<[^>]*>)?\s*\(([^)]*)\)/);
+    if (classMethodMatch && !trimmedLine.includes('=') && !trimmedLine.includes('=>')) {
+      const [, methodName, params] = classMethodMatch;
+      if (!isJavaScriptControlPattern(methodName) && methodName !== 'constructor') {
+        const methodEndLine = findJavaScriptFunctionEnd(lines, i);
+        const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
+        const methodCalls = extractJavaScriptMethodCallsWithFiltering(methodCode, i + 1, combinedDefinedMethods);
+
+        methods.push({
+          name: methodName,
+          type: 'method',
+          startLine: i + 1,
+          endLine: methodEndLine + 1,
+          filePath: file.path,
+          code: methodCode,
+          calls: methodCalls,
+          isPrivate: trimmedLine.includes('private'),
+          parameters: parseJavaScriptParameters(params)
+        });
+      }
+      continue;
+    }
+
+    // 4. オブジェクトメソッド（制御構造を厳密に除外）
+    const objectMethodMatch = trimmedLine.match(/^(\w+)\s*[:]\s*function\s*\(([^)]*)\)/);
+    if (objectMethodMatch && !isControlStructureLine(trimmedLine)) {
+      const [, methodName, params] = objectMethodMatch;
+      if (!isJavaScriptControlPattern(methodName) && !isJavaScriptKeyword(methodName)) {
+        const methodEndLine = findJavaScriptFunctionEnd(lines, i);
+        const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
+        const methodCalls = extractJavaScriptMethodCallsWithFiltering(methodCode, i + 1, combinedDefinedMethods);
+
+        methods.push({
+          name: methodName,
+          type: 'method',
+          startLine: i + 1,
+          endLine: methodEndLine + 1,
+          filePath: file.path,
+          code: methodCode,
+          calls: methodCalls,
+          isPrivate: false,
+          parameters: parseJavaScriptParameters(params || '')
+        });
+      }
+    }
+  }
+
+  return methods;
+}
+
 function analyzeJavaScriptMethods(file: ParsedFile): Method[] {
   const methods: Method[] = [];
   const lines = file.content.split('\n');
@@ -400,6 +622,236 @@ function analyzeJavaScriptMethods(file: ParsedFile): Method[] {
         calls: methodCalls,
         isPrivate: false,
         parameters: parseJavaScriptParameters(params || '')
+      });
+    }
+  }
+
+  return methods;
+}
+
+/**
+ * TypeScript解析（Ruby同等の精度を持つ改良版）
+ */
+function analyzeTypeScriptMethodsWithFiltering(file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
+  // TypeScriptはJavaScriptの拡張なので、基本的な解析ロジックは共通
+  const methods = analyzeJavaScriptMethodsWithFiltering(file, allDefinedMethods);
+  
+  // TypeScript特有の追加検出
+  const lines = file.content.split('\n');
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const cleanLine = cleanJavaScriptLine(line);
+    const trimmedLine = cleanLine.trim();
+
+    if (!trimmedLine || isCommentLine(trimmedLine)) {
+      continue;
+    }
+
+    // インターフェースメソッド
+    const interfaceMethodMatch = trimmedLine.match(/^(\w+)(?:<[^>]*>)?\s*\(([^)]*)\)\s*:\s*[^;]+;/);
+    if (interfaceMethodMatch) {
+      const [, methodName, params] = interfaceMethodMatch;
+      if (!isJavaScriptControlPattern(methodName)) {
+        methods.push({
+          name: methodName,
+          type: 'interface_method',
+          startLine: i + 1,
+          endLine: i + 1,
+          filePath: file.path,
+          code: trimmedLine,
+          calls: [],
+          isPrivate: false,
+          parameters: parseTypeScriptParameters(params)
+        });
+      }
+    }
+
+    // React.FCコンポーネント
+    const reactComponentMatch = trimmedLine.match(/^(?:export\s+)?const\s+(\w+)\s*:\s*React\.FC<([^>]*)>\s*=\s*\(([^)]*)\)\s*=>/);
+    if (reactComponentMatch) {
+      const [, componentName, propsType, params] = reactComponentMatch;
+      const methodEndLine = findJavaScriptArrowFunctionEnd(lines, i);
+      const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
+      const methodCalls = extractTypeScriptMethodCallsWithFiltering(methodCode, i + 1, allDefinedMethods);
+
+      methods.push({
+        name: componentName,
+        type: 'component',
+        startLine: i + 1,
+        endLine: methodEndLine + 1,
+        filePath: file.path,
+        code: methodCode,
+        calls: methodCalls,
+        isPrivate: false,
+        parameters: parseTypeScriptParameters(params)
+      });
+      i = methodEndLine; // 重複を避ける
+    }
+  }
+
+  return methods;
+}
+
+function analyzeTypeScriptMethods(file: ParsedFile): Method[] {
+  const methods: Method[] = [];
+  const lines = file.content.split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmedLine = line.trim();
+
+    // 1. 通常の関数宣言（型アノテーション付き）
+    const functionMatch = trimmedLine.match(/^(?:export\s+)?(?:async\s+)?function\s+(\w+)(?:<[^>]*>)?\s*\(([^)]*)\)(?:\s*:\s*[^{]+)?/);
+    if (functionMatch) {
+      const [, functionName, params] = functionMatch;
+      const methodEndLine = findJavaScriptFunctionEnd(lines, i);
+      const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
+      const methodCalls = extractTypeScriptMethodCalls(methodCode, i + 1);
+
+      methods.push({
+        name: functionName,
+        type: 'function',
+        startLine: i + 1,
+        endLine: methodEndLine + 1,
+        filePath: file.path,
+        code: methodCode,
+        calls: methodCalls,
+        isPrivate: false,
+        parameters: parseTypeScriptParameters(params)
+      });
+      continue;
+    }
+
+    // 2. Reactコンポーネント（React.FCパターン）
+    const reactComponentMatch = trimmedLine.match(/^(?:export\s+)?const\s+(\w+)\s*:\s*React\.FC<([^>]*)>\s*=\s*\(([^)]*)\)\s*=>/);
+    if (reactComponentMatch) {
+      const [, componentName, propsType, params] = reactComponentMatch;
+      const methodEndLine = findJavaScriptArrowFunctionEnd(lines, i);
+      const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
+      const methodCalls = extractTypeScriptMethodCalls(methodCode, i + 1);
+
+      methods.push({
+        name: componentName,
+        type: 'component',
+        startLine: i + 1,
+        endLine: methodEndLine + 1,
+        filePath: file.path,
+        code: methodCode,
+        calls: methodCalls,
+        isPrivate: false,
+        parameters: parseTypeScriptParameters(params)
+      });
+      i = methodEndLine; // 次のループで重複を避ける
+      continue;
+    }
+
+    // 3. アロー関数（型アノテーション付き）
+    const arrowMatch = trimmedLine.match(/^(?:export\s+)?(?:const|let|var)\s+(\w+)(?:\s*:\s*[^=]+)?\s*=\s*(?:useCallback\s*\()?\s*\(([^)]*)\)(?:\s*:\s*[^=>]+)?\s*=>/);
+    if (arrowMatch) {
+      const [, functionName, params] = arrowMatch;
+      const methodEndLine = findJavaScriptArrowFunctionEnd(lines, i);
+      const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
+      const methodCalls = extractTypeScriptMethodCalls(methodCode, i + 1);
+
+      methods.push({
+        name: functionName,
+        type: 'function',
+        startLine: i + 1,
+        endLine: methodEndLine + 1,
+        filePath: file.path,
+        code: methodCode,
+        calls: methodCalls,
+        isPrivate: false,
+        parameters: parseTypeScriptParameters(params || '')
+      });
+      continue;
+    }
+    
+    // 2b. 複雑な型定義を持つアロー関数
+    const complexArrowMatch = trimmedLine.match(/^(?:export\s+)?(?:const|let|var)\s+(\w+)\s*:\s*\([^)]*\)\s*=>\s*\w+\s*=\s*\(([^)]*)\)\s*=>/);
+    if (complexArrowMatch) {
+      const [, functionName, params] = complexArrowMatch;
+      const methodEndLine = findJavaScriptArrowFunctionEnd(lines, i);
+      const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
+      const methodCalls = extractTypeScriptMethodCalls(methodCode, i + 1);
+
+      methods.push({
+        name: functionName,
+        type: 'function',
+        startLine: i + 1,
+        endLine: methodEndLine + 1,
+        filePath: file.path,
+        code: methodCode,
+        calls: methodCalls,
+        isPrivate: false,
+        parameters: parseTypeScriptParameters(params || '')
+      });
+      continue;
+    }
+
+    // 3. クラスメソッド
+    const classMethodMatch = trimmedLine.match(/^(?:export\s+)?(?:public|private|protected)?\s*(?:static\s+)?(?:async\s+)?(\w+)(?:<[^>]*>)?\s*\(([^)]*)\)(?:\s*:\s*[^{]+)?\s*\{/);
+    if (classMethodMatch) {
+      const [, methodName, params] = classMethodMatch;
+      const methodEndLine = findJavaScriptFunctionEnd(lines, i);
+      const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
+      const methodCalls = extractTypeScriptMethodCalls(methodCode, i + 1);
+      const isPrivate = trimmedLine.includes('private');
+
+      methods.push({
+        name: methodName,
+        type: 'method',
+        startLine: i + 1,
+        endLine: methodEndLine + 1,
+        filePath: file.path,
+        code: methodCode,
+        calls: methodCalls,
+        isPrivate,
+        parameters: parseTypeScriptParameters(params)
+      });
+      continue;
+    }
+
+    // 4. インターフェース内のメソッド
+    const interfaceMethodMatch = trimmedLine.match(/^(\w+)(?:<[^>]*>)?\s*\(([^)]*)\)\s*:\s*[^;]+;/);
+    if (interfaceMethodMatch) {
+      const [, methodName, params] = interfaceMethodMatch;
+      
+      methods.push({
+        name: methodName,
+        type: 'interface_method',
+        startLine: i + 1,
+        endLine: i + 1,
+        filePath: file.path,
+        code: trimmedLine,
+        calls: [],
+        isPrivate: false,
+        parameters: parseTypeScriptParameters(params)
+      });
+      continue;
+    }
+
+
+    // 6. オブジェクトメソッド（型アノテーション付き）
+    const objectMethodMatch = trimmedLine.match(/^(\w+)\s*[:]\s*(?:\([^)]*\)\s*=>\s*[^,}]+|function\s*\(([^)]*)\)(?:\s*:\s*[^{]+)?\s*\{)/) ||
+                             trimmedLine.match(/^(\w+)\s*\(([^)]*)\)(?:\s*:\s*[^{]+)?\s*\{/);
+    if (objectMethodMatch) {
+      const [, methodName, params] = objectMethodMatch;
+      const methodEndLine = findJavaScriptFunctionEnd(lines, i);
+      const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
+      const methodCalls = extractTypeScriptMethodCalls(methodCode, i + 1);
+
+      methods.push({
+        name: methodName,
+        type: 'method',
+        startLine: i + 1,
+        endLine: methodEndLine + 1,
+        filePath: file.path,
+        code: methodCode,
+        calls: methodCalls,
+        isPrivate: false,
+        parameters: parseTypeScriptParameters(params || '')
       });
     }
   }
@@ -592,6 +1044,126 @@ function extractRubyMethodCalls(code: string, startLineNumber: number, definedMe
   return uniqueCalls;
 }
 
+/**
+ * JavaScript行のクリーニング（コメントと文字列を除去）
+ */
+function cleanJavaScriptLine(line: string): string {
+  // 文字列リテラルを除去（Ruby実装と同様の精度を実現）
+  let cleaned = line
+    .replace(/"[^"]*"/g, '""')     // ダブルクォート文字列
+    .replace(/'[^']*'/g, "''")     // シングルクォート文字列
+    .replace(/`[^`]*`/g, '``');    // テンプレートリテラル
+
+  // 行コメントを除去
+  const commentIndex = cleaned.indexOf('//');
+  if (commentIndex !== -1) {
+    cleaned = cleaned.substring(0, commentIndex);
+  }
+
+  return cleaned;
+}
+
+/**
+ * コメント行かどうかを判定
+ */
+function isCommentLine(line: string): boolean {
+  const trimmed = line.trim();
+  return trimmed.startsWith('//') || 
+         trimmed.startsWith('/*') || 
+         trimmed.startsWith('*') ||
+         trimmed.endsWith('*/');
+}
+
+/**
+ * 制御構造の行かどうかを判定
+ */
+function isControlStructureLine(line: string): boolean {
+  const trimmed = line.trim();
+  return /^(if|else|while|for|switch|case|try|catch|finally|with)\s*\(/.test(trimmed);
+}
+
+/**
+ * JavaScript/TypeScriptメソッド呼び出し検出（Ruby同等の精度）
+ */
+function extractJavaScriptMethodCallsWithFiltering(code: string, startLineNumber: number, definedMethods: Set<string>): MethodCall[] {
+  const calls: MethodCall[] = [];
+  const lines = code.split('\n');
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const cleanLine = cleanJavaScriptLine(line);
+    const absoluteLineNumber = startLineNumber + i;
+    
+    // 空行やコメント行をスキップ
+    if (!cleanLine.trim() || isCommentLine(cleanLine.trim())) {
+      continue;
+    }
+    
+    // 関数定義行は除外（より厳密なパターン）
+    if (cleanLine.trim().startsWith('function ') || 
+        cleanLine.includes('function(') ||
+        /^\s*\w+\s*[:=]\s*function/.test(cleanLine)) {
+      continue;
+    }
+    
+    // ドット記法のメソッド呼び出し
+    const dotMethodMatches = Array.from(cleanLine.matchAll(/(?:\w+|\)|])\s*\.\s*(\w+)\s*\(/g));
+    for (const match of dotMethodMatches) {
+      const methodName = match[1];
+      if (methodName && isValidJavaScriptMethod(methodName, definedMethods)) {
+        calls.push({
+          methodName,
+          line: absoluteLineNumber,
+          context: line.trim()
+        });
+      }
+    }
+    
+    // オプショナルチェイニング
+    const optionalMatches = Array.from(cleanLine.matchAll(/(?:\w+|\)|])\s*\?\.\s*(\w+)\s*\(/g));
+    for (const match of optionalMatches) {
+      const methodName = match[1];
+      if (methodName && isValidJavaScriptMethod(methodName, definedMethods)) {
+        calls.push({
+          methodName,
+          line: absoluteLineNumber,
+          context: line.trim()
+        });
+      }
+    }
+    
+    // 標準的なメソッド呼び出し（Ruby同様の厳密なフィルタリング）
+    const methodCallMatches = Array.from(cleanLine.matchAll(/(\w+)\s*\(/g));
+    for (const match of methodCallMatches) {
+      const methodName = match[1];
+      if (methodName && isValidJavaScriptMethod(methodName, definedMethods)) {
+        calls.push({
+          methodName,
+          line: absoluteLineNumber,
+          context: line.trim()
+        });
+      }
+    }
+  }
+  
+  // 重複を除去
+  const uniqueCalls = calls.filter((call, index, self) =>
+    index === self.findIndex((c) => 
+      c.methodName === call.methodName && c.line === call.line
+    )
+  );
+  
+  return uniqueCalls;
+}
+
+/**
+ * TypeScript専用メソッド呼び出し検出
+ */
+function extractTypeScriptMethodCallsWithFiltering(code: string, startLineNumber: number, definedMethods?: Set<string>): MethodCall[] {
+  // TypeScriptの基本的な呼び出し検出はJavaScriptと同じ
+  return extractJavaScriptMethodCallsWithFiltering(code, startLineNumber, definedMethods || new Set());
+}
+
 function extractJavaScriptMethodCalls(code: string, startLineNumber: number): MethodCall[] {
   const calls: MethodCall[] = [];
   const lines = code.split('\n');
@@ -622,6 +1194,68 @@ function extractJavaScriptMethodCalls(code: string, startLineNumber: number): Me
   }
   
   return calls;
+}
+
+function extractTypeScriptMethodCalls(code: string, startLineNumber: number): MethodCall[] {
+  const calls: MethodCall[] = [];
+  const lines = code.split('\n');
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const absoluteLineNumber = startLineNumber + i;
+    
+    // 関数定義行は除外
+    if (line.trim().startsWith('function ') || 
+        line.includes('function(') ||
+        /^\s*\w+\s*[:=]\s*function/.test(line) ||
+        /^\s*(?:public|private|protected)?\s*(?:static\s+)?(?:async\s+)?\w+\s*\(/.test(line)) {
+      continue;
+    }
+    
+    // 1. ドット記法のメソッド呼び出し (user.getName(), this.process(), obj?.method())
+    const dotMethodMatches = Array.from(line.matchAll(/(?:\w+|\))\s*\.?\?\s*\.(\w+)\s*\(/g));
+    for (const match of dotMethodMatches) {
+      const methodName = match[1];
+      if (methodName && !isTypeScriptKeyword(methodName)) {
+        calls.push({
+          methodName,
+          line: absoluteLineNumber,
+          context: line.trim()
+        });
+      }
+    }
+    
+    // 2. 標準的なメソッド呼び出し
+    const methodCallMatches = Array.from(line.matchAll(/(\w+)\s*\(/g));
+    for (const match of methodCallMatches) {
+      const methodName = match[1];
+      if (methodName && !isTypeScriptKeyword(methodName)) {
+        calls.push({
+          methodName,
+          line: absoluteLineNumber,
+          context: line.trim()
+        });
+      }
+    }
+  }
+  
+  return calls;
+}
+
+function parseTypeScriptParameters(paramString: string): string[] {
+  const params = paramString.trim();
+  if (!params) return [];
+  
+  // 型アノテーションを除去してパラメータ名のみを抽出
+  return params
+    .split(',')
+    .map(param => {
+      const trimmedParam = param.trim();
+      // パラメータ名の部分のみを抽出（: の前まで）
+      const colonIndex = trimmedParam.indexOf(':');
+      return colonIndex > -1 ? trimmedParam.substring(0, colonIndex).trim() : trimmedParam;
+    })
+    .filter(param => param && param !== '');
 }
 
 function parseRubyParameters(paramString: string): string[] {
@@ -656,7 +1290,16 @@ function extractErbMethodCalls(line: string, lineNumber: number, allDefinedMetho
   return calls;
 }
 
-function isJavaScriptKeyword(word: string): boolean {
-  const keywords = ['if', 'else', 'while', 'for', 'switch', 'case', 'try', 'catch', 'finally', 'return', 'break', 'continue', 'function', 'var', 'let', 'const', 'class', 'new'];
+function isTypeScriptKeyword(word: string): boolean {
+  const keywords = [
+    // JavaScript keywords
+    'if', 'else', 'while', 'for', 'switch', 'case', 'try', 'catch', 'finally', 
+    'return', 'break', 'continue', 'function', 'var', 'let', 'const', 'class', 
+    'new', 'this', 'super', 'typeof', 'instanceof', 'in', 'of', 'delete', 'void',
+    // TypeScript keywords
+    'interface', 'type', 'enum', 'namespace', 'module', 'declare', 'abstract',
+    'implements', 'extends', 'public', 'private', 'protected', 'static', 'readonly',
+    'async', 'await', 'export', 'import', 'from', 'default', 'as'
+  ];
   return keywords.includes(word);
 }
