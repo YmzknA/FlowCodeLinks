@@ -13,6 +13,9 @@ export function analyzeMethodsInFile(file: ParsedFile): Method[] {
     case 'ruby':
       methods = analyzeRubyMethods(file);
       break;
+    case 'erb':
+      methods = analyzeErbMethods(file);
+      break;
     case 'javascript':
     case 'typescript':
       methods = analyzeJavaScriptMethods(file);
@@ -78,6 +81,161 @@ function analyzeRubyMethods(file: ParsedFile): Method[] {
   }
 
   return methods;
+}
+
+function analyzeErbMethods(file: ParsedFile): Method[] {
+  const methods: Method[] = [];
+  const lines = file.content.split('\n');
+  const methodCallMap = new Map<string, { lines: number[], contexts: string[] }>();
+  
+  // ERBファイル全体からメソッド呼び出しを収集
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const methodCalls = extractErbMethodCalls(line, i + 1);
+    
+    // メソッド呼び出しを集計
+    for (const call of methodCalls) {
+      if (!methodCallMap.has(call.methodName)) {
+        methodCallMap.set(call.methodName, { lines: [], contexts: [] });
+      }
+      const callInfo = methodCallMap.get(call.methodName)!;
+      callInfo.lines.push(call.line);
+      callInfo.contexts.push(call.context);
+    }
+  }
+  
+  // ERBファイル全体から検出されたメソッド呼び出しをまとめて1つの特別なメソッドとして登録
+  // これにより依存関係が正しく作成される
+  if (methodCallMap.size > 0) {
+    const allMethodCalls: MethodCall[] = [];
+    
+    for (const [methodName, callInfo] of methodCallMap.entries()) {
+      // 各メソッド呼び出しをMethodCallとして作成
+      allMethodCalls.push({
+        methodName: methodName,
+        line: Math.min(...callInfo.lines),
+        context: callInfo.contexts[0] // 最初のコンテキストを使用
+      });
+      
+      // 個別のメソッド呼び出しエントリも作成（サイドバー表示用）
+      methods.push({
+        name: methodName,
+        type: 'erb_call',
+        startLine: Math.min(...callInfo.lines),
+        endLine: Math.max(...callInfo.lines),
+        filePath: file.path,
+        code: callInfo.contexts.join('\n'),
+        calls: [],
+        isPrivate: false,
+        parameters: []
+      });
+    }
+    
+    // ERBファイル全体の仮想メソッドを作成（依存関係作成用）
+    const fileName = file.fileName.replace(/\.erb$/, '').replace(/\.(html|xml|json|js|turbo_stream)$/, '');
+    methods.push({
+      name: `[ERB File: ${fileName}]`,
+      type: 'erb_call',
+      startLine: 1,
+      endLine: lines.length,
+      filePath: file.path,
+      code: file.content,
+      calls: allMethodCalls,
+      isPrivate: false,
+      parameters: []
+    });
+  }
+  
+  return methods;
+}
+
+/**
+ * ERB用のRubyメソッド呼び出し抽出
+ * 通常のRubyファイルと異なり、ERBではすべてのCRUDメソッドも検出対象とする
+ */
+function extractErbRubyMethodCalls(code: string, lineNumber: number): MethodCall[] {
+  const calls: MethodCall[] = [];
+  const lines = code.split('\n');
+  const definedMethods = new Set<string>(); // ERBでは空のSet
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const absoluteLineNumber = lineNumber + i;
+    
+    // コメント行をスキップ
+    if (line.trim().startsWith('#')) continue;
+    
+    // 文字列補間内のメソッド呼び出し
+    calls.push(...extractInterpolationMethodCalls(line, absoluteLineNumber));
+    
+    // ドット記法のメソッド呼び出し（ERB用：CRUDメソッドも含める）
+    calls.push(...extractErbDotMethodCalls(line, absoluteLineNumber));
+    
+    // スタンドアロンのメソッド呼び出し（ERB用：CRUDメソッドも含める）
+    calls.push(...extractErbStandaloneMethodCalls(line, absoluteLineNumber));
+  }
+  
+  // 重複を除去
+  const uniqueCalls = calls.filter((call, index, self) =>
+    index === self.findIndex((c) => 
+      c.methodName === call.methodName && c.line === call.line
+    )
+  );
+  
+  return uniqueCalls;
+}
+
+/**
+ * ERB用のドット記法メソッド呼び出し抽出
+ * CRUDメソッドも検出対象とする
+ */
+function extractErbDotMethodCalls(line: string, lineNumber: number): MethodCall[] {
+  const calls: MethodCall[] = [];
+  
+  const dotMethodMatches = Array.from(line.matchAll(COMMON_PATTERNS.DOT_METHOD));
+  for (const match of dotMethodMatches) {
+    const methodName = match[1];
+    if (methodName && !isRubyBuiltin(methodName)) {
+      calls.push({
+        methodName,
+        line: lineNumber,
+        context: line.trim()
+      });
+    }
+  }
+  
+  return calls;
+}
+
+/**
+ * ERB用のスタンドアロンメソッド呼び出し抽出
+ * CRUDメソッドも検出対象とする
+ */
+function extractErbStandaloneMethodCalls(line: string, lineNumber: number): MethodCall[] {
+  const calls: MethodCall[] = [];
+  
+  const standaloneMethodMatches = Array.from(line.matchAll(COMMON_PATTERNS.STANDALONE_METHOD));
+  for (const match of standaloneMethodMatches) {
+    const methodName = match[1];
+    
+    // 変数代入の確認
+    const beforeMethod = line.substring(0, line.indexOf(methodName));
+    const afterMethod = line.substring(line.indexOf(methodName) + methodName.length);
+    const isAssignmentTarget = beforeMethod.trim().match(/\w+\s*$/) && afterMethod.trim().startsWith('=');
+    
+    if (methodName && 
+        !isAssignmentTarget &&
+        !isRubyKeyword(methodName) && 
+        !isRubyBuiltin(methodName)) {
+      calls.push({
+        methodName,
+        line: lineNumber,
+        context: line.trim()
+      });
+    }
+  }
+  
+  return calls;
 }
 
 function analyzeJavaScriptMethods(file: ParsedFile): Method[] {
@@ -384,6 +542,27 @@ function parseJavaScriptParameters(paramString: string): string[] {
   return params ? params.split(',').map(p => p.trim()) : [];
 }
 
+
+/**
+ * ERBタグからRubyコードを抽出してメソッド呼び出しを検出
+ */
+function extractErbMethodCalls(line: string, lineNumber: number): MethodCall[] {
+  const calls: MethodCall[] = [];
+  
+  // ERBタグパターンを使用してRubyコードを抽出
+  const erbTagMatches = Array.from(line.matchAll(COMMON_PATTERNS.ERB_TAG));
+  
+  for (const match of erbTagMatches) {
+    const rubyCode = match[1];
+    if (rubyCode.trim()) {
+      // 抽出したRubyコードからメソッド呼び出しを検出（ERB専用）
+      const rubyMethodCalls = extractErbRubyMethodCalls(rubyCode, lineNumber);
+      calls.push(...rubyMethodCalls);
+    }
+  }
+  
+  return calls;
+}
 
 function isJavaScriptKeyword(word: string): boolean {
   const keywords = ['if', 'else', 'while', 'for', 'switch', 'case', 'try', 'catch', 'finally', 'return', 'break', 'continue', 'function', 'var', 'let', 'const', 'class', 'new'];
