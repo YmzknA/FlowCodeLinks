@@ -77,19 +77,11 @@ export const useAllFilesMonitor = (filePath: string) => {
     // クライアントサイドでのみ実行
     if (!isClient) return;
 
-    if (process.env.NODE_ENV === 'development') {
-      // eslint-disable-next-line no-console
-      console.log('🔄 useAllFilesMonitor setting up monitoring for', filePath);
-    }
 
     /**
      * __allFiles_updated カスタムイベントのハンドラ
      */
     const handleAllFilesUpdate = (event: CustomEvent) => {
-      if (process.env.NODE_ENV === 'development') {
-        // eslint-disable-next-line no-console
-        console.log('🔄 useAllFilesMonitor received __allFiles event:', event.detail, 'for', filePath);
-      }
       retryCountRef.current = 0; // イベント受信時はリトライカウントリセット
 
       // より長い遅延でチェック（CodeVisualizerの処理完了を待つ）
@@ -110,28 +102,13 @@ export const useAllFilesMonitor = (filePath: string) => {
 
     if (typeof window !== 'undefined' && window.addEventListener) {
       window.addEventListener('__allFiles_updated', handleAllFilesUpdate as EventListener);
-      if (process.env.NODE_ENV === 'development') {
-        // eslint-disable-next-line no-console
-        console.log('🔄 Event listener monitoring added for', filePath);
-      }
 
       return () => {
         window.removeEventListener('__allFiles_updated', handleAllFilesUpdate as EventListener);
-        if (process.env.NODE_ENV === 'development') {
-          // eslint-disable-next-line no-console
-          console.log('🔄 Monitoring removed for', filePath);
-        }
       };
     }
-  }, [isClient, filePath]);
+  }, [isClient, filePath, checkAllFiles, startRetryLoop]);
 
-  // allFilesVersionの変更をログ出力（開発環境のみ）
-  useEffect(() => {
-    if (allFilesVersion > 0 && process.env.NODE_ENV === 'development') {
-      // eslint-disable-next-line no-console
-      console.log(`🔄 allFilesVersion updated to: ${allFilesVersion} for ${filePath}`);
-    }
-  }, [allFilesVersion, filePath]);
 
   return { allFilesVersion, isClient };
 };
