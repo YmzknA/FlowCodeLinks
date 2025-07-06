@@ -24,59 +24,59 @@ export const useAllFilesMonitor = (filePath: string) => {
     return Math.min(100 * Math.pow(2, retryCount), 2000);
   };
 
-  /**
-   * __allFiles の状態をチェックし、変更があれば更新
-   */
-  const checkAllFiles = (): boolean => {
-    const allFiles = (window as any).__allFiles;
-    const currentLength = allFiles?.length || 0;
-
-    if (process.env.NODE_ENV === 'development' && filePath.includes('page.tsx')) {
-      // eslint-disable-next-line no-console
-      console.log(`Checking __allFiles for ${filePath}: ${currentLength} files`);
-    }
-
-    if (currentLength > 0 && currentLength !== lastLengthRef.current) {
-      if (process.env.NODE_ENV === 'development') {
-        // eslint-disable-next-line no-console
-        console.log(`🔄 __allFiles detected change: ${lastLengthRef.current} → ${currentLength} for ${filePath}`);
-      }
-      lastLengthRef.current = currentLength;
-      setAllFilesVersion(prev => prev + 1);
-      retryCountRef.current = 0; // 成功したらリトライカウントリセット
-      return true; // 成功を示す
-    }
-
-    return false; // まだデータが準備されていない
-  };
-
-  /**
-   * 指数バックオフを使用したリトライループ
-   */
-  const startRetryLoop = (): void => {
-    const scheduleRetry = () => {
-      const interval = getRetryInterval(retryCountRef.current);
-      setTimeout(() => {
-        if (checkAllFiles() || retryCountRef.current >= maxRetries) {
-          if (retryCountRef.current >= maxRetries) {
-            if (process.env.NODE_ENV === 'development') {
-              // eslint-disable-next-line no-console
-              console.warn(`⚠️ __allFiles initialization failed after ${maxRetries} retries for ${filePath}`);
-            }
-          }
-          return;
-        }
-        retryCountRef.current++;
-        scheduleRetry();
-      }, interval);
-    };
-    scheduleRetry();
-  };
 
   useEffect(() => {
     // クライアントサイドでのみ実行
     if (!isClient) return;
 
+    /**
+     * __allFiles の状態をチェックし、変更があれば更新（ローカル関数）
+     */
+    const checkAllFilesLocal = (): boolean => {
+      const allFiles = (window as any).__allFiles;
+      const currentLength = allFiles?.length || 0;
+
+      if (process.env.NODE_ENV === 'development' && filePath.includes('page.tsx')) {
+        // eslint-disable-next-line no-console
+        console.log(`Checking __allFiles for ${filePath}: ${currentLength} files`);
+      }
+
+      if (currentLength > 0 && currentLength !== lastLengthRef.current) {
+        if (process.env.NODE_ENV === 'development') {
+          // eslint-disable-next-line no-console
+          console.log(`🔄 __allFiles detected change: ${lastLengthRef.current} → ${currentLength} for ${filePath}`);
+        }
+        lastLengthRef.current = currentLength;
+        setAllFilesVersion(prev => prev + 1);
+        retryCountRef.current = 0; // 成功したらリトライカウントリセット
+        return true; // 成功を示す
+      }
+
+      return false; // まだデータが準備されていない
+    };
+
+    /**
+     * 指数バックオフを使用したリトライループ（ローカル関数）
+     */
+    const startRetryLoopLocal = (): void => {
+      const scheduleRetry = () => {
+        const interval = getRetryInterval(retryCountRef.current);
+        setTimeout(() => {
+          if (checkAllFilesLocal() || retryCountRef.current >= maxRetries) {
+            if (retryCountRef.current >= maxRetries) {
+              if (process.env.NODE_ENV === 'development') {
+                // eslint-disable-next-line no-console
+                console.warn(`⚠️ __allFiles initialization failed after ${maxRetries} retries for ${filePath}`);
+              }
+            }
+            return;
+          }
+          retryCountRef.current++;
+          scheduleRetry();
+        }, interval);
+      };
+      scheduleRetry();
+    };
 
     /**
      * __allFiles_updated カスタムイベントのハンドラ
@@ -86,17 +86,17 @@ export const useAllFilesMonitor = (filePath: string) => {
 
       // より長い遅延でチェック（CodeVisualizerの処理完了を待つ）
       setTimeout(() => {
-        if (!checkAllFiles()) {
+        if (!checkAllFilesLocal()) {
           // 失敗した場合は指数バックオフでリトライ
-          startRetryLoop();
+          startRetryLoopLocal();
         }
       }, 200);
     };
 
     // 初回チェック（より長い遅延）
     setTimeout(() => {
-      if (!checkAllFiles()) {
-        startRetryLoop();
+      if (!checkAllFilesLocal()) {
+        startRetryLoopLocal();
       }
     }, 300);
 
@@ -107,7 +107,7 @@ export const useAllFilesMonitor = (filePath: string) => {
         window.removeEventListener('__allFiles_updated', handleAllFilesUpdate as EventListener);
       };
     }
-  }, [isClient, filePath, checkAllFiles, startRetryLoop]);
+  }, [isClient, filePath]);
 
 
   return { allFilesVersion, isClient };
