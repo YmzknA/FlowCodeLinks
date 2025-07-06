@@ -58,6 +58,9 @@ export default function Home() {
       if (method.importSource) {
         console.log(`  ImportSource: ${method.importSource}`);
       }
+      if (method.parameters && method.parameters.length > 0) {
+        console.log(`  Parameters: ${JSON.stringify(method.parameters)}`);
+      }
       if (method.calls && method.calls.length > 0) {
         console.log(`  Calls:`);
         method.calls.forEach(call => {

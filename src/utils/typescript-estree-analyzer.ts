@@ -415,6 +415,47 @@ function extractCallExpressionArrowFunctions(ast: any, file: ParsedFile, allDefi
 }
 
 /**
+ * インポート文からメソッド名を抽出
+ */
+function extractImportedMethodNames(importStatement: string): string[] {
+  const methodNames: string[] = [];
+  
+  // パターン1: import { method1, method2 } from 'module'
+  const namedImportMatch = importStatement.match(/import\s*\{\s*([^}]+)\s*\}/);
+  if (namedImportMatch) {
+    const namedImports = namedImportMatch[1];
+    // カンマで分割して個別のimportを処理
+    namedImports.split(',').forEach(importItem => {
+      const trimmed = importItem.trim();
+      // "method as alias" または "method" の形式を処理
+      const asMatch = trimmed.match(/(\w+)\s+as\s+(\w+)/);
+      if (asMatch) {
+        methodNames.push(asMatch[2]); // aliasを使用
+      } else {
+        const methodMatch = trimmed.match(/(\w+)/);
+        if (methodMatch) {
+          methodNames.push(methodMatch[1]);
+        }
+      }
+    });
+  }
+  
+  // パターン2: import DefaultMethod from 'module'
+  const defaultImportMatch = importStatement.match(/import\s+(\w+)\s+from/);
+  if (defaultImportMatch && !importStatement.includes('{')) {
+    methodNames.push(defaultImportMatch[1]);
+  }
+  
+  // パターン3: import * as namespace from 'module'
+  const namespaceImportMatch = importStatement.match(/import\s*\*\s*as\s+(\w+)/);
+  if (namespaceImportMatch) {
+    methodNames.push(namespaceImportMatch[1]);
+  }
+  
+  return methodNames;
+}
+
+/**
  * 正規表現ベースのTypeScript/TSX解析（クライアントサイド用フォールバック）
  */
 function analyzeTypeScriptWithRegex(file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
@@ -559,6 +600,9 @@ function analyzeTypeScriptWithRegex(file: ParsedFile, allDefinedMethods?: Set<st
       const lineNumber = content.substring(0, match.index).split('\n').length;
       const importStatement = match[0];
       
+      // インポートされたメソッド名を抽出
+      const importedMethods = extractImportedMethodNames(importStatement);
+      
       // インポート使用箇所を検出
       const usageCalls = findImportUsagesWithRegex(file, importStatement);
       
@@ -571,7 +615,7 @@ function analyzeTypeScriptWithRegex(file: ParsedFile, allDefinedMethods?: Set<st
         code: importStatement,
         calls: usageCalls,
         isPrivate: false,
-        parameters: []
+        parameters: importedMethods
       };
       
       methods.push(importMethod);

@@ -29,6 +29,13 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
 }) => {
   const { id, file, position, isCollapsed, showMethodsOnly } = window;
   
+  // Monitor __allFiles state for development
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && file.path.includes('page.tsx')) {
+      console.log('FloatingWindow mounted:', file.path);
+    }
+  }, [file.path]);
+  
 
   const [highlightedCode, setHighlightedCode] = useState<string>('');
   const processedContentRef = useRef<string>('');
@@ -170,6 +177,93 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
     }
   };
 
+  // __allFilesの変更を監視して再処理 - 改善版
+  const [allFilesVersion, setAllFilesVersion] = useState(0);
+  const [isClient, setIsClient] = useState(false);
+  const lastLengthRef = useRef(0);
+  const retryCountRef = useRef(0);
+  const maxRetries = 10; // 最大5秒間リトライ
+  
+  // クライアントサイド確認
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+  
+  useEffect(() => {
+    // クライアントサイドでのみ実行
+    if (!isClient) return;
+    
+    console.log('🔄 FloatingWindow setting up monitoring for', file.path);
+    
+    const checkAllFiles = () => {
+      const allFiles = (window as any).__allFiles;
+      const currentLength = allFiles?.length || 0;
+      
+      if (process.env.NODE_ENV === 'development' && file.path.includes('page.tsx')) {
+        console.log(`Checking __allFiles for ${file.path}: ${currentLength} files`);
+      }
+      
+      if (currentLength > 0 && currentLength !== lastLengthRef.current) {
+        console.log(`🔄 __allFiles detected change: ${lastLengthRef.current} → ${currentLength} for ${file.path}`);
+        lastLengthRef.current = currentLength;
+        setAllFilesVersion(prev => prev + 1);
+        retryCountRef.current = 0; // 成功したらリトライカウントリセット
+        return true; // 成功を示す
+      }
+      
+      return false; // まだデータが準備されていない
+    };
+    
+    const handleAllFilesUpdate = (event: CustomEvent) => {
+      console.log('🔄 FloatingWindow received __allFiles event:', event.detail, 'for', file.path);
+      retryCountRef.current = 0; // イベント受信時はリトライカウントリセット
+      
+      // より長い遅延でチェック（CodeVisualizerの処理完了を待つ）
+      setTimeout(() => {
+        if (!checkAllFiles()) {
+          // 失敗した場合は短い間隔でリトライ
+          startRetryLoop();
+        }
+      }, 200);
+    };
+    
+    const startRetryLoop = () => {
+      const retryInterval = setInterval(() => {
+        if (checkAllFiles() || retryCountRef.current >= maxRetries) {
+          clearInterval(retryInterval);
+          if (retryCountRef.current >= maxRetries) {
+            console.warn(`⚠️ __allFiles initialization failed after ${maxRetries} retries for ${file.path}`);
+          }
+        }
+        retryCountRef.current++;
+      }, 500);
+    };
+    
+    // 初回チェック（より長い遅延）
+    setTimeout(() => {
+      if (!checkAllFiles()) {
+        startRetryLoop();
+      }
+    }, 300);
+    
+    if (typeof window !== 'undefined' && window.addEventListener) {
+      window.addEventListener('__allFiles_updated', handleAllFilesUpdate as EventListener);
+      console.log('🔄 Event listener monitoring added for', file.path);
+      
+      return () => {
+        window.removeEventListener('__allFiles_updated', handleAllFilesUpdate as EventListener);
+        console.log('🔄 Monitoring removed for', file.path);
+      };
+    }
+  }, [isClient, file.path]);
+  
+  // allFilesVersionの変更をログ出力
+  useEffect(() => {
+    if (allFilesVersion > 0) {
+      console.log(`🔄 allFilesVersion updated to: ${allFilesVersion} for ${file.path}`);
+    }
+  }, [allFilesVersion]);
+
   // シンタックスハイライトを適用
   useEffect(() => {
     const highlightCode = async () => {
@@ -244,10 +338,34 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                 const findMethodDefinition = (methodName: string) => {
                   // 全ファイルからメソッド定義を検索
                   const allFiles = (window as any).__allFiles || [];
+                  
+                  // デバッグ対象メソッドの場合はログを出力
+                  if (methodName === 'useAuth' || methodName === 'userState') {
+                    console.log(`=== findMethodDefinition for ${methodName} (v${allFilesVersion}) ===`);
+                    console.log(`Searching in ${allFiles.length} files`);
+                    console.log(`Current file: ${file.path}`);
+                    
+                    if (allFiles.length > 0) {
+                      console.log(`Available files:`);
+                      allFiles.forEach((f: any, i: number) => {
+                        console.log(`  ${i}: ${f.path} (${f.methods?.length || 0} methods)`);
+                        if ((f.path.includes('auth') || f.path.includes('recoil') || f.path.includes('state')) && f.methods) {
+                          console.log(`    Methods:`, f.methods.map((m: any) => `${m.name}(${m.type})`));
+                        }
+                      });
+                    }
+                  }
+                  
                   for (const searchFile of allFiles) {
                     if (searchFile.methods) {
                       for (const method of searchFile.methods) {
+                        if (methodName === 'useAuth' || methodName === 'userState') {
+                          console.log(`  Checking: "${method.name}" in ${searchFile.path} (type: ${method.type})`);
+                        }
                         if (method.name === methodName) {
+                          if (methodName === 'useAuth' || methodName === 'userState') {
+                            console.log(`  ✅ Found: ${methodName} in ${searchFile.path}`);
+                          }
                           return {
                             methodName: method.name,
                             filePath: searchFile.path
@@ -255,6 +373,10 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                         }
                       }
                     }
+                  }
+                  
+                  if (methodName === 'useAuth' || methodName === 'userState') {
+                    console.log(`  ❌ ${methodName} not found in any file`);
                   }
                   return null;
                 };
@@ -290,7 +412,31 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                     const escapedMethodName = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                     
                     // 詳細判定を有効にするかどうか
-                    const enableSmartClickability = (window as any).__allFiles && (window as any).__allFiles.length > 0;
+                    const allFiles = (window as any).__allFiles;
+                    const enableSmartClickability = allFiles && allFiles.length > 0;
+                    
+                    // デバッグ: 外部ライブラリメソッドの詳細確認
+                    if (methodName === 'useRecoilValue' || methodName === 'useAuth') {
+                      console.log(`=== DEBUG: ${methodName} clickability check (v${allFilesVersion}) ===`);
+                      console.log('__allFiles exists:', !!allFiles);
+                      console.log('__allFiles length:', allFiles?.length || 0);
+                      console.log('enableSmartClickability:', enableSmartClickability);
+                      console.log('allFilesVersion:', allFilesVersion);
+                      console.log('Current file path:', file.path);
+                      
+                      if (allFiles && methodName === 'useAuth') {
+                        console.log('All file paths in __allFiles:');
+                        allFiles.forEach((f: any, i: number) => {
+                          console.log(`  ${i}: ${f.path} (${f.methods?.length || 0} methods)`);
+                          if (f.path.includes('auth')) {
+                            console.log(`    Auth file methods:`, f.methods?.map((m: any) => m.name) || []);
+                          }
+                        });
+                      }
+                      
+                      // 実際のfindMethodDefinition呼び出し前の状態確認
+                      console.log('About to call findMethodDefinition...');
+                    }
                     
                     if (enableSmartClickability) {
                       highlighted = replaceMethodNameInText(
@@ -303,7 +449,9 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                         (window as any).__allFiles
                       );
                     } else {
-                      // 従来通りの動作（全てクリック可能）
+                      // 全ファイルデータが利用できない場合は、従来の動作を維持
+                      // findMethodDefinitionを渡さないことで、全てのメソッドをクリック可能にする
+                      // これにより、useAuthのような外部ファイルで定義されたメソッドもクリック可能
                       highlighted = replaceMethodNameInText(highlighted, methodName, escapedMethodName);
                     }
                   }
@@ -329,12 +477,12 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
     };
 
     // 前回と同じコンテンツの場合は処理をスキップ
-    const currentContentKey = `${file.content}-${isCollapsed}-${showMethodsOnly}-${file.language}`;
+    const currentContentKey = `${file.content}-${isCollapsed}-${showMethodsOnly}-${file.language}-${allFilesVersion}`;
     if (processedContentRef.current !== currentContentKey) {
       processedContentRef.current = currentContentKey;
       highlightCode();
     }
-  }, [file.content, isCollapsed, showMethodsOnly, file.language, file.methods]);
+  }, [file.content, isCollapsed, showMethodsOnly, file.language, file.methods, allFilesVersion]);
 
   // コンテンツ変更後にスクロール情報を更新
   useEffect(() => {

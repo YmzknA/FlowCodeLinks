@@ -95,6 +95,8 @@ export const makeImportMethodsClickable = (
  * @param files 全ファイルデータ
  * @returns 処理済みHTML
  */
+import { isExternalLibraryMethod } from '@/config/external-methods';
+
 export const replaceMethodNameInText = (
   html: string, 
   methodName: string, 
@@ -104,11 +106,16 @@ export const replaceMethodNameInText = (
   currentFilePath?: string,
   files?: any[]
 ): string => {
-  // クリック可能性の判定（判定関数が提供された場合のみ実行）
-  let isClickable = true; // デフォルトはクリック可能
+  // 外部ライブラリメソッドは即座に非クリック化
+  if (isExternalLibraryMethod(methodName)) {
+    return html; // そのまま返す（クリック不可）
+  }
+  
+  // クリック可能性の判定 - 統一ロジック
+  let isClickable = false; // デフォルトは非クリック（安全側に倒す）
   
   if (findMethodDefinition && findAllMethodCallers && currentFilePath && files) {
-    // 現在のファイルでメソッドが定義されているかチェック
+    // 全パラメータが提供された場合：完全な判定を実行
     const currentFile = files.find(f => f.path === currentFilePath);
     const isDefinedInCurrentFile = currentFile?.methods?.some((method: any) => method.name === methodName);
     
@@ -121,11 +128,22 @@ export const replaceMethodNameInText = (
       const definition = findMethodDefinition(methodName);
       isClickable = definition !== null; // 定義元がある場合のみクリック可能（ジャンプ）
     }
+  } else if (findMethodDefinition) {
+    // findMethodDefinitionのみが提供された場合：定義検索ベースで判定
+    const definition = findMethodDefinition(methodName);
+    isClickable = definition !== null;
+  } else {
+    // findMethodDefinitionが利用できない場合：パターンベースで判定（フォールバック）
+    // 安全側に倒して、確実にプロジェクト定義のメソッドのみクリック可能にする
+    const knownProjectMethods = new Set(['useAuth', 'useUser', 'useProfile']); // 確実にプロジェクト定義のメソッド
     
-    // クリック可能でない場合はそのまま返す
-    if (!isClickable) {
-      return html;
-    }
+    isClickable = knownProjectMethods.has(methodName); // 既知のプロジェクトメソッドのみクリック可能
+  }
+  // その他の場合：従来通り全てクリック可能（後方互換性）
+  
+  // クリック可能でない場合はそのまま返す
+  if (!isClickable) {
+    return html;
   }
   
   // 特定のケースのみ保護する、より安全なアプローチ
