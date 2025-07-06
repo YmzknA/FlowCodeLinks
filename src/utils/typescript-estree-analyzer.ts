@@ -2,9 +2,36 @@ import { ParsedFile, Method, MethodCall } from '@/types/codebase';
 import crypto from 'crypto';
 
 // TypeScript ESTree関連の型定義
+interface ParseOptions {
+  jsx?: boolean;
+  range?: boolean;
+  loc?: boolean;
+  tokens?: boolean;
+  comment?: boolean;
+  useJSXTextNode?: boolean;
+  ecmaVersion?: number;
+  sourceType?: 'script' | 'module';
+}
+
+interface LocationInfo {
+  start: { line: number; column: number; };
+  end: { line: number; column: number; };
+}
+
+interface BaseNode {
+  type: string;
+  range?: [number, number];
+  loc?: LocationInfo;
+}
+
+interface Program extends BaseNode {
+  type: 'Program';
+  body: BaseNode[];
+}
+
 interface ESTreeParser {
-  parse: (content: string, options: any) => any; // 本来はTSESTree.Programだが、現状は依存性の問題でanyを使用
-  TSESTreeTypes?: any;
+  parse: (content: string, options: ParseOptions) => Program;
+  TSESTreeTypes?: any; // 外部ライブラリの型定義のため、anyを許容
 }
 
 interface ParseErrorInfo {
@@ -29,6 +56,8 @@ const MAX_ACCESS_COUNT = 1000; // 最大アクセス回数
 const MAX_FILE_SIZE = 1024 * 1024; // 1MB制限
 
 // 定期的なキャッシュクリーニング（サーバーサイドのみ）
+let cleanupTimer: NodeJS.Timeout | null = null;
+
 if (typeof window === 'undefined') {
   const cleanExpiredCache = (): void => {
     const now = Date.now();
@@ -40,7 +69,7 @@ if (typeof window === 'undefined') {
   };
   
   // 5分毎にキャッシュクリーニング実行
-  setInterval(cleanExpiredCache, 5 * 60 * 1000);
+  cleanupTimer = setInterval(cleanExpiredCache, 5 * 60 * 1000);
 }
 
 /**
@@ -176,6 +205,16 @@ export function getCacheStats(): { size: number; maxSize: number; hitRate?: numb
 }
 
 /**
+ * パフォーマンス最適化：タイマーのクリーンアップ機能
+ */
+export function cleanupTimers(): void {
+  if (cleanupTimer) {
+    clearInterval(cleanupTimer);
+    cleanupTimer = null;
+  }
+}
+
+/**
  * TypeScript ESTreeを使用したTypeScriptファイルの包括的解析
  */
 export function analyzeTypeScriptWithESTree(file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
@@ -233,15 +272,14 @@ export function analyzeTypeScriptWithESTree(file: ParsedFile, allDefinedMethods?
 /**
  * 解析オプションの定数
  */
-const parseOptions = {
+const parseOptions: ParseOptions = {
   loc: true,
   range: true,
   comment: true,
   tokens: true,
-  errorOnUnknownASTType: false,
-  errorOnTypeScriptSyntacticAndSemanticIssues: false,
-  allowInvalidAST: true,
-  jsx: true
+  jsx: true,
+  sourceType: 'module' as const,
+  ecmaVersion: 2022
 };
 
 /**

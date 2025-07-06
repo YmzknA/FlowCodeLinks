@@ -32,6 +32,8 @@ describe('CodeContent Component', () => {
       const file: ParsedFile = {
         path: 'test.rb',
         directory: '',
+        fileName: 'test.rb',
+        totalLines: 10,
         content: `class User
   def admin?
     @role == 'admin'
@@ -95,6 +97,8 @@ end`,
       const file: ParsedFile = {
         path: 'test.rb',
         directory: '',
+        fileName: 'test.rb',
+        totalLines: 14,
         content: `class Article
   def save!
     @saved = true
@@ -184,6 +188,8 @@ end`,
       const file: ParsedFile = {
         path: 'test.rb',
         directory: '',
+        fileName: 'test.rb',
+        totalLines: 15,
         content: `class Test
   def admin
     # This is not admin? method

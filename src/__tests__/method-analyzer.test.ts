@@ -482,7 +482,11 @@ class User
   end
 end
 `,
-        language: 'ruby'
+        language: 'ruby',
+        directory: '',
+        fileName: 'test.rb',
+        totalLines: 23,
+        methods: []
       };
 
       const methods = analyzeMethodsInFile(file);
@@ -531,7 +535,11 @@ class TaskController
   end
 end
 `,
-        language: 'ruby'
+        language: 'ruby',
+        directory: '',
+        fileName: 'test.rb',
+        totalLines: 26,
+        methods: []
       };
 
       const methods = analyzeMethodsInFile(file);
@@ -585,7 +593,11 @@ class Article
   end
 end
 `,
-        language: 'ruby'
+        language: 'ruby',
+        directory: '',
+        fileName: 'test.rb',
+        totalLines: 26,
+        methods: []
       };
 
       const methods = analyzeMethodsInFile(file);
@@ -639,7 +651,11 @@ class ComplexExample
   end
 end
 `,
-        language: 'ruby'
+        language: 'ruby',
+        directory: '',
+        fileName: 'test.rb',
+        totalLines: 28,
+        methods: []
       };
 
       const methods = analyzeMethodsInFile(file);

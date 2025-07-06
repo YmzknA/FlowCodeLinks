@@ -40,8 +40,10 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // 開発環境でNext.jsが動作するように緩和
-              "style-src 'self' 'unsafe-inline'", // 開発環境でスタイルが動作するように緩和
+              // 環境に応じた script-src の設定
+              "script-src 'self'" + (process.env.NODE_ENV === 'development' ? " 'unsafe-inline' 'unsafe-eval'" : ""),
+              // 環境に応じた style-src の設定
+              "style-src 'self'" + (process.env.NODE_ENV === 'development' ? " 'unsafe-inline'" : ""),
               "img-src 'self' data: blob:",
               "connect-src 'self'",
               "font-src 'self'",
