@@ -1,13 +1,52 @@
 import { ParsedFile, Method, MethodCall } from '@/types/codebase';
+import crypto from 'crypto';
 
-// パフォーマンス最適化用のキャッシュ
-const parseCache = new Map<string, Method[]>();
+// TypeScript ESTree関連の型定義
+interface ESTreeParser {
+  parse: (content: string, options: any) => any; // 本来はTSESTree.Programだが、現状は依存性の問題でanyを使用
+  TSESTreeTypes?: any;
+}
+
+interface ParseErrorInfo {
+  file: string;
+  fileSize: number;
+  language: string;
+  error: string;
+  timestamp: string;
+}
+
+// パフォーマンス最適化用のキャッシュ（TTL機能付き）
+interface CacheEntry {
+  data: Method[];
+  timestamp: number;
+  accessCount: number;
+}
+
+const parseCache = new Map<string, CacheEntry>();
 const CACHE_MAX_SIZE = 100; // 最大キャッシュサイズ
+const CACHE_TTL = 30 * 60 * 1000; // 30分
+const MAX_ACCESS_COUNT = 1000; // 最大アクセス回数
+const MAX_FILE_SIZE = 1024 * 1024; // 1MB制限
+
+// 定期的なキャッシュクリーニング（サーバーサイドのみ）
+if (typeof window === 'undefined') {
+  const cleanExpiredCache = (): void => {
+    const now = Date.now();
+    for (const [key, entry] of parseCache.entries()) {
+      if (now - entry.timestamp > CACHE_TTL || entry.accessCount > MAX_ACCESS_COUNT) {
+        parseCache.delete(key);
+      }
+    }
+  };
+  
+  // 5分毎にキャッシュクリーニング実行
+  setInterval(cleanExpiredCache, 5 * 60 * 1000);
+}
 
 /**
  * TypeScript ESTreeを動的に読み込む
  */
-function loadTypeScriptESTree() {
+function loadTypeScriptESTree(): ESTreeParser | null {
   try {
     const tsEstree = require('@typescript-eslint/typescript-estree');
     const tsTypes = require('@typescript-eslint/types');
@@ -51,22 +90,19 @@ export function extractTypeScriptMethodDefinitionsWithESTree(file: ParsedFile): 
     return [];
   }
 
+  // ファイルサイズ制限チェック
+  if (file.content.length > MAX_FILE_SIZE) {
+    console.warn(`File too large for AST parsing: ${file.path} (${file.content.length} bytes)`);
+    return [];
+  }
+
   const esTree = loadTypeScriptESTree();
   if (!esTree) {
     return [];
   }
 
   try {
-    const ast = esTree.parse(file.content, {
-      loc: true,
-      range: true,
-      comment: true,
-      tokens: true,
-      errorOnUnknownASTType: false,
-      errorOnTypeScriptSyntacticAndSemanticIssues: false,
-      allowInvalidAST: true,
-      jsx: true
-    });
+    const ast = esTree.parse(file.content, parseOptions);
 
     const methods: Method[] = [];
 
@@ -102,15 +138,16 @@ export function extractTypeScriptMethodDefinitionsWithESTree(file: ParsedFile): 
 }
 
 /**
- * キャッシュキーを生成
+ * キャッシュキーを生成（内容ハッシュによる衝突回避）
  */
 function generateCacheKey(file: ParsedFile, allDefinedMethods?: Set<string>): string {
+  const contentHash = crypto.createHash('sha256').update(file.content).digest('hex').substring(0, 8);
   const methodsHash = allDefinedMethods ? Array.from(allDefinedMethods).sort().join(',') : '';
-  return `${file.path}:${file.content.length}:${methodsHash}:${file.language}`;
+  return `${file.path}:${contentHash}:${methodsHash}:${file.language}`;
 }
 
 /**
- * キャッシュサイズを管理（LRU風）
+ * キャッシュサイズを管理（LRU風 + TTL対応）
  */
 function manageCacheSize(): void {
   if (parseCache.size > CACHE_MAX_SIZE) {
@@ -146,14 +183,23 @@ export function analyzeTypeScriptWithESTree(file: ParsedFile, allDefinedMethods?
     return [];
   }
 
+  // ファイルサイズ制限チェック（DoS攻撃対策）
+  if (file.content.length > MAX_FILE_SIZE) {
+    console.warn(`File too large for AST parsing: ${file.path} (${file.content.length} bytes)`);
+    return analyzeTypeScriptWithRegex(file, allDefinedMethods);
+  }
+
   // キャッシュチェック
   const cacheKey = generateCacheKey(file, allDefinedMethods);
   if (parseCache.has(cacheKey)) {
-    const cached = parseCache.get(cacheKey)!;
+    const cachedEntry = parseCache.get(cacheKey)!;
+    // アクセス回数を増加
+    cachedEntry.accessCount++;
+    cachedEntry.timestamp = Date.now();
     // キャッシュヒット時はエントリを最新に移動（LRU）
     parseCache.delete(cacheKey);
-    parseCache.set(cacheKey, cached);
-    return cached;
+    parseCache.set(cacheKey, cachedEntry);
+    return cachedEntry.data;
   }
 
   let result: Method[];
@@ -172,85 +218,143 @@ export function analyzeTypeScriptWithESTree(file: ParsedFile, allDefinedMethods?
     result = analyzeTypeScriptWithRegex(file, allDefinedMethods);
   }
 
-  // 結果をキャッシュに保存
+  // 結果をキャッシュに保存（TTL対応）
   manageCacheSize();
-  parseCache.set(cacheKey, result);
+  const cacheEntry: CacheEntry = {
+    data: result,
+    timestamp: Date.now(),
+    accessCount: 1
+  };
+  parseCache.set(cacheKey, cacheEntry);
 
   return result;
 }
 
 /**
- * TypeScript ESTreeを使用した内部解析関数
+ * 解析オプションの定数
  */
-function analyzeWithESTreeInternal(esTree: any, file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
+const parseOptions = {
+  loc: true,
+  range: true,
+  comment: true,
+  tokens: true,
+  errorOnUnknownASTType: false,
+  errorOnTypeScriptSyntacticAndSemanticIssues: false,
+  allowInvalidAST: true,
+  jsx: true
+};
+
+/**
+ * TypeScript ESTreeを使用した内部解析関数（改善版：責任分離）
+ */
+function analyzeWithESTreeInternal(esTree: ESTreeParser, file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
   try {
-    const ast = esTree.parse(file.content, {
-      loc: true,
-      range: true,
-      comment: true,
-      tokens: true,
-      errorOnUnknownASTType: false,
-      errorOnTypeScriptSyntacticAndSemanticIssues: false,
-      allowInvalidAST: true,
-      jsx: true
-    });
-
+    const ast = esTree.parse(file.content, parseOptions);
     const methods: Method[] = [];
-
-    // ASTを走査して各種要素を抽出
-    traverse(ast, {
-      // 型エイリアス
-      TSTypeAliasDeclaration: (node) => {
-        methods.push(createTypeAliasMethod(node, file));
-      },
-      
-      // インターフェース
-      TSInterfaceDeclaration: (node) => {
-        methods.push(...createInterfaceMethods(node, file));
-      },
-      
-      // クラス
-      ClassDeclaration: (node) => {
-        methods.push(...createClassMethods(node, file, allDefinedMethods));
-      },
-      
-      // 関数
-      FunctionDeclaration: (node) => {
-        methods.push(createFunctionMethod(node, file, allDefinedMethods));
-      },
-      
-      // アロー関数と変数宣言
-      VariableDeclaration: (node) => {
-        methods.push(...createVariableDeclarationMethods(node, file, allDefinedMethods));
-      },
-      
-      // インポート文
-      ImportDeclaration: (node) => {
-        methods.push(createImportMethod(node, file));
-      },
-      
-      // エクスポート文
-      ExportNamedDeclaration: (node) => {
-        methods.push(...createExportMethods(node, file));
-      },
-      
-      // デフォルトエクスポート
-      ExportDefaultDeclaration: (node) => {
-        methods.push(createDefaultExportMethod(node, file));
-      },
-      
-      // CallExpression内のアロー関数（useCallback等）も検出
-      CallExpression: (node) => {
-        methods.push(...extractArrowFunctionsFromCallExpression(node, file, allDefinedMethods));
-      }
-    });
-
+    
+    // 各種類ごとに専用関数を呼び出し
+    methods.push(...extractTypeDefinitions(ast, file));
+    methods.push(...extractClassMethods(ast, file, allDefinedMethods));
+    methods.push(...extractFunctionDefinitions(ast, file, allDefinedMethods));
+    methods.push(...extractImportExports(ast, file));
+    methods.push(...extractCallExpressionArrowFunctions(ast, file, allDefinedMethods));
+    
     return methods;
     
   } catch (error) {
-    console.warn(`TypeScript ESTree parsing failed for ${file.path}:`, error);
+    const errorInfo = {
+      file: file.path,
+      fileSize: file.content.length,
+      language: file.language,
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: new Date().toISOString()
+    };
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.error('AST parsing failed:', errorInfo);
+    } else {
+      console.warn(`TypeScript ESTree parsing failed for ${file.path}`);
+    }
+    
     return analyzeTypeScriptWithRegex(file, allDefinedMethods);
   }
+}
+
+/**
+ * 型定義（type alias, interface）の抽出
+ */
+function extractTypeDefinitions(ast: any, file: ParsedFile): Method[] {
+  const methods: Method[] = [];
+  traverse(ast, {
+    TSTypeAliasDeclaration: (node) => {
+      methods.push(createTypeAliasMethod(node, file));
+    },
+    TSInterfaceDeclaration: (node) => {
+      methods.push(...createInterfaceMethods(node, file));
+    }
+  });
+  return methods;
+}
+
+/**
+ * クラスメソッドの抽出
+ */
+function extractClassMethods(ast: any, file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
+  const methods: Method[] = [];
+  traverse(ast, {
+    ClassDeclaration: (node) => {
+      methods.push(...createClassMethods(node, file, allDefinedMethods));
+    }
+  });
+  return methods;
+}
+
+/**
+ * 関数定義（function, arrow function）の抽出
+ */
+function extractFunctionDefinitions(ast: any, file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
+  const methods: Method[] = [];
+  traverse(ast, {
+    FunctionDeclaration: (node) => {
+      methods.push(createFunctionMethod(node, file, allDefinedMethods));
+    },
+    VariableDeclaration: (node) => {
+      methods.push(...createVariableDeclarationMethods(node, file, allDefinedMethods));
+    }
+  });
+  return methods;
+}
+
+/**
+ * インポート・エクスポート文の抽出
+ */
+function extractImportExports(ast: any, file: ParsedFile): Method[] {
+  const methods: Method[] = [];
+  traverse(ast, {
+    ImportDeclaration: (node) => {
+      methods.push(createImportMethod(node, file));
+    },
+    ExportNamedDeclaration: (node) => {
+      methods.push(...createExportMethods(node, file));
+    },
+    ExportDefaultDeclaration: (node) => {
+      methods.push(createDefaultExportMethod(node, file));
+    }
+  });
+  return methods;
+}
+
+/**
+ * CallExpression内のアロー関数（useCallback等）の抽出
+ */
+function extractCallExpressionArrowFunctions(ast: any, file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
+  const methods: Method[] = [];
+  traverse(ast, {
+    CallExpression: (node) => {
+      methods.push(...extractArrowFunctionsFromCallExpression(node, file, allDefinedMethods));
+    }
+  });
+  return methods;
 }
 
 /**
