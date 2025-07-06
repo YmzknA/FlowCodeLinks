@@ -3,7 +3,7 @@ import { ParsedFile } from '@/types/codebase';
 import { sanitizeContent } from '@/utils/security';
 import { debounce, optimizedScroll } from '@/utils/performance';
 import { useWheelScrollIsolation } from '@/hooks/useWheelScrollIsolation';
-import { replaceMethodNameInText } from '@/utils/method-highlighting';
+import { replaceMethodNameInText, makeImportMethodsClickable } from '@/utils/method-highlighting';
 
 interface CodeContentProps {
   file: ParsedFile;
@@ -170,6 +170,37 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
                   );
                 }
               });
+
+              // import文内のメソッド名もクリック可能にする
+              const importMethods: string[] = [];
+              file.methods.forEach(method => {
+                if (method.type === 'import' && method.parameters) {
+                  // import文のparametersにはimportされたメソッド名が含まれている
+                  importMethods.push(...method.parameters);
+                }
+              });
+              
+              if (importMethods.length > 0) {
+                // findMethodDefinition関数を作成（この時点では参照不可能なので簡易版）
+                const findMethodDefinition = (methodName: string) => {
+                  // 全ファイルからメソッド定義を検索
+                  for (const searchFile of (window as any).__allFiles || []) {
+                    if (searchFile.methods) {
+                      for (const method of searchFile.methods) {
+                        if (method.name === methodName) {
+                          return {
+                            methodName: method.name,
+                            filePath: searchFile.path
+                          };
+                        }
+                      }
+                    }
+                  }
+                  return null;
+                };
+                
+                highlighted = makeImportMethodsClickable(highlighted, importMethods, findMethodDefinition);
+              }
             }
             
             // DOMPurifyで安全にサニタイズしてから設定

@@ -13,6 +13,7 @@ interface FloatingWindowProps {
   onScrollChange?: (id: string, scrollInfo: ScrollInfo) => void;
   highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null;
   onMethodClick?: (methodName: string) => void;
+  onImportMethodClick?: (methodName: string) => void;
 }
 
 export const FloatingWindow: React.FC<FloatingWindowProps> = ({
@@ -23,7 +24,8 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
   onClose,
   onScrollChange,
   highlightedMethod,
-  onMethodClick
+  onMethodClick,
+  onImportMethodClick
 }) => {
   const { id, file, position, isCollapsed, showMethodsOnly } = window;
   
@@ -37,6 +39,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
   const lastClickTime = useRef<number>(0);
   const onScrollChangeRef = useRef(onScrollChange);
   const onMethodClickRef = useRef(onMethodClick);
+  const onImportMethodClickRef = useRef(onImportMethodClick);
   
   // ホイールスクロール分離フックを使用
   const { handleWheel } = useWheelScrollIsolation(contentRef);
@@ -57,7 +60,8 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
   useEffect(() => {
     onScrollChangeRef.current = onScrollChange;
     onMethodClickRef.current = onMethodClick;
-  }, [onScrollChange, onMethodClick]);
+    onImportMethodClickRef.current = onImportMethodClick;
+  }, [onScrollChange, onMethodClick, onImportMethodClick]);
 
   // 初期スクロール情報を設定（コンポーネントマウント時）
   useEffect(() => {
@@ -122,10 +126,13 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
     let methodName: string | null = null;
     
     // 最大5レベル上まで遡ってdata-method-nameを探す
+    let isImportMethod = false;
     for (let i = 0; i < 5 && currentElement; i++) {
       methodName = currentElement.getAttribute('data-method-name');
       if (methodName) {
         foundClickableMethod = true;
+        // import文内のメソッドかどうかを判定
+        isImportMethod = currentElement.getAttribute('data-import-method') === 'true';
         break;
       }
       currentElement = currentElement.parentElement;
@@ -135,10 +142,14 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       event.preventDefault();
       event.stopPropagation();
       
-      
-      // 少し遅延させて確実に処理を実行
+      // import文内のメソッドの場合は専用のハンドラーを呼び出し
+      // 通常のメソッドの場合は従来のハンドラーを呼び出し
       setTimeout(() => {
-        onMethodClickRef.current!(methodName!);
+        if (isImportMethod && onImportMethodClickRef?.current) {
+          onImportMethodClickRef.current(methodName!);
+        } else {
+          onMethodClickRef.current!(methodName!);
+        }
       }, 10);
     }
   }, []);
@@ -228,13 +239,73 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                 // 各メソッド名をクリック可能にする（HTML属性を保護しながら）
                 // 長いメソッド名から先に処理して部分置換を防ぐ
                 const sortedMethodNames = Array.from(clickableMethodNames).sort((a, b) => b.length - a.length);
+                
+                // findMethodDefinition関数の参照を取得
+                const findMethodDefinition = (methodName: string) => {
+                  // 全ファイルからメソッド定義を検索
+                  const allFiles = (window as any).__allFiles || [];
+                  for (const searchFile of allFiles) {
+                    if (searchFile.methods) {
+                      for (const method of searchFile.methods) {
+                        if (method.name === methodName) {
+                          return {
+                            methodName: method.name,
+                            filePath: searchFile.path
+                          };
+                        }
+                      }
+                    }
+                  }
+                  return null;
+                };
+                
+                // findAllMethodCallers関数の参照を取得
+                const findAllMethodCallers = (methodName: string) => {
+                  const callers: Array<{ methodName: string; filePath: string; lineNumber?: number }> = [];
+                  const allFiles = (window as any).__allFiles || [];
+                  
+                  for (const searchFile of allFiles) {
+                    if (searchFile.methods) {
+                      for (const method of searchFile.methods) {
+                        const call = method.calls?.find((call: any) => call.methodName === methodName);
+                        if (call) {
+                          callers.push({
+                            methodName: method.name,
+                            filePath: searchFile.path,
+                            lineNumber: call.line
+                          });
+                        }
+                      }
+                    }
+                  }
+                  
+                  return callers;
+                };
+                
                 sortedMethodNames.forEach(methodName => {
                   // 既にこのメソッド名がclickable-methodで囲まれているかチェック
                   const alreadyWrapped = highlighted.includes(`data-method-name="${methodName}"`);
                   if (!alreadyWrapped) {
                     // 全てのメソッド名に対してユーティリティ関数を使用（コード重複解消）
                     const escapedMethodName = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                    highlighted = replaceMethodNameInText(highlighted, methodName, escapedMethodName);
+                    
+                    // 詳細判定を有効にするかどうか
+                    const enableSmartClickability = (window as any).__allFiles && (window as any).__allFiles.length > 0;
+                    
+                    if (enableSmartClickability) {
+                      highlighted = replaceMethodNameInText(
+                        highlighted, 
+                        methodName, 
+                        escapedMethodName,
+                        findMethodDefinition,
+                        findAllMethodCallers,
+                        file.path,
+                        (window as any).__allFiles
+                      );
+                    } else {
+                      // 従来通りの動作（全てクリック可能）
+                      highlighted = replaceMethodNameInText(highlighted, methodName, escapedMethodName);
+                    }
                   }
                 });
               }

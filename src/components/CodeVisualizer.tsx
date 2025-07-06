@@ -77,6 +77,13 @@ export const CodeVisualizer: React.FC = () => {
   const optimizedCache = useOptimizedAnalysis(files);
   const visibleDependencies = useOptimizedDependencies(dependencies, visibleFiles);
 
+  // 全ファイルデータをグローバルに設定（メソッドクリック可能性判定用）
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      (window as any).__allFiles = files;
+    }
+  }, [files]);
+
   // フィルタリング済みファイルをメモ化して参照安定性を確保
   const visibleFilesData = useMemo(() => {
     return files.filter(f => visibleFiles.includes(f.path));
@@ -372,6 +379,17 @@ export const CodeVisualizer: React.FC = () => {
     }, waitTime);
   }, [visibleFiles, currentZoom, sidebarCollapsed, sidebarWidth]);
 
+  // import文内のメソッドクリック処理
+  const handleImportMethodClick = useCallback((methodName: string) => {
+    // import文内のメソッドは必ず定義元にジャンプ
+    const definition = findMethodDefinition(methodName);
+    if (definition) {
+      handleMethodJump(definition);
+    } else {
+      console.warn(`Method definition not found: ${methodName}`);
+    }
+  }, [findMethodDefinition, handleMethodJump]);
+
   // メソッドクリック時の処理
   const handleMethodClick = useCallback((methodName: string, currentFilePath: string) => {
     // 現在のファイルでクリックされたメソッドが定義されているかチェック
@@ -561,6 +579,7 @@ export const CodeVisualizer: React.FC = () => {
             zoom={currentZoom}
             highlightedMethod={highlightedMethod}
             onMethodClick={handleMethodClick}
+            onImportMethodClick={handleImportMethodClick}
           />
         </ZoomableCanvas>
         
