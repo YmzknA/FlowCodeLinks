@@ -54,6 +54,8 @@ describe('Method Definition Clickability', () => {
     const file: ParsedFile = {
       path: 'test.rb',
       directory: '',
+      fileName: 'test.rb',
+      totalLines: 8,
       content: `def notifications_enabled?
   is_notifications_enabled == true
 end
@@ -124,6 +126,8 @@ end`,
     const file: ParsedFile = {
       path: 'test.rb',
       directory: '',
+      fileName: 'test.rb',
+      totalLines: 7,
       content: `def save!
   @saved = true
 end

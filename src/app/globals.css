@@ -1,6 +1,76 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Basic CSS Reset and Global Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  max-width: 100vw;
+  overflow-x: hidden;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+body {
+  color: #333;
+  background: #fff;
+}
+
+/* Common utility classes */
+.bg-gray-100 {
+  background-color: #f3f4f6;
+}
+
+.bg-white {
+  background-color: #ffffff;
+}
+
+.shadow-md {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.border {
+  border-width: 1px;
+  border-style: solid;
+  border-color: #d1d5db;
+}
+
+.rounded {
+  border-radius: 0.25rem;
+}
+
+.p-4 {
+  padding: 1rem;
+}
+
+.mb-4 {
+  margin-bottom: 1rem;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.flex {
+  display: flex;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+.min-h-screen {
+  min-height: 100vh;
+}
 
 /* Prism.js Syntax Highlighting Theme */
 @import 'prismjs/themes/prism-tomorrow.css';

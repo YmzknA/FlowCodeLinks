@@ -28,6 +28,8 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
         return 'javascript';
       case 'typescript':
         return 'typescript';
+      case 'tsx':
+        return 'tsx'; // TSX専用言語として扱う
       default:
         return 'text';
     }
@@ -45,10 +47,22 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
             // Prism.jsコアをインポート
             prism = (await import('prismjs')).default;
             
-            // 言語サポートを追加
+            // 言語サポートを追加（依存関係順に注意）
             await import('prismjs/components/prism-ruby' as any);
             await import('prismjs/components/prism-javascript' as any);
             await import('prismjs/components/prism-typescript' as any);
+            
+            // JSXはJavaScriptに依存
+            try {
+              await import('prismjs/components/prism-jsx' as any);
+            } catch (error) {
+            }
+            
+            // TSXはTypeScript, JavaScript, JSXに依存するため最後に読み込む
+            try {
+              await import('prismjs/components/prism-tsx' as any);
+            } catch (error) {
+            }
             
             // グローバルに設定
             window.Prism = prism;
@@ -67,9 +81,20 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
           return;
         }
 
-        const language = getPrismLanguage(file.language);
+        let language = getPrismLanguage(file.language);
+        let grammar = prism.languages[language];
         
-        const grammar = prism.languages[language];
+        // TSXが利用できない場合はTypeScriptにフォールバック
+        if (!grammar && language === 'tsx') {
+          language = 'typescript';
+          grammar = prism.languages[language];
+        }
+        
+        // TypeScriptが利用できない場合はJavaScriptにフォールバック
+        if (!grammar && language === 'typescript') {
+          language = 'javascript';
+          grammar = prism.languages[language];
+        }
         
         if (grammar) {
           try {
@@ -149,7 +174,6 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
             
             // DOMPurifyで安全にサニタイズしてから設定
             const sanitized = sanitizeContent(highlighted, 'prism-code');
-            
             setHighlightedCode(sanitized);
           } catch (error) {
             console.error('Prism highlight error:', error);
@@ -247,7 +271,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
         container.removeEventListener('click', handleMethodClick);
       };
     }
-  }, [onMethodClick]); // highlightedCodeを依存関係から除外
+  }, [onMethodClick]);
 
   const prismLanguage = getPrismLanguage(file.language);
 

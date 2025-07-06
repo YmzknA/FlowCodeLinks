@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { FloatingWindow as FloatingWindowType, ScrollInfo } from '@/types/codebase';
 import { useWheelScrollIsolation } from '@/hooks/useWheelScrollIsolation';
 import { replaceMethodNameInText } from '@/utils/method-highlighting';
+import { prismLoader } from '@/utils/prism-loader';
 
 interface FloatingWindowProps {
   window: FloatingWindowType;
@@ -25,6 +26,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
   onMethodClick
 }) => {
   const { id, file, position, isCollapsed, showMethodsOnly } = window;
+  
 
   const [highlightedCode, setHighlightedCode] = useState<string>('');
   const processedContentRef = useRef<string>('');
@@ -150,6 +152,8 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
         return 'javascript';
       case 'typescript':
         return 'typescript';
+      case 'tsx':
+        return 'tsx'; // TSX専用言語として扱う
       default:
         return 'text';
     }
@@ -170,25 +174,34 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
           let Prism = (window as any).Prism;
           
           if (!Prism) {
-            // Prism.jsをロード
-            Prism = (await import('prismjs')).default;
-            
             // 必要な言語をロード
             const language = getPrismLanguage(file.language);
-            if (language === 'ruby') {
-              await import('prismjs/components/prism-ruby' as any);
-            } else if (language === 'javascript') {
-              await import('prismjs/components/prism-javascript' as any);
-            } else if (language === 'typescript') {
-              await import('prismjs/components/prism-typescript' as any);
-            }
             
-            (window as any).Prism = Prism;
+            // Prismローダーユーティリティを使用
+            Prism = await prismLoader.loadLanguageSupport(language);
+            
+            if (!Prism) {
+              // フォールバック: 直接読み込み
+              Prism = (await import('prismjs')).default;
+              (window as any).Prism = Prism;
+            }
           }
 
-          const language = getPrismLanguage(file.language);
+          let language = getPrismLanguage(file.language);
+          let grammar = Prism.languages && Prism.languages[language];
           
-          const grammar = Prism.languages && Prism.languages[language];
+          // TSXが利用できない場合はTypeScriptにフォールバック
+          if (!grammar && language === 'tsx') {
+            language = 'typescript';
+            grammar = Prism.languages && Prism.languages[language];
+          }
+          
+          // TypeScriptが利用できない場合はJavaScriptにフォールバック
+          if (!grammar && language === 'typescript') {
+            language = 'javascript';
+            grammar = Prism.languages && Prism.languages[language];
+          }
+          
           
           if (grammar) {
             try {
@@ -225,7 +238,6 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                   }
                 });
               }
-              
               
               setHighlightedCode(highlighted);
             } catch (error) {

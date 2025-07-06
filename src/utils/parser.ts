@@ -83,7 +83,9 @@ function parseFileEntry(entry: RepomixFileEntry): ParsedFile {
 }
 
 function detectLanguage(filePath: string): Language {
-  const extension = filePath.split('.').pop()?.toLowerCase();
+  // ファイル名から拡張子を正しく抽出（最後の.以降のみ）
+  const lastDotIndex = filePath.lastIndexOf('.');
+  const extension = lastDotIndex !== -1 ? filePath.substring(lastDotIndex + 1).toLowerCase() : '';
   
   switch (extension) {
     case 'rb':
@@ -92,6 +94,8 @@ function detectLanguage(filePath: string): Language {
       return 'javascript';
     case 'ts':
       return 'typescript';
+    case 'tsx':
+      return 'tsx';
     case 'yml':
     case 'yaml':
       return 'yaml';

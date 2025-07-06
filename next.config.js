@@ -12,6 +12,24 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['prismjs']
   },
+  // TypeScript ESTreeのNode.js専用モジュールをクライアントサイドから除外
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        os: false,
+      };
+      // TypeScript ESTreeをクライアントサイドでは無効化
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        '@typescript-eslint/typescript-estree': false,
+      };
+    }
+    
+    return config;
+  },
   // Content Security Policy設定
   async headers() {
     return [
@@ -22,8 +40,10 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval'", // 開発環境でNext.jsが動作するように緩和
-              "style-src 'self' 'unsafe-inline'", // 開発環境でスタイルが動作するように緩和
+              // 環境に応じた script-src の設定
+              "script-src 'self'" + (process.env.NODE_ENV === 'development' ? " 'unsafe-inline' 'unsafe-eval'" : ""),
+              // 環境に応じた style-src の設定
+              "style-src 'self'" + (process.env.NODE_ENV === 'development' ? " 'unsafe-inline'" : ""),
               "img-src 'self' data: blob:",
               "connect-src 'self'",
               "font-src 'self'",
