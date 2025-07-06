@@ -74,12 +74,12 @@ export const makeImportMethodsClickable = (
     // 通常のパターンを処理
     result = result.replace(plainPattern, (match) => {
       // import文の内部かどうかをチェック（簡易的）
-      return `<span class="cursor-pointer text-blue-600 hover:text-blue-800" data-method-name="${methodName}" data-import-method="true">${match}</span>`;
+      return `<span class="cursor-pointer text-blue-600 hover:text-blue-800 hover:bg-gray-700 hover:bg-opacity-30 rounded px-1 relative" data-method-name="${methodName}" data-import-method="true">${match}<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`;
     });
     
     // Prismハイライト済みパターンを処理
     result = result.replace(prismPattern, (match, openTag, methodNamePart, closeTag) => {
-      return `${openTag}<span class="cursor-pointer text-blue-600 hover:text-blue-800" data-method-name="${methodName}" data-import-method="true">${methodNamePart}</span>${closeTag}`;
+      return `${openTag}<span class="cursor-pointer text-blue-600 hover:text-blue-800 hover:bg-gray-700 hover:bg-opacity-30 rounded px-1 relative" data-method-name="${methodName}" data-import-method="true">${methodNamePart}<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>${closeTag}`;
     });
   });
   
@@ -196,7 +196,7 @@ export const replaceMethodNameInText = (
   // より厳密な境界条件：前後が英数字・アンダースコアでないことを確認
   const methodNameRegex = new RegExp(`(?<![\\w])${escapedMethodName}(?![\\w])`, 'g');
   result = result.replace(methodNameRegex, 
-    `<span class="cursor-pointer" data-method-name="${methodName}">$&</span>`
+    `<span class="cursor-pointer hover:bg-gray-700 hover:bg-opacity-30 rounded px-1 relative" data-method-name="${methodName}">$&<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`
   );
   
   // 保護されたHTMLタグと属性を復元

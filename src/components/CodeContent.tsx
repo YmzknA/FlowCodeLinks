@@ -149,7 +149,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
                   );
                   
                   highlighted = highlighted.replace(definitionPattern, 
-                    `<span class="cursor-pointer" data-method-name="${methodName}">$1$2</span>`
+                    `<span class="cursor-pointer hover:bg-gray-700 hover:bg-opacity-30 rounded px-1 relative" data-method-name="${methodName}">$1$2<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`
                   );
                   
                   // パターン2: メソッド呼び出し - method_name<span class="token operator">?</span>
@@ -159,14 +159,14 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
                   );
                   
                   highlighted = highlighted.replace(callPattern, 
-                    `<span class="cursor-pointer" data-method-name="${methodName}">$1$2</span>`
+                    `<span class="cursor-pointer hover:bg-gray-700 hover:bg-opacity-30 rounded px-1 relative" data-method-name="${methodName}">$1$2<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`
                   );
                 } else {
                   // 通常のメソッド名の処理（従来通り）
                   const escapedMethodName = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                   const methodNameRegex = new RegExp(`(?<![\\w])${escapedMethodName}(?![\\w])`, 'g');
                   highlighted = highlighted.replace(methodNameRegex, 
-                    `<span class="cursor-pointer" data-method-name="${methodName}">$&</span>`
+                    `<span class="cursor-pointer hover:bg-gray-700 hover:bg-opacity-30 rounded px-1 relative" data-method-name="${methodName}">$&<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`
                   );
                 }
               });
