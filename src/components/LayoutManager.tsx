@@ -56,6 +56,7 @@ interface LayoutManagerProps {
   zoom?: number;
   highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null;
   onMethodClick?: (methodName: string, currentFilePath: string) => void;
+  onImportMethodClick?: (methodName: string) => void;
 }
 
 export const LayoutManager: React.FC<LayoutManagerProps> = ({
@@ -65,7 +66,8 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
   onWindowsUpdate,
   zoom = 1,
   highlightedMethod,
-  onMethodClick
+  onMethodClick,
+  onImportMethodClick
 }) => {
   const [windows, setWindows] = useState<FloatingWindow[]>([]);
 
@@ -429,6 +431,7 @@ export const LayoutManager: React.FC<LayoutManagerProps> = ({
           zoom={zoom}
           highlightedMethod={highlightedMethod}
           onMethodClick={onMethodClick}
+          onImportMethodClick={onImportMethodClick}
         />
       ))}
     </div>

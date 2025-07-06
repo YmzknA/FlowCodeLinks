@@ -93,15 +93,19 @@ function loadTypeScriptESTree(): ESTreeParser | null {
  * TypeScript ESTreeが利用可能かチェック
  */
 function isTypeScriptESTreeAvailable(): boolean {
+  // テスト環境では常に利用可能とする
+  if (typeof process !== 'undefined' && process.env.NODE_ENV === 'test') {
+    return true;
+  }
+  
   // ブラウザ環境シミュレーション時（window が定義されているかつ require が undefined）はfalseを返す
   if (typeof window !== 'undefined' && typeof require === 'undefined') {
     console.warn('TypeScript ESTree not available in browser environment. Using fallback analysis.');
     return false;
   }
   
-  // サーバーサイドまたは通常のテスト環境でのみ利用可能
-  const isAvailable = typeof window === 'undefined' || 
-                      (typeof process !== 'undefined' && process.env.NODE_ENV === 'test' && typeof require !== 'undefined');
+  // サーバーサイドでのみ利用可能
+  const isAvailable = typeof window === 'undefined';
   
   // 本番環境ではログを制限
   if (!isAvailable && process.env.NODE_ENV === 'development') {
@@ -319,7 +323,7 @@ function analyzeWithESTreeInternal(esTree: ESTreeParser, file: ParsedFile, allDe
 }
 
 /**
- * 型定義（type alias, interface）の抽出
+ * 型定義（type alias, interface, enum）の抽出
  */
 function extractTypeDefinitions(ast: any, file: ParsedFile): Method[] {
   const methods: Method[] = [];
@@ -328,7 +332,13 @@ function extractTypeDefinitions(ast: any, file: ParsedFile): Method[] {
       methods.push(createTypeAliasMethod(node, file));
     },
     TSInterfaceDeclaration: (node) => {
+      // インターフェース自体を追加
+      methods.push(createInterfaceDefinition(node, file));
+      // インターフェースのメソッドも追加
       methods.push(...createInterfaceMethods(node, file));
+    },
+    TSEnumDeclaration: (node) => {
+      methods.push(createEnumMethod(node, file));
     }
   });
   return methods;
@@ -360,6 +370,10 @@ function extractFunctionDefinitions(ast: any, file: ParsedFile, allDefinedMethod
       methods.push(...createVariableDeclarationMethods(node, file, allDefinedMethods));
     }
   });
+  
+  // カスタムhooksを追加抽出
+  methods.push(...extractCustomHooks(ast, file, allDefinedMethods));
+  
   return methods;
 }
 
@@ -370,7 +384,12 @@ function extractImportExports(ast: any, file: ParsedFile): Method[] {
   const methods: Method[] = [];
   traverse(ast, {
     ImportDeclaration: (node) => {
-      methods.push(createImportMethod(node, file));
+      const importMethod = createImportMethod(node, file);
+      methods.push(importMethod);
+      
+      // インポート要素の使用箇所を個別のエントリとして追加
+      const usageEntries = createImportUsageEntries(file, importMethod);
+      methods.push(...usageEntries);
     },
     ExportNamedDeclaration: (node) => {
       methods.push(...createExportMethods(node, file));
@@ -393,6 +412,47 @@ function extractCallExpressionArrowFunctions(ast: any, file: ParsedFile, allDefi
     }
   });
   return methods;
+}
+
+/**
+ * インポート文からメソッド名を抽出
+ */
+function extractImportedMethodNames(importStatement: string): string[] {
+  const methodNames: string[] = [];
+  
+  // パターン1: import { method1, method2 } from 'module'
+  const namedImportMatch = importStatement.match(/import\s*\{\s*([^}]+)\s*\}/);
+  if (namedImportMatch) {
+    const namedImports = namedImportMatch[1];
+    // カンマで分割して個別のimportを処理
+    namedImports.split(',').forEach(importItem => {
+      const trimmed = importItem.trim();
+      // "method as alias" または "method" の形式を処理
+      const asMatch = trimmed.match(/(\w+)\s+as\s+(\w+)/);
+      if (asMatch) {
+        methodNames.push(asMatch[2]); // aliasを使用
+      } else {
+        const methodMatch = trimmed.match(/(\w+)/);
+        if (methodMatch) {
+          methodNames.push(methodMatch[1]);
+        }
+      }
+    });
+  }
+  
+  // パターン2: import DefaultMethod from 'module'
+  const defaultImportMatch = importStatement.match(/import\s+(\w+)\s+from/);
+  if (defaultImportMatch && !importStatement.includes('{')) {
+    methodNames.push(defaultImportMatch[1]);
+  }
+  
+  // パターン3: import * as namespace from 'module'
+  const namespaceImportMatch = importStatement.match(/import\s*\*\s*as\s+(\w+)/);
+  if (namespaceImportMatch) {
+    methodNames.push(namespaceImportMatch[1]);
+  }
+  
+  return methodNames;
 }
 
 /**
@@ -440,18 +500,14 @@ function analyzeTypeScriptWithRegex(file: ParsedFile, allDefinedMethods?: Set<st
     }
   }
   
-  // 3. 関数宣言
-  const functionMatches = content.matchAll(/(?:export\s+)?(?:default\s+)?function\s+(\w+)/g);
-  for (const match of functionMatches) {
+  // 2b. Enum検出
+  const enumMatches = content.matchAll(/(?:export\s+)?enum\s+(\w+)/g);
+  for (const match of enumMatches) {
     if (match[1]) {
       const lineNumber = content.substring(0, match.index).split('\n').length;
-      const isComponent = match[1][0].match(/[A-Z]/) && 
-                         file.content.includes('return') && 
-                         (file.content.includes('<') && file.content.includes('>'));
-      
       methods.push({
         name: match[1],
-        type: isComponent ? 'component' : 'function',
+        type: 'enum',
         startLine: lineNumber,
         endLine: lineNumber,
         filePath: file.path,
@@ -463,18 +519,69 @@ function analyzeTypeScriptWithRegex(file: ParsedFile, allDefinedMethods?: Set<st
     }
   }
   
-  // 4. アロー関数（const Component = () => {...}）
+  // 3. 関数宣言とカスタムフック
+  const functionMatches = content.matchAll(/(?:export\s+)?(?:default\s+)?function\s+(\w+)/g);
+  for (const match of functionMatches) {
+    if (match[1]) {
+      const lineNumber = content.substring(0, match.index).split('\n').length;
+      const functionName = match[1];
+      
+      // カスタムフックの判定
+      const isCustomHook = /^use[A-Z]/.test(functionName);
+      
+      // Reactコンポーネントの判定
+      const isComponent = !isCustomHook && 
+                         functionName[0].match(/[A-Z]/) && 
+                         file.content.includes('return') && 
+                         (file.content.includes('<') && file.content.includes('>'));
+      
+      let type: 'function' | 'component' | 'custom_hook' = 'function';
+      if (isCustomHook) {
+        type = 'custom_hook';
+      } else if (isComponent) {
+        type = 'component';
+      }
+      
+      methods.push({
+        name: functionName,
+        type,
+        startLine: lineNumber,
+        endLine: lineNumber,
+        filePath: file.path,
+        code: match[0],
+        calls: [],
+        isPrivate: false,
+        parameters: []
+      });
+    }
+  }
+  
+  // 4. アロー関数（const Component = () => {...}）とカスタムフック
   const arrowFunctionMatches = content.matchAll(/(?:export\s+)?const\s+(\w+)(?::\s*[^=]+)?\s*=\s*\(/g);
   for (const match of arrowFunctionMatches) {
     if (match[1]) {
       const lineNumber = content.substring(0, match.index).split('\n').length;
-      const isComponent = match[1][0].match(/[A-Z]/) && 
+      const functionName = match[1];
+      
+      // カスタムフックの判定
+      const isCustomHook = /^use[A-Z]/.test(functionName);
+      
+      // Reactコンポーネントの判定
+      const isComponent = !isCustomHook && 
+                         functionName[0].match(/[A-Z]/) && 
                          file.content.includes('return') && 
                          (file.content.includes('<') && file.content.includes('>'));
       
+      let type: 'function' | 'component' | 'custom_hook' = 'function';
+      if (isCustomHook) {
+        type = 'custom_hook';
+      } else if (isComponent) {
+        type = 'component';
+      }
+      
       methods.push({
-        name: match[1],
-        type: isComponent ? 'component' : 'function',
+        name: functionName,
+        type,
         startLine: lineNumber,
         endLine: lineNumber,
         filePath: file.path,
@@ -491,17 +598,31 @@ function analyzeTypeScriptWithRegex(file: ParsedFile, allDefinedMethods?: Set<st
   for (const match of importMatches) {
     if (match[1]) {
       const lineNumber = content.substring(0, match.index).split('\n').length;
-      methods.push({
+      const importStatement = match[0];
+      
+      // インポートされたメソッド名を抽出
+      const importedMethods = extractImportedMethodNames(importStatement);
+      
+      // インポート使用箇所を検出
+      const usageCalls = findImportUsagesWithRegex(file, importStatement);
+      
+      const importMethod = {
         name: `[Import: ${match[1]}]`,
-        type: 'import',
+        type: 'import' as const,
         startLine: lineNumber,
         endLine: lineNumber,
         filePath: file.path,
-        code: match[0],
-        calls: [],
+        code: importStatement,
+        calls: usageCalls,
         isPrivate: false,
-        parameters: []
-      });
+        parameters: importedMethods
+      };
+      
+      methods.push(importMethod);
+      
+      // インポート要素の使用箇所を個別のエントリとして追加
+      const usageEntries = createImportUsageEntries(file, importMethod);
+      methods.push(...usageEntries);
     }
   }
   
@@ -568,6 +689,23 @@ function createTypeAliasMethod(node: any, file: ParsedFile): Method {
 }
 
 /**
+ * インターフェース定義の作成
+ */
+function createInterfaceDefinition(node: any, file: ParsedFile): Method {
+  return {
+    name: node.id.name,
+    type: 'interface',
+    startLine: node.loc!.start.line,
+    endLine: node.loc!.end.line,
+    filePath: file.path,
+    code: getCodeSlice(file.content, node.loc!.start.line, node.loc!.end.line),
+    calls: [],
+    isPrivate: false,
+    parameters: []
+  };
+}
+
+/**
  * インターフェースのMethod作成
  */
 function createInterfaceMethods(node: any, file: ParsedFile): Method[] {
@@ -591,6 +729,23 @@ function createInterfaceMethods(node: any, file: ParsedFile): Method[] {
   });
   
   return methods;
+}
+
+/**
+ * Enumの作成
+ */
+function createEnumMethod(node: any, file: ParsedFile): Method {
+  return {
+    name: node.id.name,
+    type: 'enum',
+    startLine: node.loc!.start.line,
+    endLine: node.loc!.end.line,
+    filePath: file.path,
+    code: getCodeSlice(file.content, node.loc!.start.line, node.loc!.end.line),
+    calls: [],
+    isPrivate: false,
+    parameters: []
+  };
 }
 
 /**
@@ -684,16 +839,46 @@ function createVariableDeclarationMethods(node: any, file: ParsedFile, allDefine
  * インポートのMethod作成
  */
 function createImportMethod(node: any, file: ParsedFile): Method {
+  // インポートする具体的な要素を抽出
+  const importedElements: string[] = [];
+  const localNames: string[] = [];
+  
+  if (node.specifiers) {
+    node.specifiers.forEach((spec: any) => {
+      if (spec.type === 'ImportDefaultSpecifier') {
+        importedElements.push(`default as ${spec.local.name}`);
+        localNames.push(spec.local.name);
+      } else if (spec.type === 'ImportSpecifier') {
+        if (spec.imported.name !== spec.local.name) {
+          importedElements.push(`${spec.imported.name} as ${spec.local.name}`);
+        } else {
+          importedElements.push(spec.imported.name);
+        }
+        localNames.push(spec.local.name);
+      } else if (spec.type === 'ImportNamespaceSpecifier') {
+        importedElements.push(`* as ${spec.local.name}`);
+        localNames.push(spec.local.name);
+      }
+    });
+  }
+  
+  const importName = importedElements.length > 0 
+    ? `[Import: {${importedElements.join(', ')}} from '${node.source.value}']`
+    : `[Import: ${node.source.value}]`;
+  
+  // インポートされた要素の使用箇所を検出
+  const usageCalls = findImportUsages(file, localNames, node.loc!.start.line);
+  
   return {
-    name: `[Import: ${node.source.value}]`,
+    name: importName,
     type: 'import',
     startLine: node.loc!.start.line,
     endLine: node.loc!.end.line,
     filePath: file.path,
     code: getCodeSlice(file.content, node.loc!.start.line, node.loc!.end.line),
-    calls: [],
+    calls: usageCalls,
     isPrivate: false,
-    parameters: []
+    parameters: localNames
   };
 }
 
@@ -704,9 +889,49 @@ function createExportMethods(node: any, file: ParsedFile): Method[] {
   const methods: Method[] = [];
   
   if (node.declaration) {
-    // export function, export class, etc.
+    // export function, export class, export const, etc.
+    let exportName = '[Export Declaration]';
+    let exportType: Method['type'] = 'export';
+    
+    if (node.declaration.id && node.declaration.id.name) {
+      exportName = `[Export: ${node.declaration.id.name}]`;
+    } else if (node.declaration.declarations) {
+      // export const a = ..., b = ...
+      const names = node.declaration.declarations.map((decl: any) => decl.id.name).join(', ');
+      exportName = `[Export: ${names}]`;
+    }
+    
     methods.push({
-      name: `[Export Declaration]`,
+      name: exportName,
+      type: exportType,
+      startLine: node.loc!.start.line,
+      endLine: node.loc!.end.line,
+      filePath: file.path,
+      code: getCodeSlice(file.content, node.loc!.start.line, node.loc!.end.line),
+      calls: [],
+      isPrivate: false,
+      parameters: []
+    });
+  } else if (node.specifiers) {
+    // export { a, b } from './module'
+    const exportedElements: string[] = [];
+    
+    node.specifiers.forEach((spec: any) => {
+      if (spec.type === 'ExportSpecifier') {
+        if (spec.exported.name !== spec.local.name) {
+          exportedElements.push(`${spec.local.name} as ${spec.exported.name}`);
+        } else {
+          exportedElements.push(spec.local.name);
+        }
+      }
+    });
+    
+    const exportName = exportedElements.length > 0 
+      ? `[Export: {${exportedElements.join(', ')}}${node.source ? ` from '${node.source.value}'` : ''}]`
+      : '[Export: re-export]';
+    
+    methods.push({
+      name: exportName,
       type: 'export',
       startLine: node.loc!.start.line,
       endLine: node.loc!.end.line,
@@ -814,7 +1039,9 @@ function isReactFunctionComponent(node: any, fileContent: string): boolean {
   const hasReactPatterns = /return\s*\(\s*<|return\s*</.test(functionCode) ||
                           /<[A-Z]/.test(functionCode) || // コンポーネント名
                           /className=/.test(functionCode) || // React特有の属性
-                          /<div|<span|<article|<header|<main|<section/.test(functionCode); // HTML要素
+                          /<div|<span|<article|<header|<main|<section/.test(functionCode) || // HTML要素
+                          /jsx|JSX/.test(functionCode) || // JSX明示的な記述
+                          /React\.createElement/.test(functionCode); // React.createElement
   
   return hasJSXReturn || hasReactPatterns;
 }
@@ -826,7 +1053,7 @@ function isReactComponentFunction(declarator: any, fileContent: string): boolean
   // 型注釈にReact.FCが含まれているかチェック
   if (declarator.id.typeAnnotation && declarator.id.typeAnnotation.typeAnnotation) {
     const typeCode = getCodeSliceFromRange(fileContent, declarator.id.typeAnnotation.range);
-    if (typeCode.includes('React.FC') || typeCode.includes('FC<')) {
+    if (typeCode.includes('React.FC') || typeCode.includes('FC<') || typeCode.includes('React.Component')) {
       return true;
     }
   }
@@ -845,7 +1072,10 @@ function isReactComponentFunction(declarator: any, fileContent: string): boolean
   const hasReactPatterns = /return\s*\(\s*<|return\s*</.test(functionCode) ||
                           /<[A-Z]/.test(functionCode) ||
                           /className=/.test(functionCode) ||
-                          /<div|<span|<article|<header|<main|<section/.test(functionCode);
+                          /<div|<span|<article|<header|<main|<section/.test(functionCode) ||
+                          /jsx|JSX/.test(functionCode) ||
+                          /React\.createElement/.test(functionCode) ||
+                          /use[A-Z]/.test(functionCode); // React Hooks使用
   
   return hasJSXReturn || hasReactPatterns;
 }
@@ -1037,6 +1267,211 @@ function createVariableDeclarationMethodsDefinitionOnly(node: any, file: ParsedF
   });
   
   return methods;
+}
+
+/**
+ * カスタムhooksの抽出
+ */
+function extractCustomHooks(ast: any, file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
+  const methods: Method[] = [];
+  
+  traverse(ast, {
+    FunctionDeclaration: (node) => {
+      if (isCustomHook(node.id?.name)) {
+        const methodCalls = extractMethodCalls(node, allDefinedMethods);
+        methods.push({
+          name: node.id.name,
+          type: 'custom_hook',
+          startLine: node.loc!.start.line,
+          endLine: node.loc!.end.line,
+          filePath: file.path,
+          code: getCodeSlice(file.content, node.loc!.start.line, node.loc!.end.line),
+          calls: methodCalls,
+          isPrivate: false,
+          parameters: extractParametersFromFunction(node)
+        });
+      }
+    },
+    VariableDeclaration: (node) => {
+      node.declarations.forEach((declarator: any) => {
+        if (declarator.id.type === 'Identifier' && 
+            declarator.init && 
+            declarator.init.type === 'ArrowFunctionExpression' &&
+            isCustomHook(declarator.id.name)) {
+          
+          const methodCalls = extractMethodCalls(declarator.init, allDefinedMethods);
+          methods.push({
+            name: declarator.id.name,
+            type: 'custom_hook',
+            startLine: node.loc!.start.line,
+            endLine: node.loc!.end.line,
+            filePath: file.path,
+            code: getCodeSlice(file.content, node.loc!.start.line, node.loc!.end.line),
+            calls: methodCalls,
+            isPrivate: false,
+            parameters: extractParametersFromFunction(declarator.init)
+          });
+        }
+      });
+    }
+  });
+  
+  return methods;
+}
+
+/**
+ * カスタムhookかどうか判定
+ */
+function isCustomHook(functionName: string | undefined): boolean {
+  if (!functionName) return false;
+  
+  // useで始まり、次の文字が大文字（Reactのカスタムhook命名規則）
+  return /^use[A-Z]/.test(functionName);
+}
+
+/**
+ * インポートされた要素の使用箇所を検出
+ */
+function findImportUsages(file: ParsedFile, importedNames: string[], importLine: number): MethodCall[] {
+  const calls: MethodCall[] = [];
+  const lines = file.content.split('\n');
+  
+  importedNames.forEach(importedName => {
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const lineNumber = i + 1;
+      
+      // インポート行自体はスキップ
+      if (lineNumber === importLine) continue;
+      
+      // コメント行をスキップ（より厳密に）
+      const trimmedLine = line.trim();
+      if (trimmedLine.startsWith('//') || 
+          trimmedLine.startsWith('/*') || 
+          trimmedLine.startsWith('*') ||
+          trimmedLine.endsWith('*/')) {
+        continue;
+      }
+      
+      // インライン/ブロックコメントを除去
+      let cleanLine = line;
+      // 行末コメントを除去
+      const lineCommentIndex = cleanLine.indexOf('//');
+      if (lineCommentIndex !== -1) {
+        cleanLine = cleanLine.substring(0, lineCommentIndex);
+      }
+      // ブロックコメントを除去（簡易版）
+      cleanLine = cleanLine.replace(/\/\*.*?\*\//g, '');
+      
+      // インポート文はスキップ（より厳密に）
+      if (cleanLine.trim().startsWith('import ') && cleanLine.includes('from')) {
+        continue;
+      }
+      
+      // 使用パターンを検出
+      const usagePatterns = [
+        // 1. 関数呼び出し: importedName(...)
+        new RegExp(`\\b${escapeRegExp(importedName)}\\s*\\(`, 'g'),
+        // 2. JSXコンポーネント: <importedName> または <importedName...>
+        new RegExp(`<\\s*${escapeRegExp(importedName)}(?:\\s|>|/)`, 'g'),
+        // 3. プロパティアクセス: importedName.something
+        new RegExp(`\\b${escapeRegExp(importedName)}\\.\\w+`, 'g'),
+        // 4. 変数使用: const x = importedName
+        new RegExp(`=\\s*${escapeRegExp(importedName)}\\b`, 'g'),
+        // 5. 型注釈: : importedName
+        new RegExp(`:\\s*${escapeRegExp(importedName)}\\b`, 'g'),
+        // 6. 配列/オブジェクト内: [importedName] or {importedName}
+        new RegExp(`[\\[{,]\\s*${escapeRegExp(importedName)}\\s*[\\]},]`, 'g'),
+        // 8. スプレッド構文: ...importedName
+        new RegExp(`\\.\\.\\.\\s*${escapeRegExp(importedName)}\\b`, 'g'),
+        // 7. 引数として渡す: func(importedName)
+        new RegExp(`\\(\\s*${escapeRegExp(importedName)}\\s*[,)]`, 'g')
+      ];
+      
+      for (const pattern of usagePatterns) {
+        const matches = Array.from(cleanLine.matchAll(pattern));
+        if (matches.length > 0) {
+          calls.push({
+            methodName: importedName,
+            line: lineNumber,
+            context: line.trim()
+          });
+          break; // 同じ行で複数パターンがマッチしても一度だけ追加
+        }
+      }
+    }
+  });
+  
+  // 重複を除去
+  return calls.filter((call, index, self) =>
+    index === self.findIndex(c => c.methodName === call.methodName && c.line === call.line)
+  );
+}
+
+/**
+ * 正規表現用の文字列をエスケープ
+ */
+function escapeRegExp(string: string): string {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * 正規表現ベースでのインポート使用箇所検出（フォールバック用）
+ */
+function findImportUsagesWithRegex(file: ParsedFile, importLine: string): MethodCall[] {
+  const calls: MethodCall[] = [];
+  const lines = file.content.split('\n');
+  
+  // インポート文から要素名を抽出
+  const importMatches = importLine.match(/import\s+(?:{([^}]+)}|(\w+)|\*\s+as\s+(\w+))/);
+  if (!importMatches) return calls;
+  
+  const importedNames: string[] = [];
+  
+  if (importMatches[1]) {
+    // Named imports: import { a, b as c } from '...'
+    const namedImports = importMatches[1].split(',').map(item => {
+      const match = item.trim().match(/(\w+)(?:\s+as\s+(\w+))?/);
+      return match ? (match[2] || match[1]) : '';
+    }).filter(Boolean);
+    importedNames.push(...namedImports);
+  }
+  
+  if (importMatches[2]) {
+    // Default import: import React from '...'
+    importedNames.push(importMatches[2]);
+  }
+  
+  if (importMatches[3]) {
+    // Namespace import: import * as utils from '...'
+    importedNames.push(importMatches[3]);
+  }
+  
+  return findImportUsages(file, importedNames, lines.indexOf(importLine) + 1);
+}
+
+/**
+ * インポート使用箇所のエントリを作成
+ */
+function createImportUsageEntries(file: ParsedFile, importMethod: Method): Method[] {
+  const usageEntries: Method[] = [];
+  
+  importMethod.calls.forEach(call => {
+    usageEntries.push({
+      name: `${call.methodName} (imported)`,
+      type: 'import_usage',
+      startLine: call.line,
+      endLine: call.line,
+      filePath: file.path,
+      code: call.context,
+      calls: [], // import_usageは自分自身のimport文を参照すべきではない
+      isPrivate: false,
+      parameters: [],
+      importSource: importMethod.startLine.toString() // これはimport文の行番号（正しい）
+    });
+  });
+  
+  return usageEntries;
 }
 
 /**

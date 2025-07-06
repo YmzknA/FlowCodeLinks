@@ -465,7 +465,11 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
   // コンポーネントアンマウント時のメモリクリーンアップ
   useEffect(() => {
     return () => {
-      usedCurveParams.current.clear();
+      // usedCurveParams.current は既にクリーンアップの影響を受けている可能性があるため、
+      // 安全にアクセスする
+      if (usedCurveParams.current) {
+        usedCurveParams.current.clear();
+      }
     };
   }, []);
 

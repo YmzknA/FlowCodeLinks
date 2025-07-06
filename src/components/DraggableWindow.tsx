@@ -12,6 +12,7 @@ interface DraggableWindowProps {
   zoom?: number; // ズーム倍率を追加
   highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null;
   onMethodClick?: (methodName: string, currentFilePath: string) => void;
+  onImportMethodClick?: (methodName: string) => void;
 }
 
 export const DraggableWindow: React.FC<DraggableWindowProps> = ({
@@ -23,7 +24,8 @@ export const DraggableWindow: React.FC<DraggableWindowProps> = ({
   onScrollChange,
   zoom = 1, // デフォルト値として1を設定
   highlightedMethod,
-  onMethodClick
+  onMethodClick,
+  onImportMethodClick
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
@@ -139,6 +141,7 @@ export const DraggableWindow: React.FC<DraggableWindowProps> = ({
         onScrollChange={onScrollChange}
         highlightedMethod={highlightedMethod}
         onMethodClick={onMethodClick ? (methodName: string) => onMethodClick(methodName, window.file.path) : undefined}
+        onImportMethodClick={onImportMethodClick}
       />
     </div>
   );

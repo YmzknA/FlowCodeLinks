@@ -41,9 +41,9 @@ const nextConfig = {
             value: [
               "default-src 'self'",
               // 環境に応じた script-src の設定
-              "script-src 'self'" + (process.env.NODE_ENV === 'development' ? " 'unsafe-inline' 'unsafe-eval'" : ""),
+              "script-src 'self'" + (process.env.NODE_ENV === 'development' ? " 'unsafe-inline' 'unsafe-eval'" : " 'unsafe-inline'"),
               // 環境に応じた style-src の設定
-              "style-src 'self'" + (process.env.NODE_ENV === 'development' ? " 'unsafe-inline'" : ""),
+              "style-src 'self'" + (process.env.NODE_ENV === 'development' ? " 'unsafe-inline'" : " 'unsafe-inline'"),
               "img-src 'self' data: blob:",
               "connect-src 'self'",
               "font-src 'self'",

@@ -218,6 +218,18 @@ export const useMethodJump = ({
     }, waitTime);
   }, [visibleFiles, currentZoom, sidebarCollapsed, sidebarWidth, setVisibleFiles, setHighlightedMethod, setFloatingWindows, setExternalPan]);
 
+  // import文内のメソッドクリック処理
+  const handleImportMethodClick = useCallback((methodName: string) => {
+    // import文内のメソッドは必ず定義元にジャンプ
+    const definition = findMethodDefinition(methodName);
+    if (definition) {
+      handleMethodJump(definition);
+      return { type: 'jump' as const, target: definition };
+    } else {
+      return { type: 'not_found' as const, methodName };
+    }
+  }, [findMethodDefinition, handleMethodJump]);
+
   // メソッククリック時の処理
   const handleMethodClick = useCallback((methodName: string, currentFilePath: string) => {
     // 現在のファイルでクリックされたメソッドが定義されているかチェック
@@ -246,6 +258,7 @@ export const useMethodJump = ({
     findMethodCaller,
     handleMethodHighlight,
     handleMethodJump,
-    handleMethodClick
+    handleMethodClick,
+    handleImportMethodClick
   };
 };

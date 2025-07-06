@@ -56,6 +56,12 @@ function extractMethodDependencies(method: Method, methodMap: Map<string, Method
       
       const dependencyType = method.filePath === targetMethod.filePath ? 'internal' : 'external';
       
+      // import関連の場合は、使用箇所ではなくimport文の行番号を使用
+      let actualFromLine = call.line;
+      if (method.type === 'import_usage' && method.importSource) {
+        actualFromLine = parseInt(method.importSource);
+      }
+
       dependencies.push({
         from: {
           methodName: method.name,
@@ -67,7 +73,7 @@ function extractMethodDependencies(method: Method, methodMap: Map<string, Method
         },
         count: 1, // 後でマージ時に集約
         type: dependencyType,
-        fromLine: call.line, // 呼び出し元の行番号を追加
+        fromLine: actualFromLine, // import関連の場合はimport文の行番号を使用
         toLine: targetMethod.startLine // 呼び出し先の開始行番号を追加
       });
     }
