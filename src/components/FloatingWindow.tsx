@@ -26,7 +26,10 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
 }) => {
   const { id, file, position, isCollapsed, showMethodsOnly } = window;
   
-  console.log(`FloatingWindow rendered for file: ${file.path}, language: ${file.language}`);
+  // デバッグログは開発環境でのみ出力
+  if (process.env.NODE_ENV === 'development') {
+    console.log(`FloatingWindow rendered for file: ${file.path}, language: ${file.language}`);
+  }
 
   const [highlightedCode, setHighlightedCode] = useState<string>('');
   const processedContentRef = useRef<string>('');
@@ -179,8 +182,11 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
             
             // 必要な言語をロード
             const language = getPrismLanguage(file.language);
-            console.log(`FloatingWindow loading Prism language: ${language} for file: ${file.path}`);
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`FloatingWindow loading Prism language: ${language} for file: ${file.path}`);
+            }
             
+            // Prismローダーユーティリティを使用（将来の実装予定）
             if (language === 'ruby') {
               await import('prismjs/components/prism-ruby' as any);
             } else if (language === 'javascript') {
@@ -193,7 +199,9 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
               await import('prismjs/components/prism-typescript' as any);
               await import('prismjs/components/prism-jsx' as any);
               await import('prismjs/components/prism-tsx' as any);
-              console.log('TSX components loaded in FloatingWindow');
+              if (process.env.NODE_ENV === 'development') {
+                console.log('TSX components loaded in FloatingWindow');
+              }
             }
             
             (window as any).Prism = Prism;
@@ -204,19 +212,25 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
           
           // TSXが利用できない場合はTypeScriptにフォールバック
           if (!grammar && language === 'tsx') {
-            console.warn('TSX grammar not found in FloatingWindow, falling back to TypeScript');
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('TSX grammar not found in FloatingWindow, falling back to TypeScript');
+            }
             language = 'typescript';
             grammar = Prism.languages && Prism.languages[language];
           }
           
           // TypeScriptが利用できない場合はJavaScriptにフォールバック
           if (!grammar && language === 'typescript') {
-            console.warn('TypeScript grammar not found in FloatingWindow, falling back to JavaScript');
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('TypeScript grammar not found in FloatingWindow, falling back to JavaScript');
+            }
             language = 'javascript';
             grammar = Prism.languages && Prism.languages[language];
           }
           
-          console.log(`FloatingWindow final language: ${language}, grammar available: ${!!grammar}`);
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`FloatingWindow final language: ${language}, grammar available: ${!!grammar}`);
+          }
           
           if (grammar) {
             try {
@@ -254,7 +268,9 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                 });
               }
               
-              console.log(`FloatingWindow syntax highlighting completed for ${file.path}. Highlighted code length: ${highlighted.length}`);
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`FloatingWindow syntax highlighting completed for ${file.path}. Highlighted code length: ${highlighted.length}`);
+              }
               setHighlightedCode(highlighted);
             } catch (error) {
               console.error('Prism highlight error:', error);

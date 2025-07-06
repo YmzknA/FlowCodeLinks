@@ -31,8 +31,8 @@ function isTypeScriptESTreeAvailable(): boolean {
   const isAvailable = typeof window === 'undefined' || 
                       (typeof process !== 'undefined' && process.env.NODE_ENV === 'test' && typeof require !== 'undefined');
   
-  // デバッグログ（本番では削除予定）
-  if (!isAvailable) {
+  // 本番環境ではログを制限
+  if (!isAvailable && process.env.NODE_ENV === 'development') {
     console.warn('TypeScript ESTree not available in browser environment. Using fallback analysis.');
   }
   
