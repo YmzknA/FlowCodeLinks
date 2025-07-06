@@ -473,9 +473,27 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
     };
   }, []);
 
+  // 定期的なメモリクリーンアップ（メモリリークを防ぐ）
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (usedCurveParams.current && usedCurveParams.current.size > 100) {
+        console.warn('Clearing curve parameters cache to prevent memory leak');
+        usedCurveParams.current.clear();
+      }
+    }, 30000); // 30秒ごとにチェック
+
+    return () => clearInterval(interval);
+  }, []);
+
   // 矢印クリック時のハンドラー
   const handleArrowClick = (dependency: Dependency) => {
     if (onMethodJump) {
+      // 矢印クリック時は呼び出し先メソッドを保存（ジャンプ先でハイライト）
+      if (typeof window !== 'undefined') {
+        (window as any).__originalClickedMethod = dependency.to.methodName;
+        sessionStorage.setItem('__originalClickedMethod', dependency.to.methodName);
+      }
+      
       onMethodJump({
         methodName: dependency.to.methodName,
         filePath: dependency.to.filePath

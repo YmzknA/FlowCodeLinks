@@ -3,7 +3,7 @@ import { ParsedFile } from '@/types/codebase';
 import { sanitizeContent } from '@/utils/security';
 import { debounce, optimizedScroll } from '@/utils/performance';
 import { useWheelScrollIsolation } from '@/hooks/useWheelScrollIsolation';
-import { replaceMethodNameInText, makeImportMethodsClickable } from '@/utils/method-highlighting';
+import { replaceMethodNameInText, makeImportMethodsClickable, highlightMethodDefinition } from '@/utils/method-highlighting';
 
 interface CodeContentProps {
   file: ParsedFile;
@@ -134,6 +134,19 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
                   })()
                 : createSortedArray(clickableMethodNames);
               sortedMethodNames.forEach(methodName => {
+                // ハイライト対象かどうかを判定
+                const isHighlighted = highlightedMethod && 
+                                     highlightedMethod.methodName === methodName && 
+                                     highlightedMethod.filePath === file.path;
+                
+                // デバッグログ
+                if (isHighlighted) {
+                  console.log(`🔥 HIGHLIGHTING METHOD (CodeContent): ${methodName} in ${file.path}`);
+                }
+                
+                const baseClasses = "cursor-pointer hover:bg-blue-900 hover:bg-opacity-40 rounded px-1 relative";
+                const highlightClasses = isHighlighted ? " bg-red-500 bg-opacity-80 border-2 border-red-600" : "";
+                
                 if (methodName.endsWith('?') || methodName.endsWith('!')) {
                   // 特殊文字（?や!）を含むメソッド名の処理
                   // Prism.jsは?や!を別のトークンとして分離するため、特別な処理が必要
@@ -149,7 +162,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
                   );
                   
                   highlighted = highlighted.replace(definitionPattern, 
-                    `<span class="cursor-pointer hover:bg-blue-900 hover:bg-opacity-40 rounded px-1 relative" data-method-name="${methodName}">$1$2<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`
+                    `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}">$1$2<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`
                   );
                   
                   // パターン2: メソッド呼び出し - method_name<span class="token operator">?</span>
@@ -159,14 +172,14 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
                   );
                   
                   highlighted = highlighted.replace(callPattern, 
-                    `<span class="cursor-pointer hover:bg-blue-900 hover:bg-opacity-40 rounded px-1 relative" data-method-name="${methodName}">$1$2<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`
+                    `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}">$1$2<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`
                   );
                 } else {
                   // 通常のメソッド名の処理（従来通り）
                   const escapedMethodName = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                   const methodNameRegex = new RegExp(`(?<![\\w])${escapedMethodName}(?![\\w])`, 'g');
                   highlighted = highlighted.replace(methodNameRegex, 
-                    `<span class="cursor-pointer hover:bg-blue-900 hover:bg-opacity-40 rounded px-1 relative" data-method-name="${methodName}">$&<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`
+                    `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}">$&<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`
                   );
                 }
               });
@@ -199,9 +212,12 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
                   return null;
                 };
                 
-                highlighted = makeImportMethodsClickable(highlighted, importMethods, findMethodDefinition);
+                highlighted = makeImportMethodsClickable(highlighted, importMethods, findMethodDefinition, highlightedMethod, file.path);
               }
             }
+            
+            // メソッド定義をハイライト
+            highlighted = highlightMethodDefinition(highlighted, highlightedMethod, file.path, file.methods);
             
             // DOMPurifyで安全にサニタイズしてから設定
             const sanitized = sanitizeContent(highlighted, 'prism-code');

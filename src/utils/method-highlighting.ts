@@ -34,7 +34,9 @@ const createProtectMarker = (): string => {
 export const makeImportMethodsClickable = (
   html: string, 
   importMethods: string[], 
-  findMethodDefinition?: (methodName: string) => { methodName: string; filePath: string } | null
+  findMethodDefinition?: (methodName: string) => { methodName: string; filePath: string } | null,
+  highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null,
+  currentFilePath?: string
 ): string => {
   let result = html;
   
@@ -59,6 +61,11 @@ export const makeImportMethodsClickable = (
       return; // クリック可能にしない
     }
     
+    // ハイライト対象かどうかを判定
+    const isHighlighted = highlightedMethod && 
+                         highlightedMethod.methodName === methodName && 
+                         highlightedMethod.filePath === currentFilePath;
+    
     const escapedMethodName = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     
     // Prismハイライト後のimport文内メソッド名を検出
@@ -71,15 +78,18 @@ export const makeImportMethodsClickable = (
       'g'
     );
     
+    const baseClasses = "cursor-pointer text-blue-600 hover:text-blue-800 hover:bg-blue-900 hover:bg-opacity-40 rounded px-1 relative";
+    const highlightClasses = isHighlighted ? " bg-red-500 bg-opacity-80 border-2 border-red-600" : "";
+    
     // 通常のパターンを処理
     result = result.replace(plainPattern, (match) => {
       // import文の内部かどうかをチェック（簡易的）
-      return `<span class="cursor-pointer text-blue-600 hover:text-blue-800 hover:bg-blue-900 hover:bg-opacity-40 rounded px-1 relative" data-method-name="${methodName}" data-import-method="true">${match}<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`;
+      return `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}" data-import-method="true">${match}<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`;
     });
     
     // Prismハイライト済みパターンを処理
     result = result.replace(prismPattern, (match, openTag, methodNamePart, closeTag) => {
-      return `${openTag}<span class="cursor-pointer text-blue-600 hover:text-blue-800 hover:bg-blue-900 hover:bg-opacity-40 rounded px-1 relative" data-method-name="${methodName}" data-import-method="true">${methodNamePart}<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>${closeTag}`;
+      return `${openTag}<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}" data-import-method="true">${methodNamePart}<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>${closeTag}`;
     });
   });
   
@@ -105,6 +115,7 @@ export const makeImportMethodsClickable = (
  * @returns 処理済みHTML
  */
 import { isExternalLibraryMethod } from '@/config/external-methods';
+import { methodHighlightStorage } from '@/utils/secure-storage';
 
 export const replaceMethodNameInText = (
   html: string, 
@@ -113,7 +124,8 @@ export const replaceMethodNameInText = (
   findMethodDefinition?: (methodName: string) => { methodName: string; filePath: string } | null,
   findAllMethodCallers?: (methodName: string) => Array<{ methodName: string; filePath: string; lineNumber?: number }>,
   currentFilePath?: string,
-  files?: any[]
+  files?: any[],
+  highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null
 ): string => {
   // 外部ライブラリメソッドは即座に非クリック化
   if (isExternalLibraryMethod(methodName)) {
@@ -195,8 +207,21 @@ export const replaceMethodNameInText = (
   // 保護されていないメソッド名（テキストノード内のみ）を置換
   // より厳密な境界条件：前後が英数字・アンダースコアでないことを確認
   const methodNameRegex = new RegExp(`(?<![\\w])${escapedMethodName}(?![\\w])`, 'g');
+  
+  // ハイライト対象かどうかを判定（完全一致のみ）
+  // 最初にクリックしたメソッド名をハイライト
+  const originalClickedMethod = methodHighlightStorage.getOriginalMethod();
+  const isHighlighted = originalClickedMethod && 
+                       originalClickedMethod === methodName && 
+                       highlightedMethod && 
+                       highlightedMethod.filePath === currentFilePath;
+  
+  
+  const baseClasses = "cursor-pointer hover:bg-blue-900 hover:bg-opacity-40 rounded px-1 relative";
+  const highlightClasses = isHighlighted ? " bg-red-500 bg-opacity-80 border-2 border-red-600" : "";
+  
   result = result.replace(methodNameRegex, 
-    `<span class="cursor-pointer hover:bg-blue-900 hover:bg-opacity-40 rounded px-1 relative" data-method-name="${methodName}">$&<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`
+    `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}">$&<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`
   );
   
   // 保護されたHTMLタグと属性を復元
@@ -206,5 +231,48 @@ export const replaceMethodNameInText = (
     result = result.replace(new RegExp(escapedMarker, 'g'), originalContent);
   });
   
+  return result;
+};
+
+/**
+ * メソッド定義をハイライトする関数
+ * @param html ハイライト済みのHTML
+ * @param highlightedMethod ハイライト対象のメソッド情報
+ * @param currentFilePath 現在のファイルパス
+ * @param methods 現在のファイルのメソッド一覧
+ * @returns 処理済みHTML
+ */
+export const highlightMethodDefinition = (
+  html: string,
+  highlightedMethod: { methodName: string; filePath: string; lineNumber?: number } | null,
+  currentFilePath: string,
+  methods: Array<{ name: string; startLine: number; endLine: number; type: string }> = []
+): string => {
+  if (!highlightedMethod || highlightedMethod.filePath !== currentFilePath) {
+    return html;
+  }
+
+  // 対象メソッドを見つける
+  const targetMethod = methods.find(method => method.name === highlightedMethod.methodName);
+  if (!targetMethod) {
+    return html;
+  }
+
+
+  // Rubyのメソッド定義パターンをハイライト
+  // def method_name や private def method_name など
+  const escapedMethodName = highlightedMethod.methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  
+  // パターン1: def method_name
+  const defPattern = new RegExp(
+    `(<span[^>]*class="[^"]*token[^"]*keyword[^"]*"[^>]*>def</span>\\s*<span[^>]*class="[^"]*token[^"]*function[^"]*"[^>]*>)(${escapedMethodName})(</span>)`,
+    'g'
+  );
+  
+  // メソッド定義をハイライト
+  let result = html.replace(defPattern, (match, beforeMethod, methodName, afterMethod) => {
+    return `${beforeMethod}<span class="bg-red-500 bg-opacity-80 border-2 border-red-600 rounded px-1">${methodName}</span>${afterMethod}`;
+  });
+
   return result;
 };
