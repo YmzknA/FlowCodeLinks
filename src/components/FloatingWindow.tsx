@@ -30,12 +30,6 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
 }) => {
   const { id, file, position, isCollapsed, showMethodsOnly } = window;
   
-  // Monitor __allFiles state for development
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development' && file.path.includes('page.tsx')) {
-      console.log('FloatingWindow mounted:', file.path);
-    }
-  }, [file.path]);
   
 
   const [highlightedCode, setHighlightedCode] = useState<string>('');
@@ -77,7 +71,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       const scrollInfo = calculateScrollInfo(contentRef.current);
       onScrollChangeRef.current(id, scrollInfo);
     }
-  }, [id]);
+  }, [id, window]);
 
 
 
@@ -256,33 +250,11 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                   // 全ファイルからメソッド定義を検索
                   const allFiles = (window as any).__allFiles || [];
                   
-                  // デバッグ対象メソッドの場合はログを出力
-                  if (methodName === 'useAuth' || methodName === 'userState') {
-                    console.log(`=== findMethodDefinition for ${methodName} (v${allFilesVersion}) ===`);
-                    console.log(`Searching in ${allFiles.length} files`);
-                    console.log(`Current file: ${file.path}`);
-                    
-                    if (allFiles.length > 0) {
-                      console.log(`Available files:`);
-                      allFiles.forEach((f: any, i: number) => {
-                        console.log(`  ${i}: ${f.path} (${f.methods?.length || 0} methods)`);
-                        if ((f.path.includes('auth') || f.path.includes('recoil') || f.path.includes('state')) && f.methods) {
-                          console.log(`    Methods:`, f.methods.map((m: any) => `${m.name}(${m.type})`));
-                        }
-                      });
-                    }
-                  }
                   
                   for (const searchFile of allFiles) {
                     if (searchFile.methods) {
                       for (const method of searchFile.methods) {
-                        if (methodName === 'useAuth' || methodName === 'userState') {
-                          console.log(`  Checking: "${method.name}" in ${searchFile.path} (type: ${method.type})`);
-                        }
                         if (method.name === methodName) {
-                          if (methodName === 'useAuth' || methodName === 'userState') {
-                            console.log(`  ✅ Found: ${methodName} in ${searchFile.path}`);
-                          }
                           return {
                             methodName: method.name,
                             filePath: searchFile.path
@@ -292,9 +264,6 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                     }
                   }
                   
-                  if (methodName === 'useAuth' || methodName === 'userState') {
-                    console.log(`  ❌ ${methodName} not found in any file`);
-                  }
                   return null;
                 };
                 
@@ -332,28 +301,6 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                     const allFiles = (window as any).__allFiles;
                     const enableSmartClickability = allFiles && allFiles.length > 0;
                     
-                    // デバッグ: 外部ライブラリメソッドの詳細確認
-                    if (methodName === 'useRecoilValue' || methodName === 'useAuth') {
-                      console.log(`=== DEBUG: ${methodName} clickability check (v${allFilesVersion}) ===`);
-                      console.log('__allFiles exists:', !!allFiles);
-                      console.log('__allFiles length:', allFiles?.length || 0);
-                      console.log('enableSmartClickability:', enableSmartClickability);
-                      console.log('allFilesVersion:', allFilesVersion);
-                      console.log('Current file path:', file.path);
-                      
-                      if (allFiles && methodName === 'useAuth') {
-                        console.log('All file paths in __allFiles:');
-                        allFiles.forEach((f: any, i: number) => {
-                          console.log(`  ${i}: ${f.path} (${f.methods?.length || 0} methods)`);
-                          if (f.path.includes('auth')) {
-                            console.log(`    Auth file methods:`, f.methods?.map((m: any) => m.name) || []);
-                          }
-                        });
-                      }
-                      
-                      // 実際のfindMethodDefinition呼び出し前の状態確認
-                      console.log('About to call findMethodDefinition...');
-                    }
                     
                     if (enableSmartClickability) {
                       highlighted = replaceMethodNameInText(
@@ -377,14 +324,12 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
               
               setHighlightedCode(highlighted);
             } catch (error) {
-              console.error('Prism highlight error:', error);
               setHighlightedCode(file.content);
             }
           } else {
             setHighlightedCode(file.content);
           }
         } catch (error) {
-          console.error('Failed to load Prism.js:', error);
           setHighlightedCode(file.content);
         }
       } else {
@@ -412,7 +357,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [isCollapsed, showMethodsOnly, id]);
+  }, [isCollapsed, showMethodsOnly, id, window]);
 
   // highlightedMethodの変更を監視してフラグをリセット
   useEffect(() => {
@@ -480,7 +425,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       // スクロール完了後にフラグを設定
       hasJumpedToMethod.current = true;
     }
-  }, [highlightedMethod, file.path, file.methods, file.totalLines, isCollapsed, showMethodsOnly, id]);
+  }, [highlightedMethod, file.path, file.methods, file.totalLines, isCollapsed, showMethodsOnly, id, window]);
 
   // メソッドのみ表示モードでのスクロール
   useEffect(() => {
@@ -525,7 +470,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
         hasJumpedToMethod.current = true;
       }
     }
-  }, [highlightedMethod, file.path, isCollapsed, showMethodsOnly, id]);
+  }, [highlightedMethod, file.path, isCollapsed, showMethodsOnly, id, window]);
 
   // 非表示の場合は早期リターン
   if (!window.isVisible) {

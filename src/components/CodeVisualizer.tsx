@@ -29,50 +29,24 @@ export const CodeVisualizer: React.FC = () => {
 
   // ファイル解析と最適化（2段階解析）
   const analysisResult = useMemo(() => {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('=== analysisResult calculation ===');
-      console.log('repomixContent exists:', !!repomixContent);
-      console.log('repomixContent length:', repomixContent?.length || 0);
-    }
-    
     if (!repomixContent) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('No repomixContent - returning empty result');
-      }
       return { files: [], methods: [], dependencies: [] };
     }
 
     try {
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Starting parseRepomixFile...');
-      }
       const parseResult = parseRepomixFile(repomixContent);
-      if (process.env.NODE_ENV === 'development') {
-        console.log('parseResult.files:', parseResult.files.length);
-        console.log('parseResult file paths:', parseResult.files.map(f => f.path));
-      }
       
       // 第1段階: 全ファイルからメソッド定義名を抽出
       const allDefinedMethods = extractAllMethodDefinitions(parseResult.files);
-      if (process.env.NODE_ENV === 'development') {
-        console.log('allDefinedMethods:', allDefinedMethods.size);
-      }
       
       // 第2段階: 定義済みメソッド一覧を使ってメソッド解析（変数フィルタリング）
       const filesWithMethods = parseResult.files.map(file => ({
         ...file,
         methods: analyzeMethodsInFile(file, allDefinedMethods)
       }));
-      if (process.env.NODE_ENV === 'development') {
-        console.log('filesWithMethods:', filesWithMethods.length);
-      }
 
       const allMethods = filesWithMethods.flatMap(file => file.methods);
       const dependencies = extractDependencies(allMethods);
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Final result - files:', filesWithMethods.length, 'methods:', allMethods.length, 'dependencies:', dependencies.length);
-      }
 
       return {
         files: filesWithMethods,
@@ -80,9 +54,6 @@ export const CodeVisualizer: React.FC = () => {
         dependencies
       };
     } catch (err) {
-      if (process.env.NODE_ENV === 'development') {
-        console.error('Analysis error:', err);
-      }
       return { files: [], methods: [], dependencies: [], error: err instanceof Error ? err.message : '解析エラーが発生しました' };
     }
   }, [repomixContent]);
@@ -120,30 +91,6 @@ export const CodeVisualizer: React.FC = () => {
           detail: { files, count: files.length }
         });
         window.dispatchEvent(event);
-        if (process.env.NODE_ENV === 'development') {
-          console.log('🔄 __allFiles updated event dispatched:', files.length);
-        }
-      }
-      
-      // デバッグ: __allFiles設定の確認（開発環境のみ）
-      if (process.env.NODE_ENV === 'development') {
-        console.log('=== CodeVisualizer: Setting __allFiles ===');
-        console.log('Files count:', files.length);
-        console.log('Files paths:', files.map(f => f.path));
-        
-        // auth.tsが含まれているかチェック
-        const authFiles = files.filter(f => f.path.includes('auth'));
-        if (authFiles.length > 0) {
-          console.log('Auth files found:', authFiles.length);
-          authFiles.forEach(authFile => {
-            console.log(`  ${authFile.path}: ${authFile.methods?.length || 0} methods`);
-            if (authFile.path.includes('front/src/api/auth.ts')) {
-              console.log('    Frontend auth.ts methods:', authFile.methods?.map(m => m.name) || []);
-            }
-          });
-        } else {
-          console.log('No auth files found');
-        }
       }
     }
   }, [files]);
