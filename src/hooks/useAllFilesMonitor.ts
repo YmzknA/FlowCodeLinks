@@ -9,7 +9,13 @@ export const useAllFilesMonitor = (filePath: string) => {
   const [isClient, setIsClient] = useState(false);
   const lastLengthRef = useRef(0);
   const retryCountRef = useRef(0);
+  const filePathRef = useRef(filePath);
   const maxRetries = 10; // 最大10回リトライ
+
+  // filePathをrefで常に最新の値を保持
+  useEffect(() => {
+    filePathRef.current = filePath;
+  }, [filePath]);
 
   // クライアントサイド確認
   useEffect(() => {
@@ -36,15 +42,15 @@ export const useAllFilesMonitor = (filePath: string) => {
       const allFiles = (window as any).__allFiles;
       const currentLength = allFiles?.length || 0;
 
-      if (process.env.NODE_ENV === 'development' && filePath.includes('page.tsx')) {
+      if (process.env.NODE_ENV === 'development' && filePathRef.current.includes('page.tsx')) {
         // eslint-disable-next-line no-console
-        console.log(`Checking __allFiles for ${filePath}: ${currentLength} files`);
+        console.log(`Checking __allFiles for ${filePathRef.current}: ${currentLength} files`);
       }
 
       if (currentLength > 0 && currentLength !== lastLengthRef.current) {
         if (process.env.NODE_ENV === 'development') {
           // eslint-disable-next-line no-console
-          console.log(`🔄 __allFiles detected change: ${lastLengthRef.current} → ${currentLength} for ${filePath}`);
+          console.log(`🔄 __allFiles detected change: ${lastLengthRef.current} → ${currentLength} for ${filePathRef.current}`);
         }
         lastLengthRef.current = currentLength;
         setAllFilesVersion(prev => prev + 1);
@@ -66,7 +72,7 @@ export const useAllFilesMonitor = (filePath: string) => {
             if (retryCountRef.current >= maxRetries) {
               if (process.env.NODE_ENV === 'development') {
                 // eslint-disable-next-line no-console
-                console.warn(`⚠️ __allFiles initialization failed after ${maxRetries} retries for ${filePath}`);
+                console.warn(`⚠️ __allFiles initialization failed after ${maxRetries} retries for ${filePathRef.current}`);
               }
             }
             return;
@@ -107,7 +113,7 @@ export const useAllFilesMonitor = (filePath: string) => {
         window.removeEventListener('__allFiles_updated', handleAllFilesUpdate as EventListener);
       };
     }
-  }, [isClient, filePath]);
+  }, [isClient]);
 
 
   return { allFilesVersion, isClient };
