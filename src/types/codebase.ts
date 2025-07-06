@@ -15,7 +15,7 @@ export interface ParsedFile {
 
 export interface Method {
   name: string;
-  type: 'function' | 'method' | 'class_method' | 'erb_call' | 'component' | 'interface_method' | 'type_alias' | 'interface' | 'class' | 'import' | 'export';
+  type: 'function' | 'method' | 'class_method' | 'erb_call' | 'component' | 'interface_method' | 'type_alias' | 'interface' | 'class' | 'import' | 'export' | 'custom_hook' | 'enum' | 'import_usage';
   startLine: number;
   endLine: number;
   filePath: string;
@@ -24,6 +24,7 @@ export interface Method {
   isPrivate: boolean;
   parameters: string[];
   returnType?: string;
+  importSource?: string; // インポート使用箇所の場合、元のインポート文の行番号
 }
 
 export interface MethodCall {
