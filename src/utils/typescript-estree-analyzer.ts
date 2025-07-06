@@ -1,5 +1,9 @@
 import { ParsedFile, Method, MethodCall } from '@/types/codebase';
 
+// パフォーマンス最適化用のキャッシュ
+const parseCache = new Map<string, Method[]>();
+const CACHE_MAX_SIZE = 100; // 最大キャッシュサイズ
+
 /**
  * TypeScript ESTreeを動的に読み込む
  */
@@ -98,6 +102,43 @@ export function extractTypeScriptMethodDefinitionsWithESTree(file: ParsedFile): 
 }
 
 /**
+ * キャッシュキーを生成
+ */
+function generateCacheKey(file: ParsedFile, allDefinedMethods?: Set<string>): string {
+  const methodsHash = allDefinedMethods ? Array.from(allDefinedMethods).sort().join(',') : '';
+  return `${file.path}:${file.content.length}:${methodsHash}:${file.language}`;
+}
+
+/**
+ * キャッシュサイズを管理（LRU風）
+ */
+function manageCacheSize(): void {
+  if (parseCache.size > CACHE_MAX_SIZE) {
+    const firstKey = parseCache.keys().next().value;
+    if (firstKey) {
+      parseCache.delete(firstKey);
+    }
+  }
+}
+
+/**
+ * パフォーマンス最適化：キャッシュクリア機能
+ */
+export function clearParseCache(): void {
+  parseCache.clear();
+}
+
+/**
+ * パフォーマンス最適化：キャッシュ統計取得
+ */
+export function getCacheStats(): { size: number; maxSize: number; hitRate?: number } {
+  return {
+    size: parseCache.size,
+    maxSize: CACHE_MAX_SIZE
+  };
+}
+
+/**
  * TypeScript ESTreeを使用したTypeScriptファイルの包括的解析
  */
 export function analyzeTypeScriptWithESTree(file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
@@ -105,18 +146,37 @@ export function analyzeTypeScriptWithESTree(file: ParsedFile, allDefinedMethods?
     return [];
   }
 
+  // キャッシュチェック
+  const cacheKey = generateCacheKey(file, allDefinedMethods);
+  if (parseCache.has(cacheKey)) {
+    const cached = parseCache.get(cacheKey)!;
+    // キャッシュヒット時はエントリを最新に移動（LRU）
+    parseCache.delete(cacheKey);
+    parseCache.set(cacheKey, cached);
+    return cached;
+  }
+
+  let result: Method[];
+
   // TypeScript ESTreeが利用可能な場合はAST解析を使用
   if (isTypeScriptESTreeAvailable()) {
     const esTree = loadTypeScriptESTree();
     if (!esTree) {
       console.warn('Failed to load TypeScript ESTree, falling back to regex analysis');
-      return analyzeTypeScriptWithRegex(file, allDefinedMethods);
+      result = analyzeTypeScriptWithRegex(file, allDefinedMethods);
+    } else {
+      result = analyzeWithESTreeInternal(esTree, file, allDefinedMethods);
     }
-    return analyzeWithESTreeInternal(esTree, file, allDefinedMethods);
+  } else {
+    // クライアントサイドでは正規表現ベースの解析を使用
+    result = analyzeTypeScriptWithRegex(file, allDefinedMethods);
   }
-  
-  // クライアントサイドでは正規表現ベースの解析を使用
-  return analyzeTypeScriptWithRegex(file, allDefinedMethods);
+
+  // 結果をキャッシュに保存
+  manageCacheSize();
+  parseCache.set(cacheKey, result);
+
+  return result;
 }
 
 /**

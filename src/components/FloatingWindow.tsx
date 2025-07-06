@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { FloatingWindow as FloatingWindowType, ScrollInfo } from '@/types/codebase';
 import { useWheelScrollIsolation } from '@/hooks/useWheelScrollIsolation';
 import { replaceMethodNameInText } from '@/utils/method-highlighting';
+import { prismLoader } from '@/utils/prism-loader';
 
 interface FloatingWindowProps {
   window: FloatingWindowType;
@@ -177,34 +178,20 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
           let Prism = (window as any).Prism;
           
           if (!Prism) {
-            // Prism.jsをロード
-            Prism = (await import('prismjs')).default;
-            
             // 必要な言語をロード
             const language = getPrismLanguage(file.language);
             if (process.env.NODE_ENV === 'development') {
               console.log(`FloatingWindow loading Prism language: ${language} for file: ${file.path}`);
             }
             
-            // Prismローダーユーティリティを使用（将来の実装予定）
-            if (language === 'ruby') {
-              await import('prismjs/components/prism-ruby' as any);
-            } else if (language === 'javascript') {
-              await import('prismjs/components/prism-javascript' as any);
-            } else if (language === 'typescript') {
-              await import('prismjs/components/prism-typescript' as any);
-            } else if (language === 'tsx') {
-              // TSXの依存関係を順次読み込み
-              await import('prismjs/components/prism-javascript' as any);
-              await import('prismjs/components/prism-typescript' as any);
-              await import('prismjs/components/prism-jsx' as any);
-              await import('prismjs/components/prism-tsx' as any);
-              if (process.env.NODE_ENV === 'development') {
-                console.log('TSX components loaded in FloatingWindow');
-              }
-            }
+            // Prismローダーユーティリティを使用
+            Prism = await prismLoader.loadLanguageSupport(language);
             
-            (window as any).Prism = Prism;
+            if (!Prism) {
+              // フォールバック: 直接読み込み
+              Prism = (await import('prismjs')).default;
+              (window as any).Prism = Prism;
+            }
           }
 
           let language = getPrismLanguage(file.language);
