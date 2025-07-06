@@ -49,7 +49,7 @@ export const ZoomableCanvas: React.FC<ZoomableCanvasProps> = ({
     
     setZoom(newZoom);
     onZoomChange?.(newZoom);
-  }, [zoom, pan, onZoomChange]);
+  }, [zoom, pan, onZoomChange, onPanChange]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     // 左ボタンまたは中ボタン（ホイールボタン）でのパン操作を有効
@@ -76,7 +76,7 @@ export const ZoomableCanvas: React.FC<ZoomableCanvasProps> = ({
       setPan(newPan);
       onPanChange?.(newPan);
     }
-  }, [isDragging, dragStart]);
+  }, [isDragging, dragStart, onPanChange]);
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
@@ -89,7 +89,7 @@ export const ZoomableCanvas: React.FC<ZoomableCanvasProps> = ({
     const resetPan = { x: -1800, y: -800 };
     setPan(resetPan);
     onPanChange?.(resetPan);
-  }, [onZoomChange]);
+  }, [onZoomChange, onPanChange]);
 
   const fitToView = useCallback(() => {
     if (canvasRef.current) {
@@ -137,7 +137,7 @@ export const ZoomableCanvas: React.FC<ZoomableCanvasProps> = ({
       setPan(newPan);
       onPanChange?.(newPan);
     }
-  }, [pan, zoom, onZoomChange]);
+  }, [pan, zoom, onZoomChange, onPanChange]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

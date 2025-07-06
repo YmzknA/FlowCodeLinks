@@ -220,7 +220,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
     };
 
     highlightCode();
-  }, [file.content, file.language]);
+  }, [file.content, file.language, file.methods, onMethodClick]);
 
   // 最適化されたスクロール計算
   const calculateScrollPosition = useCallback((targetLine: number, containerElement: HTMLElement) => {
