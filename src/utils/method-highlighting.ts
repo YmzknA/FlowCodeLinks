@@ -143,10 +143,17 @@ export const replaceMethodNameInText = (
     isClickable = definition !== null;
   } else {
     // findMethodDefinitionが利用できない場合：パターンベースで判定（フォールバック）
-    // 安全側に倒して、確実にプロジェクト定義のメソッドのみクリック可能にする
+    // Ruby/JavaScript/TypeScriptメソッドの一般的なパターンでクリック可能性を判定
     const knownProjectMethods = new Set(['useAuth', 'useUser', 'useProfile']); // 確実にプロジェクト定義のメソッド
     
-    isClickable = knownProjectMethods.has(methodName); // 既知のプロジェクトメソッドのみクリック可能
+    // Rubyメソッドの一般的なパターン: snake_case、?や!で終わるメソッド
+    const isRubyMethod = /^[a-z_][a-z0-9_]*[?!]?$/.test(methodName);
+    
+    // JavaScript/TypeScriptメソッドの一般的なパターン: camelCase、Pascalcase
+    const isJavaScriptMethod = /^[a-zA-Z_$][a-zA-Z0-9_$]*$/.test(methodName);
+    
+    // 既知のプロジェクトメソッドまたは一般的なメソッドパターンの場合はクリック可能
+    isClickable = knownProjectMethods.has(methodName) || isRubyMethod || isJavaScriptMethod;
   }
   // その他の場合：従来通り全てクリック可能（後方互換性）
   
