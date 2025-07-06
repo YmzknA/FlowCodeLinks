@@ -1,15 +1,24 @@
 /**
- * 堅牢なエラーハンドリング付きの保護マーカー生成関数
+ * セキュリティ強化された保護マーカー生成関数
+ * crypto.randomUUID() を優先使用し、フォールバックも提供
  */
 const createProtectMarker = (): string => {
   try {
+    // crypto.randomUUID() の使用（Node.js 14.17.0+ またはブラウザ対応）
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return `__PROTECT_${crypto.randomUUID()}__`;
+    }
+    
+    // フォールバック（既存の実装）
     const timestamp = Date.now().toString(36);
     const random1 = Math.random().toString(36).slice(2, 11);
     const random2 = Math.random().toString(36).slice(2, 11);
     
     return `__PROTECT_${timestamp}_${random1}_${random2}__`;
   } catch (error) {
-    console.error('Failed to create protect marker:', error);
+    if (process.env.NODE_ENV === 'development') {
+      console.error('Failed to create protect marker:', error);
+    }
     // フォールバック: 単純な連番
     return `__PROTECT_${Date.now()}_FALLBACK_${Math.floor(Math.random() * 10000)}__`;
   }

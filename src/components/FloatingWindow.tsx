@@ -3,6 +3,7 @@ import { FloatingWindow as FloatingWindowType, ScrollInfo } from '@/types/codeba
 import { useWheelScrollIsolation } from '@/hooks/useWheelScrollIsolation';
 import { replaceMethodNameInText } from '@/utils/method-highlighting';
 import { prismLoader } from '@/utils/prism-loader';
+import { useAllFilesMonitor } from '@/hooks/useAllFilesMonitor';
 
 interface FloatingWindowProps {
   window: FloatingWindowType;
@@ -177,92 +178,8 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
     }
   };
 
-  // __allFilesの変更を監視して再処理 - 改善版
-  const [allFilesVersion, setAllFilesVersion] = useState(0);
-  const [isClient, setIsClient] = useState(false);
-  const lastLengthRef = useRef(0);
-  const retryCountRef = useRef(0);
-  const maxRetries = 10; // 最大5秒間リトライ
-  
-  // クライアントサイド確認
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-  
-  useEffect(() => {
-    // クライアントサイドでのみ実行
-    if (!isClient) return;
-    
-    console.log('🔄 FloatingWindow setting up monitoring for', file.path);
-    
-    const checkAllFiles = () => {
-      const allFiles = (window as any).__allFiles;
-      const currentLength = allFiles?.length || 0;
-      
-      if (process.env.NODE_ENV === 'development' && file.path.includes('page.tsx')) {
-        console.log(`Checking __allFiles for ${file.path}: ${currentLength} files`);
-      }
-      
-      if (currentLength > 0 && currentLength !== lastLengthRef.current) {
-        console.log(`🔄 __allFiles detected change: ${lastLengthRef.current} → ${currentLength} for ${file.path}`);
-        lastLengthRef.current = currentLength;
-        setAllFilesVersion(prev => prev + 1);
-        retryCountRef.current = 0; // 成功したらリトライカウントリセット
-        return true; // 成功を示す
-      }
-      
-      return false; // まだデータが準備されていない
-    };
-    
-    const handleAllFilesUpdate = (event: CustomEvent) => {
-      console.log('🔄 FloatingWindow received __allFiles event:', event.detail, 'for', file.path);
-      retryCountRef.current = 0; // イベント受信時はリトライカウントリセット
-      
-      // より長い遅延でチェック（CodeVisualizerの処理完了を待つ）
-      setTimeout(() => {
-        if (!checkAllFiles()) {
-          // 失敗した場合は短い間隔でリトライ
-          startRetryLoop();
-        }
-      }, 200);
-    };
-    
-    const startRetryLoop = () => {
-      const retryInterval = setInterval(() => {
-        if (checkAllFiles() || retryCountRef.current >= maxRetries) {
-          clearInterval(retryInterval);
-          if (retryCountRef.current >= maxRetries) {
-            console.warn(`⚠️ __allFiles initialization failed after ${maxRetries} retries for ${file.path}`);
-          }
-        }
-        retryCountRef.current++;
-      }, 500);
-    };
-    
-    // 初回チェック（より長い遅延）
-    setTimeout(() => {
-      if (!checkAllFiles()) {
-        startRetryLoop();
-      }
-    }, 300);
-    
-    if (typeof window !== 'undefined' && window.addEventListener) {
-      window.addEventListener('__allFiles_updated', handleAllFilesUpdate as EventListener);
-      console.log('🔄 Event listener monitoring added for', file.path);
-      
-      return () => {
-        window.removeEventListener('__allFiles_updated', handleAllFilesUpdate as EventListener);
-        console.log('🔄 Monitoring removed for', file.path);
-      };
-    }
-  }, [isClient, file.path]);
-  
-  // allFilesVersionの変更をログ出力
-  useEffect(() => {
-    if (allFilesVersion > 0) {
-      console.log(`🔄 allFilesVersion updated to: ${allFilesVersion} for ${file.path}`);
-    }
-  }, [allFilesVersion]);
+  // __allFilesの変更を監視して再処理 - カスタムフックに分離
+  const { allFilesVersion } = useAllFilesMonitor(file.path);
 
   // シンタックスハイライトを適用
   useEffect(() => {
