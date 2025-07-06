@@ -28,6 +28,8 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
         return 'javascript';
       case 'typescript':
         return 'typescript';
+      case 'tsx':
+        return 'tsx'; // TSX専用言語として扱う
       default:
         return 'text';
     }
@@ -35,8 +37,11 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
 
   // シンタックスハイライトを適用
   useEffect(() => {
+    console.log(`[UNUSED] CodeContent useEffect triggered for file: ${file.path}, language: ${file.language}`);
     const highlightCode = async () => {
       if (file.content) {
+        console.log(`[UNUSED] Starting syntax highlighting for ${file.path} (${file.language})`);
+        console.log(`[UNUSED] File content length: ${file.content.length}`);
         
         // Prism.jsを動的に安全にロード
         let prism;
@@ -45,10 +50,30 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
             // Prism.jsコアをインポート
             prism = (await import('prismjs')).default;
             
-            // 言語サポートを追加
+            // 言語サポートを追加（依存関係順に注意）
+            console.log('Loading Prism language components...');
             await import('prismjs/components/prism-ruby' as any);
+            console.log('Ruby loaded');
             await import('prismjs/components/prism-javascript' as any);
+            console.log('JavaScript loaded');
             await import('prismjs/components/prism-typescript' as any);
+            console.log('TypeScript loaded');
+            
+            // JSXはJavaScriptに依存
+            try {
+              await import('prismjs/components/prism-jsx' as any);
+              console.log('JSX component loaded successfully');
+            } catch (error) {
+              console.warn('Failed to load JSX component:', error);
+            }
+            
+            // TSXはTypeScript, JavaScript, JSXに依存するため最後に読み込む
+            try {
+              await import('prismjs/components/prism-tsx' as any);
+              console.log('TSX component loaded successfully');
+            } catch (error) {
+              console.warn('Failed to load TSX component:', error);
+            }
             
             // グローバルに設定
             window.Prism = prism;
@@ -67,9 +92,28 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
           return;
         }
 
-        const language = getPrismLanguage(file.language);
+        let language = getPrismLanguage(file.language);
+        console.log(`Processing file: ${file.path}, detected language: ${file.language}, prism language: ${language}`);
         
-        const grammar = prism.languages[language];
+        let grammar = prism.languages[language];
+        
+        // TSXが利用できない場合はTypeScriptにフォールバック
+        if (!grammar && language === 'tsx') {
+          console.warn('TSX grammar not found, falling back to TypeScript');
+          language = 'typescript';
+          grammar = prism.languages[language];
+        }
+        
+        // TypeScriptが利用できない場合はJavaScriptにフォールバック
+        if (!grammar && language === 'typescript') {
+          console.warn('TypeScript grammar not found, falling back to JavaScript');
+          language = 'javascript';
+          grammar = prism.languages[language];
+        }
+        
+        console.log(`Final language chosen: ${language}`);
+        console.log(`Prism grammar available for ${language}:`, !!grammar);
+        console.log('Available Prism languages:', Object.keys(prism.languages));
         
         if (grammar) {
           try {
@@ -150,6 +194,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
             // DOMPurifyで安全にサニタイズしてから設定
             const sanitized = sanitizeContent(highlighted, 'prism-code');
             
+            console.log(`Syntax highlighting completed for ${file.path}. Highlighted code length: ${sanitized.length}`);
             setHighlightedCode(sanitized);
           } catch (error) {
             console.error('Prism highlight error:', error);

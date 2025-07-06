@@ -2,6 +2,7 @@ import { ParsedFile, Method, MethodCall } from '@/types/codebase';
 import { isRubyKeyword, isRubyBuiltin, isRubyCrudMethod, isRailsStandardMethod } from '@/config/ruby-keywords';
 import { isJavaScriptKeyword, isJavaScriptBuiltin, isJavaScriptFrameworkMethod, isJavaScriptControlPattern, isValidJavaScriptMethod } from '@/config/javascript-keywords';
 import { COMMON_PATTERNS, MethodPatternBuilder } from '@/utils/regex-patterns';
+import { analyzeTypeScriptWithESTree, extractTypeScriptMethodDefinitionsWithESTree } from '@/utils/typescript-estree-analyzer';
 
 export function analyzeMethodsInFile(file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
   if (!file.content.trim() || file.language === 'unknown') {
@@ -21,7 +22,8 @@ export function analyzeMethodsInFile(file: ParsedFile, allDefinedMethods?: Set<s
       methods = analyzeJavaScriptMethodsWithFiltering(file, allDefinedMethods);
       break;
     case 'typescript':
-      methods = analyzeTypeScriptMethodsWithFiltering(file, allDefinedMethods);
+    case 'tsx':
+      methods = analyzeTypeScriptWithESTree(file, allDefinedMethods);
       break;
     default:
       return [];
@@ -43,9 +45,13 @@ export function extractAllMethodDefinitions(files: ParsedFile[]): Set<string> {
       // メソッド定義のみを抽出（呼び出し検出はしない）
       const methods = extractRubyMethodDefinitionsOnly(file);
       methods.forEach(method => methodNames.add(method.name));
-    } else if (file.language === 'javascript' || file.language === 'typescript') {
-      // JavaScript/TypeScriptのメソッド定義を抽出
+    } else if (file.language === 'javascript') {
+      // JavaScriptのメソッド定義を抽出
       const methods = extractJavaScriptMethodDefinitionsOnly(file);
+      methods.forEach(method => methodNames.add(method.name));
+    } else if (file.language === 'typescript' || file.language === 'tsx') {
+      // TypeScript/TSXのメソッド定義をESTreeで抽出
+      const methods = extractTypeScriptMethodDefinitionsWithESTree(file);
       methods.forEach(method => methodNames.add(method.name));
     }
     // ERBファイルはメソッド定義を持たないのでスキップ

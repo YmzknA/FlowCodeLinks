@@ -11,7 +11,7 @@ services:
       # node_modulesは除外（Dockerコンテナ内のものを使用）
       - /app/node_modules
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
     # ファイル変更を監視してホットリロード
     stdin_open: true
     tty: true

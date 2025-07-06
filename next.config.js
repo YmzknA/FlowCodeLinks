@@ -12,6 +12,24 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ['prismjs']
   },
+  // TypeScript ESTreeのNode.js専用モジュールをクライアントサイドから除外
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        os: false,
+      };
+      // TypeScript ESTreeをクライアントサイドでは無効化
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        '@typescript-eslint/typescript-estree': false,
+      };
+    }
+    
+    return config;
+  },
   // Content Security Policy設定
   async headers() {
     return [

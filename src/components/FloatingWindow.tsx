@@ -25,6 +25,8 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
   onMethodClick
 }) => {
   const { id, file, position, isCollapsed, showMethodsOnly } = window;
+  
+  console.log(`FloatingWindow rendered for file: ${file.path}, language: ${file.language}`);
 
   const [highlightedCode, setHighlightedCode] = useState<string>('');
   const processedContentRef = useRef<string>('');
@@ -150,6 +152,8 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
         return 'javascript';
       case 'typescript':
         return 'typescript';
+      case 'tsx':
+        return 'tsx'; // TSX専用言語として扱う
       default:
         return 'text';
     }
@@ -175,20 +179,44 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
             
             // 必要な言語をロード
             const language = getPrismLanguage(file.language);
+            console.log(`FloatingWindow loading Prism language: ${language} for file: ${file.path}`);
+            
             if (language === 'ruby') {
               await import('prismjs/components/prism-ruby' as any);
             } else if (language === 'javascript') {
               await import('prismjs/components/prism-javascript' as any);
             } else if (language === 'typescript') {
               await import('prismjs/components/prism-typescript' as any);
+            } else if (language === 'tsx') {
+              // TSXの依存関係を順次読み込み
+              await import('prismjs/components/prism-javascript' as any);
+              await import('prismjs/components/prism-typescript' as any);
+              await import('prismjs/components/prism-jsx' as any);
+              await import('prismjs/components/prism-tsx' as any);
+              console.log('TSX components loaded in FloatingWindow');
             }
             
             (window as any).Prism = Prism;
           }
 
-          const language = getPrismLanguage(file.language);
+          let language = getPrismLanguage(file.language);
+          let grammar = Prism.languages && Prism.languages[language];
           
-          const grammar = Prism.languages && Prism.languages[language];
+          // TSXが利用できない場合はTypeScriptにフォールバック
+          if (!grammar && language === 'tsx') {
+            console.warn('TSX grammar not found in FloatingWindow, falling back to TypeScript');
+            language = 'typescript';
+            grammar = Prism.languages && Prism.languages[language];
+          }
+          
+          // TypeScriptが利用できない場合はJavaScriptにフォールバック
+          if (!grammar && language === 'typescript') {
+            console.warn('TypeScript grammar not found in FloatingWindow, falling back to JavaScript');
+            language = 'javascript';
+            grammar = Prism.languages && Prism.languages[language];
+          }
+          
+          console.log(`FloatingWindow final language: ${language}, grammar available: ${!!grammar}`);
           
           if (grammar) {
             try {
@@ -226,7 +254,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                 });
               }
               
-              
+              console.log(`FloatingWindow syntax highlighting completed for ${file.path}. Highlighted code length: ${highlighted.length}`);
               setHighlightedCode(highlighted);
             } catch (error) {
               console.error('Prism highlight error:', error);
