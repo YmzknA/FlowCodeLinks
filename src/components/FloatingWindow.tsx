@@ -344,7 +344,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       processedContentRef.current = currentContentKey;
       highlightCode();
     }
-  }, [file.content, isCollapsed, showMethodsOnly, file.language, file.methods, allFilesVersion]);
+  }, [file.content, isCollapsed, showMethodsOnly, file.language, allFilesVersion]);
 
   // コンテンツ変更後にスクロール情報を更新
   useEffect(() => {
@@ -357,7 +357,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [isCollapsed, showMethodsOnly, id, window]);
+  }, [id]);
 
   // highlightedMethodの変更を監視してフラグをリセット
   useEffect(() => {
@@ -425,7 +425,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       // スクロール完了後にフラグを設定
       hasJumpedToMethod.current = true;
     }
-  }, [highlightedMethod, file.path, file.methods, file.totalLines, isCollapsed, showMethodsOnly, id, window]);
+  }, [highlightedMethod, file.path, file.methods, file.totalLines, isCollapsed, showMethodsOnly]);
 
   // メソッドのみ表示モードでのスクロール
   useEffect(() => {
@@ -470,7 +470,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
         hasJumpedToMethod.current = true;
       }
     }
-  }, [highlightedMethod, file.path, isCollapsed, showMethodsOnly, id, window]);
+  }, [highlightedMethod, file.path, isCollapsed, showMethodsOnly]);
 
   // 非表示の場合は早期リターン
   if (!window.isVisible) {
