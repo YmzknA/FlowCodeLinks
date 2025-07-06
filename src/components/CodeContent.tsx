@@ -56,18 +56,12 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
             try {
               await import('prismjs/components/prism-jsx' as any);
             } catch (error) {
-              if (process.env.NODE_ENV === 'development') {
-                console.warn('Failed to load JSX component:', error);
-              }
             }
             
             // TSXはTypeScript, JavaScript, JSXに依存するため最後に読み込む
             try {
               await import('prismjs/components/prism-tsx' as any);
             } catch (error) {
-              if (process.env.NODE_ENV === 'development') {
-                console.warn('Failed to load TSX component:', error);
-              }
             }
             
             // グローバルに設定
@@ -277,7 +271,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
         container.removeEventListener('click', handleMethodClick);
       };
     }
-  }, [onMethodClick]); // highlightedCodeを依存関係から除外
+  }, [onMethodClick]);
 
   const prismLanguage = getPrismLanguage(file.language);
 

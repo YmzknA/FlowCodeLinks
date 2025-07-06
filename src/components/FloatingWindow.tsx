@@ -27,10 +27,6 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
 }) => {
   const { id, file, position, isCollapsed, showMethodsOnly } = window;
   
-  // デバッグログは開発環境でのみ出力
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`FloatingWindow rendered for file: ${file.path}, language: ${file.language}`);
-  }
 
   const [highlightedCode, setHighlightedCode] = useState<string>('');
   const processedContentRef = useRef<string>('');
@@ -180,9 +176,6 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
           if (!Prism) {
             // 必要な言語をロード
             const language = getPrismLanguage(file.language);
-            if (process.env.NODE_ENV === 'development') {
-              console.log(`FloatingWindow loading Prism language: ${language} for file: ${file.path}`);
-            }
             
             // Prismローダーユーティリティを使用
             Prism = await prismLoader.loadLanguageSupport(language);
@@ -199,25 +192,16 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
           
           // TSXが利用できない場合はTypeScriptにフォールバック
           if (!grammar && language === 'tsx') {
-            if (process.env.NODE_ENV === 'development') {
-              console.warn('TSX grammar not found in FloatingWindow, falling back to TypeScript');
-            }
             language = 'typescript';
             grammar = Prism.languages && Prism.languages[language];
           }
           
           // TypeScriptが利用できない場合はJavaScriptにフォールバック
           if (!grammar && language === 'typescript') {
-            if (process.env.NODE_ENV === 'development') {
-              console.warn('TypeScript grammar not found in FloatingWindow, falling back to JavaScript');
-            }
             language = 'javascript';
             grammar = Prism.languages && Prism.languages[language];
           }
           
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`FloatingWindow final language: ${language}, grammar available: ${!!grammar}`);
-          }
           
           if (grammar) {
             try {
@@ -255,9 +239,6 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                 });
               }
               
-              if (process.env.NODE_ENV === 'development') {
-                console.log(`FloatingWindow syntax highlighting completed for ${file.path}. Highlighted code length: ${highlighted.length}`);
-              }
               setHighlightedCode(highlighted);
             } catch (error) {
               console.error('Prism highlight error:', error);

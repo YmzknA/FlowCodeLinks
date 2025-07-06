@@ -86,10 +86,6 @@ function detectLanguage(filePath: string): Language {
   // ファイル名から拡張子を正しく抽出（最後の.以降のみ）
   const lastDotIndex = filePath.lastIndexOf('.');
   const extension = lastDotIndex !== -1 ? filePath.substring(lastDotIndex + 1).toLowerCase() : '';
-  // デバッグログは開発環境でのみ出力
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`Detecting language for file: ${filePath}, extension: ${extension}`);
-  }
   
   switch (extension) {
     case 'rb':
@@ -99,9 +95,6 @@ function detectLanguage(filePath: string): Language {
     case 'ts':
       return 'typescript';
     case 'tsx':
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`Detected TSX file: ${filePath}`);
-      }
       return 'tsx';
     case 'yml':
     case 'yaml':
@@ -112,9 +105,6 @@ function detectLanguage(filePath: string): Language {
     case 'erb':
       return 'erb';
     default:
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`Unknown file type for: ${filePath}, extension: ${extension}`);
-      }
       return 'unknown';
   }
 }

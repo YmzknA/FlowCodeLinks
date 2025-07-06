@@ -32,9 +32,6 @@ export const createPrismLoader = (): PrismLoader => {
     }
 
     // 言語固有のコンポーネントを読み込み
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`Loading Prism language: ${language}`);
-    }
 
     try {
       switch (language) {
@@ -56,9 +53,6 @@ export const createPrismLoader = (): PrismLoader => {
           await import('prismjs/components/prism-typescript' as any);
           await import('prismjs/components/prism-jsx' as any);
           await import('prismjs/components/prism-tsx' as any);
-          if (process.env.NODE_ENV === 'development') {
-            console.log('TSX components loaded successfully');
-          }
           break;
           
         default:
