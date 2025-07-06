@@ -79,7 +79,7 @@ export const makeImportMethodsClickable = (
     );
     
     const baseClasses = "cursor-pointer text-blue-600 hover:text-blue-800 hover:bg-blue-900 hover:bg-opacity-40 rounded px-1 relative";
-    const highlightClasses = isHighlighted ? " bg-red-500 bg-opacity-80 border-2 border-red-600" : "";
+    const highlightClasses = isHighlighted ? " bg-red-200 bg-opacity-60 border-2 border-red-300" : "";
     
     // 通常のパターンを処理
     result = result.replace(plainPattern, (match) => {
@@ -218,7 +218,7 @@ export const replaceMethodNameInText = (
   
   
   const baseClasses = "cursor-pointer hover:bg-blue-900 hover:bg-opacity-40 rounded px-1 relative";
-  const highlightClasses = isHighlighted ? " bg-red-500 bg-opacity-80 border-2 border-red-600" : "";
+  const highlightClasses = isHighlighted ? " bg-red-200 bg-opacity-60 border-2 border-red-300" : "";
   
   result = result.replace(methodNameRegex, 
     `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}">$&<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`
@@ -271,7 +271,7 @@ export const highlightMethodDefinition = (
   
   // メソッド定義をハイライト
   let result = html.replace(defPattern, (match, beforeMethod, methodName, afterMethod) => {
-    return `${beforeMethod}<span class="bg-red-500 bg-opacity-80 border-2 border-red-600 rounded px-1">${methodName}</span>${afterMethod}`;
+    return `${beforeMethod}<span class="bg-red-200 bg-opacity-60 border-2 border-red-300 rounded px-1">${methodName}</span>${afterMethod}`;
   });
 
   return result;

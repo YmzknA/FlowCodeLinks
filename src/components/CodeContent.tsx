@@ -145,7 +145,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
                 }
                 
                 const baseClasses = "cursor-pointer hover:bg-blue-900 hover:bg-opacity-40 rounded px-1 relative";
-                const highlightClasses = isHighlighted ? " bg-red-500 bg-opacity-80 border-2 border-red-600" : "";
+                const highlightClasses = isHighlighted ? " bg-red-200 bg-opacity-60 border-2 border-red-300" : "";
                 
                 if (methodName.endsWith('?') || methodName.endsWith('!')) {
                   // 特殊文字（?や!）を含むメソッド名の処理
