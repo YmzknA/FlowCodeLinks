@@ -445,14 +445,14 @@ export const CodeVisualizer: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="card w-[500px] bg-base-200 shadow-2xl">
           <div className="card-body items-center text-center">
-            <div className="mb-8">
+            <div>
               <img 
                 src="/logo.png" 
                 alt="FlowCodeLinks Logo" 
-                className="w-40 h-40 mx-auto mb-6"
+                className="w-40 h-40 mx-auto"
               />
             </div>
-            <h1 className="text-5xl font-bold text-black mb-4 raleway">
+            <h1 className="text-4xl font-bold text-black mb-4 raleway">
               FlowCodeLinks
             </h1>
             <p className="text-base-content/70 mb-8 text-lg">
