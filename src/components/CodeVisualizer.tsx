@@ -31,6 +31,7 @@ export const CodeVisualizer: React.FC = () => {
   const [showOpenWindowsOnly, setShowOpenWindowsOnly] = useState(true);
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
 
   // ファイル解析と最適化（2段階解析）
   const analysisResult = useMemo(() => {
@@ -229,6 +230,18 @@ export const CodeVisualizer: React.FC = () => {
       });
     }
   }, [files, visibleFiles]);
+
+  // モバイル判定
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // サイドバーリサイズ機能
   const handleMouseDown = useCallback(() => {
@@ -503,26 +516,84 @@ export const CodeVisualizer: React.FC = () => {
                   priority
                 />
               </div>
-              <h1 className="text-6xl font-bold text-primary mb-6 raleway">
+              <h1 className="text-4xl md:text-6xl font-bold text-primary mb-6 raleway">
                 FlowCodeLinks
               </h1>
-              <p className="text-xl text-base-content/80 mb-8 leading-relaxed">
-                Repomixで生成されたmdファイルをアップロードして、<br />
+              <p className="text-lg md:text-xl text-base-content/80 mb-8 leading-relaxed px-4 md:px-0">
+                Repomixで生成されたmdファイルをアップロードして、<br className="hidden md:block" />
                 コードの関係性を分かりやすく可視化します
               </p>
               <div className="mb-12">
-                <label className="btn btn-primary btn-lg gap-3 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                  ファイルを選択して開始
-                  <input
-                    type="file"
-                    accept=".md"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                  />
-                </label>
+                {isMobile ? (
+                  <div className="btn btn-primary btn-lg gap-3 shadow-lg cursor-not-allowed opacity-70">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                    </svg>
+                    PCからご利用ください
+                  </div>
+                ) : (
+                  <label className="btn btn-primary btn-lg gap-3 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
+                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    ファイルを選択して開始
+                    <input
+                      type="file"
+                      accept=".md"
+                      onChange={handleFileUpload}
+                      className="hidden"
+                    />
+                  </label>
+                )}
+              </div>
+              
+              <div className="mt-8 text-center">
+                <a 
+                  href="https://repomix.com/ja/" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 underline hover:no-underline transition-all duration-200"
+                >
+                  Repomixはこちら
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Usage Notes Section */}
+        <section className="py-16 bg-gray-50">
+          <div className="container mx-auto px-4">
+            <div className="max-w-4xl mx-auto text-center">
+              <h2 className="text-2xl md:text-3xl font-bold text-gray-800 mb-8 raleway">
+                ご利用にあたって
+              </h2>
+              <div className="grid md:grid-cols-2 gap-8">
+                <div className="bg-white p-6 rounded-lg shadow-sm border">
+                  <div className="text-gray-600 mb-4">
+                    <svg className="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">対応言語</h3>
+                  <p className="text-gray-600 text-sm">
+                    現在は<strong>Rubyのみ</strong>に対応しています。<br />
+                    JavaScriptやその他の言語は今後対応予定です。
+                  </p>
+                </div>
+                
+                <div className="bg-white p-6 rounded-lg shadow-sm border">
+                  <div className="text-gray-600 mb-4">
+                    <svg className="w-6 h-6 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold text-gray-800 mb-2">メソッド認識</h3>
+                  <p className="text-gray-600 text-sm">
+                    <strong>同じ名前のメソッド</strong>は同一のものとして認識されます。<br />
+                    異なるクラスの同名メソッドも関連付けられる可能性があります。
+                  </p>
+                </div>
               </div>
             </div>
           </div>
@@ -538,7 +609,7 @@ export const CodeVisualizer: React.FC = () => {
           }`}
         >
           <div className="container mx-auto px-4">
-            <h2 className={`text-4xl font-bold text-center mb-16 raleway transition-all duration-1000 delay-300 ${
+            <h2 className={`text-2xl md:text-4xl font-bold text-center mb-16 raleway transition-all duration-1000 delay-300 ${
               featuresAnimation.isVisible 
                 ? 'opacity-100 translate-y-0' 
                 : 'opacity-0 translate-y-5'
@@ -616,7 +687,7 @@ export const CodeVisualizer: React.FC = () => {
           }`}
         >
           <div className="container mx-auto px-4">
-            <h2 className={`text-4xl font-bold text-center mb-16 raleway transition-all duration-1000 delay-300 ${
+            <h2 className={`text-2xl md:text-4xl font-bold text-center mb-16 raleway transition-all duration-1000 delay-300 ${
               galleryAnimation.isVisible 
                 ? 'opacity-100 translate-y-0' 
                 : 'opacity-0 translate-y-5'
@@ -625,7 +696,7 @@ export const CodeVisualizer: React.FC = () => {
             </h2>
             <div 
               ref={galleryGridRef as React.RefObject<HTMLDivElement>}
-              className="grid grid-cols-1 lg:grid-cols-2 gap-8"
+              className="grid grid-cols-1 lg:grid-cols-3 gap-8"
             >
               <div className={`card bg-base-100 shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-700 group ${
                 visibleGalleryItems.has(0) 
@@ -668,7 +739,8 @@ export const CodeVisualizer: React.FC = () => {
                 <div className="card-body group-hover:bg-base-200 transition-colors duration-300">
                   <h3 className="card-title group-hover:text-primary transition-colors duration-300">メソッドハイライト</h3>
                   <p className="text-base-content/70">
-                    クリックしたメソッドがハイライトされ、呼び出し関係を視覚的に確認できます
+                    クリックしたメソッドがハイライトされ、呼び出し関係を視覚的に確認できます<br />
+                    また、* 印が付いているメソッドはクリックでき、ジャンプできます
                   </p>
                 </div>
               </div>
@@ -732,7 +804,7 @@ export const CodeVisualizer: React.FC = () => {
             }`}>
               今すぐ始めましょう
             </h2>
-            <p className={`text-xl mb-8 opacity-90 transition-all duration-1000 delay-500 ${
+            <p className={`text-lg md:text-xl mb-8 opacity-90 transition-all duration-1000 delay-500 ${
               ctaAnimation.isVisible 
                 ? 'opacity-90 translate-y-0' 
                 : 'opacity-0 translate-y-5'
@@ -744,24 +816,27 @@ export const CodeVisualizer: React.FC = () => {
                 ? 'opacity-100 translate-y-0' 
                 : 'opacity-0 translate-y-5'
             }`}>
-              <label className="btn btn-secondary btn-lg gap-3 shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 animate-pulse hover:animate-none">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                ファイルをアップロード
-                <input
-                  type="file"
-                  accept=".md"
-                  onChange={handleFileUpload}
-                  className="hidden"
-                />
-              </label>
-              <a href="#features" className="btn btn-outline btn-secondary btn-lg gap-3 hover:scale-105 transition-all duration-300">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                詳細を見る
-              </a>
+              {isMobile ? (
+                <div className="btn btn-accent btn-lg gap-3 shadow-lg cursor-not-allowed opacity-70">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  PCからご利用ください
+                </div>
+              ) : (
+                <label className="btn btn-accent btn-lg gap-3 shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  ファイルをアップロード
+                  <input
+                    type="file"
+                    accept=".md"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </label>
+              )}
             </div>
           </div>
         </section>
