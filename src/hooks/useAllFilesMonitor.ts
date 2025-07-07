@@ -10,6 +10,7 @@ export const useAllFilesMonitor = (filePath: string) => {
   const lastLengthRef = useRef(0);
   const retryCountRef = useRef(0);
   const filePathRef = useRef(filePath);
+  const isUpdatingRef = useRef(false); // 更新中フラグ
   const maxRetries = 10; // 最大10回リトライ
 
   // filePathをrefで常に最新の値を保持
@@ -47,13 +48,31 @@ export const useAllFilesMonitor = (filePath: string) => {
         console.log(`Checking __allFiles for ${filePathRef.current}: ${currentLength} files`);
       }
 
-      if (currentLength > 0 && currentLength !== lastLengthRef.current) {
+      // 無限レンダリング防止: 実際に内容が変更された場合のみバージョンを更新
+      if (currentLength > 0 && currentLength !== lastLengthRef.current && !isUpdatingRef.current) {
+        // 重複チェック: 短時間での連続更新を防止
+        const now = Date.now();
+        const lastUpdateTime = (window as any).__allFilesLastUpdate || 0;
+        if (now - lastUpdateTime < 100) {
+          return false; // 100ms以内の連続更新は無視
+        }
+        
+        // 更新中フラグを設定
+        isUpdatingRef.current = true;
+        (window as any).__allFilesLastUpdate = now;
+
         if (process.env.NODE_ENV === 'development') {
           // eslint-disable-next-line no-console
           console.log(`🔄 __allFiles detected change: ${lastLengthRef.current} → ${currentLength} for ${filePathRef.current}`);
         }
         lastLengthRef.current = currentLength;
-        setAllFilesVersion(prev => prev + 1);
+        
+        // 状態更新を非同期で実行し、フラグをリセット
+        setTimeout(() => {
+          setAllFilesVersion(prev => prev + 1);
+          isUpdatingRef.current = false;
+        }, 0);
+        
         retryCountRef.current = 0; // 成功したらリトライカウントリセット
         return true; // 成功を示す
       }

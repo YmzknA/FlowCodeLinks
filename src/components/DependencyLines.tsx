@@ -484,7 +484,13 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
       }
     }, 30000); // 30秒ごとにチェック
 
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      // クリーンアップ時にrefの内容をコピーして使用
+      if (usedCurveParams.current) {
+        usedCurveParams.current.clear();
+      }
+    };
   }, []);
 
   // 矢印クリック時のハンドラー

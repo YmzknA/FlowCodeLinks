@@ -34,8 +34,7 @@ export const makeImportMethodsClickable = (
   importMethods: string[], 
   findMethodDefinition?: (methodName: string) => { methodName: string; filePath: string } | null,
   highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null,
-  currentFilePath?: string,
-  originalClickedMethod?: string | null
+  currentFilePath?: string
 ): string => {
   let result = html;
   
@@ -61,8 +60,9 @@ export const makeImportMethodsClickable = (
     }
     
     // ハイライト対象かどうかを判定
-    const isHighlighted = originalClickedMethod && 
-                         originalClickedMethod === methodName && 
+    const storedOriginalMethod = methodHighlightStorage.getOriginalMethod();
+    const isHighlighted = storedOriginalMethod && 
+                         storedOriginalMethod === methodName && 
                          highlightedMethod && 
                          highlightedMethod.filePath === currentFilePath;
     
@@ -126,8 +126,7 @@ export const replaceMethodNameInText = (
   findAllMethodCallers?: (methodName: string) => Array<{ methodName: string; filePath: string; lineNumber?: number }>,
   currentFilePath?: string,
   files?: any[],
-  highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null,
-  originalClickedMethod?: string | null
+  highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null
 ): string => {
   // 外部ライブラリメソッドは即座に非クリック化
   if (isExternalLibraryMethod(methodName)) {
@@ -212,8 +211,9 @@ export const replaceMethodNameInText = (
   
   // ハイライト対象かどうかを判定（完全一致のみ）
   // 最初にクリックしたメソッド名をハイライト
-  const isHighlighted = originalClickedMethod && 
-                       originalClickedMethod === methodName && 
+  const storedOriginalMethod = methodHighlightStorage.getOriginalMethod();
+  const isHighlighted = storedOriginalMethod && 
+                       storedOriginalMethod === methodName && 
                        highlightedMethod && 
                        highlightedMethod.filePath === currentFilePath;
   
@@ -253,27 +253,69 @@ export const highlightMethodDefinition = (
     return html;
   }
 
+  // デバッグ: ハイライト対象の確認
+  debugLog(`🎯 Highlighting method definition: ${highlightedMethod.methodName} in ${currentFilePath}`);
+
   // 対象メソッドを見つける
   const targetMethod = methods.find(method => method.name === highlightedMethod.methodName);
   if (!targetMethod) {
+    debugLog(`❌ Target method not found in methods array:`, methods.map(m => m.name));
     return html;
   }
 
+  debugLog(`✅ Target method found:`, targetMethod);
 
   // Rubyのメソッド定義パターンをハイライト
   // def method_name や private def method_name など
   const escapedMethodName = highlightedMethod.methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   
-  // パターン1: def method_name
+  // パターン1: def method_name (Prismハイライト後)
   const defPattern = new RegExp(
     `(<span[^>]*class="[^"]*token[^"]*keyword[^"]*"[^>]*>def</span>\\s*<span[^>]*class="[^"]*token[^"]*function[^"]*"[^>]*>)(${escapedMethodName})(</span>)`,
     'g'
   );
   
-  // メソッド定義をハイライト
-  let result = html.replace(defPattern, (match, beforeMethod, methodName, afterMethod) => {
+  // パターン2: シンプルなdef method_name (Prismハイライト前)
+  const simpleDefPattern = new RegExp(
+    `(def\\s+)(${escapedMethodName})(\\s*\\()`,
+    'g'
+  );
+  
+  // パターン3: 既存のspan要素内のメソッド名をハイライト
+  const existingSpanPattern = new RegExp(
+    `(<span[^>]*data-method-name="${escapedMethodName}"[^>]*>)(${escapedMethodName})(<span[^>]*>[^<]*</span></span>)`,
+    'g'
+  );
+  
+  let result = html;
+  let matched = false;
+  
+  // パターン1: Prismハイライト済み
+  result = result.replace(defPattern, (match, beforeMethod, methodName, afterMethod) => {
+    matched = true;
+    debugLog(`🎨 Pattern1 matched: ${match}`);
     return `${beforeMethod}<span class="bg-red-200 bg-opacity-60 border-2 border-red-300 rounded px-1">${methodName}</span>${afterMethod}`;
   });
+  
+  // パターン2: シンプルなdef (まだマッチしていない場合)
+  if (!matched) {
+    result = result.replace(simpleDefPattern, (match, defKeyword, methodName, openParen) => {
+      matched = true;
+      debugLog(`🎨 Pattern2 matched: ${match}`);
+      return `${defKeyword}<span class="bg-red-200 bg-opacity-60 border-2 border-red-300 rounded px-1">${methodName}</span>${openParen}`;
+    });
+  }
+  
+  // パターン3: 既存のクリック可能要素をハイライト (まだマッチしていない場合)
+  if (!matched) {
+    result = result.replace(existingSpanPattern, (match, beforeSpan, methodName, afterSpan) => {
+      matched = true;
+      debugLog(`🎨 Pattern3 matched: ${match}`);
+      return `${beforeSpan}<span class="bg-red-200 bg-opacity-60 border-2 border-red-300 rounded px-1">${methodName}</span>${afterSpan}`;
+    });
+  }
+
+  debugLog(`🎯 Method definition highlight result: ${matched ? 'SUCCESS' : 'NO_MATCH'}`);
 
   return result;
 };
