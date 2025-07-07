@@ -13,7 +13,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="ja" data-theme="nord">
+    <html lang="ja" data-theme="light">
       <head>
         <link rel="icon" href="/favicon.png" />
         <meta property="og:title" content="FlowCodeLinks" />
