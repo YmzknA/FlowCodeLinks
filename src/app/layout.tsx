@@ -15,6 +15,15 @@ export default function RootLayout({
   return (
     <html lang="ja" data-theme="nord">
       <head>
+        <link rel="icon" href="/favicon.png" />
+        <meta property="og:title" content="FlowCodeLinks" />
+        <meta property="og:description" content="Visualize code flow and method relationships" />
+        <meta property="og:image" content="/ogp.png" />
+        <meta property="og:type" content="website" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content="FlowCodeLinks" />
+        <meta name="twitter:description" content="Visualize code flow and method relationships" />
+        <meta name="twitter:image" content="/ogp.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet" />
