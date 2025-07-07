@@ -5,8 +5,8 @@ import { ParsedFile, Method } from '@/types/codebase';
 
 // 段階的移行設定（セキュリティ改善のため）
 const MIGRATION_CONFIG = {
-  // グローバル変数の使用を開発環境のみに制限（セキュリティ改善）
-  allowGlobalVariables: process.env.NODE_ENV === 'development',
+  // グローバル変数の使用を一時的に有効化（クリック機能維持のため）
+  allowGlobalVariables: true,
   // 警告メッセージの表示
   showDeprecationWarnings: true,
   // 無限レンダリング防止の簡素化
