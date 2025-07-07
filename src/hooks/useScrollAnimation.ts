@@ -51,6 +51,7 @@ export const useScrollAnimation = (options: UseScrollAnimationOptions = {}) => {
 export const useStaggeredScrollAnimation = (itemCount: number, delay: number = 100) => {
   const [visibleItems, setVisibleItems] = useState<Set<number>>(new Set());
   const elementRef = useRef<HTMLElement>(null);
+  const timeoutIdsRef = useRef<NodeJS.Timeout[]>([]);
 
   useEffect(() => {
     const element = elementRef.current;
@@ -61,9 +62,10 @@ export const useStaggeredScrollAnimation = (itemCount: number, delay: number = 1
         if (entry.isIntersecting) {
           // 段階的にアイテムを表示
           for (let i = 0; i < itemCount; i++) {
-            setTimeout(() => {
+            const timeoutId = setTimeout(() => {
               setVisibleItems(prev => new Set([...prev, i]));
             }, i * delay);
+            timeoutIdsRef.current.push(timeoutId);
           }
           observer.unobserve(element);
         }
@@ -78,6 +80,9 @@ export const useStaggeredScrollAnimation = (itemCount: number, delay: number = 1
 
     return () => {
       observer.unobserve(element);
+      // すべてのタイムアウトをクリア
+      timeoutIdsRef.current.forEach(timeoutId => clearTimeout(timeoutId));
+      timeoutIdsRef.current = [];
     };
   }, [itemCount, delay]);
 
