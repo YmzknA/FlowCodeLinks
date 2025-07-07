@@ -31,14 +31,20 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
 }) => {
   const { id, file, position, isCollapsed, showMethodsOnly } = window;
   const [originalClickedMethod, setOriginalClickedMethod] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
   const [methodHighlightAPI, setMethodHighlightAPI] = useState<{
     setOriginalMethod: (methodName: string) => void;
     clearOriginalMethod: () => void;
   } | null>(null);
 
+  // クライアントサイド確認
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
   // SSR対応: クライアントサイドでのみストレージから取得
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (isClient) {
       import('@/utils/secure-storage').then(({ methodHighlightStorage }) => {
         setOriginalClickedMethod(methodHighlightStorage.getOriginalMethod());
         setMethodHighlightAPI({
@@ -47,9 +53,10 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
         });
       });
     }
-  }, []);
+  }, [isClient]);
 
   const [highlightedCode, setHighlightedCode] = useState<string>('');
+  const [forceUpdate, setForceUpdate] = useState<number>(0);
   const processedContentRef = useRef<string>('');
   const contentRef = useRef<HTMLDivElement>(null);
   const hasJumpedToMethod = useRef<boolean>(false);
@@ -75,6 +82,11 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
     // ウィンドウを閉じる時にクリック状態をクリア
     if (methodHighlightAPI) {
       methodHighlightAPI.clearOriginalMethod();
+    } else {
+      // フォールバック
+      import('@/utils/secure-storage').then(({ methodHighlightStorage }) => {
+        methodHighlightStorage.clearOriginalMethod();
+      });
     }
     onClose(id);
   };
@@ -88,11 +100,11 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
 
   // 初期スクロール情報を設定（コンポーネントマウント時）
   useEffect(() => {
-    if (contentRef.current && onScrollChangeRef.current && !window.scrollInfo && typeof window !== 'undefined') {
+    if (contentRef.current && onScrollChangeRef.current && !window.scrollInfo && isClient) {
       const scrollInfo = calculateScrollInfo(contentRef.current);
       onScrollChangeRef.current(id, scrollInfo);
     }
-  }, [id, window]);
+  }, [id, isClient]);
 
 
 
@@ -171,7 +183,15 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       if (methodHighlightAPI) {
         methodHighlightAPI.setOriginalMethod(methodName);
         setOriginalClickedMethod(methodName);
+      } else {
+        // フォールバック
+        import('@/utils/secure-storage').then(({ methodHighlightStorage }) => {
+          methodHighlightStorage.setOriginalMethod(methodName);
+        });
       }
+      
+      // 強制的に再レンダリングしてハイライトを即座に反映
+      setForceUpdate(prev => prev + 1);
       
       setTimeout(() => {
         if (isImportMethod && onImportMethodClickRef?.current) {
@@ -202,11 +222,18 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
   // __allFilesの変更を監視して再処理 - カスタムフックに分離
   const { allFilesVersion } = useAllFilesMonitor(file.path);
 
-  // コンポーネントのアンマウント時にクリーンアップ
+  // 初期化時に保存されたメソッド名を復元 & クリーンアップ
   useEffect(() => {
+    if (methodHighlightAPI) {
+      methodHighlightAPI.setOriginalMethod; // 初期化処理
+    }
+    
+    // コンポーネントのアンマウント時にクリーンアップ
     return () => {
-      // コンポーネントがアンマウントされる時は何もしない
-      // グローバル状態はContext側で管理
+      // グローバルプロパティの削除
+      if (typeof window !== 'undefined') {
+        delete (window as any).__originalClickedMethod;
+      }
     };
   }, []);
 
@@ -215,7 +242,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
     const highlightCode = async () => {
       
       // クライアントサイドでのみ実行
-      if (typeof window === 'undefined') {
+      if (!isClient) {
         setHighlightedCode(file.content || '');
         return;
       }
@@ -382,25 +409,25 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
     };
 
     // 前回と同じコンテンツの場合は処理をスキップ
-    const currentContentKey = `${file.content}-${isCollapsed}-${showMethodsOnly}-${file.language}-${allFilesVersion}-${originalClickedMethod}-${highlightedMethod?.methodName}-${highlightedMethod?.filePath}`;
+    const currentContentKey = `${file.content}-${isCollapsed}-${showMethodsOnly}-${file.language}-${allFilesVersion}-${forceUpdate}-${highlightedMethod?.methodName}-${highlightedMethod?.filePath}`;
     if (processedContentRef.current !== currentContentKey) {
       processedContentRef.current = currentContentKey;
       highlightCode();
     }
-  }, [file.content, file.methods, file.path, isCollapsed, showMethodsOnly, file.language, allFilesVersion, originalClickedMethod, highlightedMethod, window]);
+  }, [file.content, isCollapsed, showMethodsOnly, file.language, allFilesVersion, forceUpdate, highlightedMethod, isClient]);
 
   // コンテンツ変更後にスクロール情報を更新
   useEffect(() => {
     // コンテンツが更新された後、少し遅延してスクロール情報を更新
     const timer = setTimeout(() => {
-      if (contentRef.current && onScrollChangeRef.current && typeof window !== 'undefined') {
+      if (contentRef.current && onScrollChangeRef.current && isClient) {
         const scrollInfo = calculateScrollInfo(contentRef.current);
         onScrollChangeRef.current(id, scrollInfo);
       }
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [id, window]);
+  }, [id, isClient]);
 
   // highlightedMethodの変更を監視してフラグをリセット
   useEffect(() => {
@@ -417,7 +444,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
         contentRef.current &&
         !isCollapsed &&
         !showMethodsOnly &&
-        typeof window !== 'undefined' &&
+        isClient &&
         !hasJumpedToMethod.current) {
       
       // 実際の行高さを測定（クライアントサイドでのみ）
@@ -468,7 +495,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       // スクロール完了後にフラグを設定
       hasJumpedToMethod.current = true;
     }
-  }, [highlightedMethod, file.path, file.methods, file.totalLines, isCollapsed, showMethodsOnly, window]);
+  }, [highlightedMethod, file.path, file.methods, file.totalLines, isCollapsed, showMethodsOnly, isClient]);
 
   // メソッドのみ表示モードでのスクロール
   useEffect(() => {
@@ -477,7 +504,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
         contentRef.current &&
         !isCollapsed &&
         showMethodsOnly &&
-        typeof window !== 'undefined' &&
+        isClient &&
         !hasJumpedToMethod.current) {
       
       // ハイライトされたメソッドの要素を見つける
@@ -513,7 +540,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
         hasJumpedToMethod.current = true;
       }
     }
-  }, [highlightedMethod, file.path, isCollapsed, showMethodsOnly, window]);
+  }, [highlightedMethod, file.path, isCollapsed, showMethodsOnly, isClient]);
 
   // 非表示の場合は早期リターン
   if (!window.isVisible) {
