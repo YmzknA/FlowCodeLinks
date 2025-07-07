@@ -2,9 +2,6 @@
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
 
-/* Force daisyUI styles to load */
-@import 'daisyui/dist/full.css';
-
 /* Basic CSS Reset and Global Styles */
 * {
   box-sizing: border-box;
