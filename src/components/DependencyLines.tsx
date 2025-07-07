@@ -497,10 +497,10 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
   const handleArrowClick = (dependency: Dependency) => {
     if (onMethodJump) {
       // 矢印クリック時は呼び出し先メソッドを保存（ジャンプ先でハイライト）
-      if (typeof window !== 'undefined') {
-        (window as any).__originalClickedMethod = dependency.to.methodName;
-        sessionStorage.setItem('__originalClickedMethod', dependency.to.methodName);
-      }
+      // methodHighlightStorageを使用して一貫性を保つ
+      import('@/utils/secure-storage').then(({ methodHighlightStorage }) => {
+        methodHighlightStorage.setOriginalMethod(dependency.to.methodName);
+      });
       
       onMethodJump({
         methodName: dependency.to.methodName,
