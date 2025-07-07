@@ -1,7 +1,17 @@
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useCallback, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useCallback, useRef, useEffect, startTransition } from 'react';
 import { ParsedFile, Method } from '@/types/codebase';
+
+// 段階的移行設定（セキュリティ改善のため）
+const MIGRATION_CONFIG = {
+  // グローバル変数の使用を開発環境のみに制限（セキュリティ改善）
+  allowGlobalVariables: process.env.NODE_ENV === 'development',
+  // 警告メッセージの表示
+  showDeprecationWarnings: true,
+  // 無限レンダリング防止の簡素化
+  useModernStateManagement: true
+} as const;
 
 interface FilesContextType {
   allFiles: ParsedFile[];
@@ -25,12 +35,19 @@ export const FilesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
   const setAllFiles = useCallback((files: ParsedFile[]) => {
     const now = Date.now();
     
-    // 100ms以内の連続更新を無視（重複チェック）
+    // シンプルな重複チェック（データ比較ベース）
+    const filesString = JSON.stringify(files.map(f => ({ path: f.path, methodCount: f.methods.length })));
+    const currentString = JSON.stringify(allFiles.map(f => ({ path: f.path, methodCount: f.methods.length })));
+    
+    if (filesString === currentString) {
+      return; // 同じデータなら更新しない
+    }
+    
+    // 既存の防止機構も並行動作（段階的移行のため）
     if (now - lastUpdateTime.current < 100) {
       return;
     }
     
-    // 更新中フラグチェック
     if (isUpdating.current) {
       return;
     }
@@ -38,14 +55,35 @@ export const FilesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     isUpdating.current = true;
     lastUpdateTime.current = now;
     
-    setAllFilesState(files);
-    setAllFilesVersion(prev => prev + 1);
+    // React 18のstartTransitionを活用した最適化
+    if (MIGRATION_CONFIG.useModernStateManagement) {
+      startTransition(() => {
+        setAllFilesState(files);
+        setAllFilesVersion(prev => prev + 1);
+      });
+    } else {
+      // フォールバック（既存機能保持）
+      setAllFilesState(files);
+      setAllFilesVersion(prev => prev + 1);
+    }
     
-    // グローバル変数も並行して更新（後方互換性維持）
+    // セキュリティ改善: グローバル変数は開発環境のみ
     if (typeof window !== 'undefined') {
-      (window as any).__allFiles = files;
+      if (MIGRATION_CONFIG.allowGlobalVariables) {
+        // 開発環境: 後方互換性のためグローバル変数を更新
+        (window as any).__allFiles = files;
+        
+        if (MIGRATION_CONFIG.showDeprecationWarnings) {
+          console.warn('⚠️ [FlowCodeLinks] グローバル変数への書き込みは開発環境のみです。本番環境では無効化されています。');
+        }
+      } else {
+        // 本番環境: セキュリティのためグローバル変数は設定しない
+        if (MIGRATION_CONFIG.showDeprecationWarnings) {
+          console.info('ℹ️ [FlowCodeLinks] セキュリティのため、本番環境ではグローバル変数は使用されません。');
+        }
+      }
       
-      // FloatingWindowに更新を通知
+      // CustomEvent通知は常に実行（既存機能に必要）
       if (files.length > 0) {
         const event = new CustomEvent('__allFiles_updated', {
           detail: { files, count: files.length }
@@ -58,7 +96,7 @@ export const FilesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
     setTimeout(() => {
       isUpdating.current = false;
     }, 0);
-  }, []);
+  }, [allFiles]); // allFilesを依存配列に追加（重複チェックのため）
 
   const getFileByPath = useCallback((path: string) => {
     return allFiles.find(file => file.path === path);
@@ -128,8 +166,21 @@ export const useFilesWithFallback = () => {
     return context;
   }
   
-  // フォールバック: グローバル変数から取得
-  const fallbackFiles = typeof window !== 'undefined' ? (window as any).__allFiles || [] : [];
+  // フォールバック: 環境に応じたグローバル変数取得
+  const fallbackFiles = (() => {
+    if (typeof window === 'undefined') return [];
+    
+    // 開発環境ではグローバル変数を使用
+    if (MIGRATION_CONFIG.allowGlobalVariables) {
+      return (window as any).__allFiles || [];
+    }
+    
+    // 本番環境では空配列（安全な動作）
+    if (MIGRATION_CONFIG.showDeprecationWarnings) {
+      console.warn('⚠️ [FlowCodeLinks] Context APIが利用できません。Providerで包んでください。');
+    }
+    return [];
+  })();
   
   return {
     allFiles: fallbackFiles,
