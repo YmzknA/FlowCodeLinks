@@ -104,6 +104,8 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       const scrollInfo = calculateScrollInfo(contentRef.current);
       onScrollChangeRef.current(id, scrollInfo);
     }
+    // window.scrollInfoは動的に変化するプロパティのため依存配列から除外
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, isClient]);
 
 
@@ -201,7 +203,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
         }
       }, 10);
     }
-  }, []);
+  }, [methodHighlightAPI]);
 
   // 言語に応じたPrismの言語識別子を取得
   const getPrismLanguage = (language: string): string => {
@@ -235,7 +237,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
         delete (window as any).__originalClickedMethod;
       }
     };
-  }, []);
+  }, [methodHighlightAPI]);
 
   // シンタックスハイライトを適用
   useEffect(() => {
@@ -414,7 +416,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       processedContentRef.current = currentContentKey;
       highlightCode();
     }
-  }, [file.content, isCollapsed, showMethodsOnly, file.language, allFilesVersion, forceUpdate, highlightedMethod, isClient]);
+  }, [file.content, file.methods, file.path, isCollapsed, showMethodsOnly, file.language, allFilesVersion, forceUpdate, highlightedMethod, originalClickedMethod, isClient]);
 
   // コンテンツ変更後にスクロール情報を更新
   useEffect(() => {

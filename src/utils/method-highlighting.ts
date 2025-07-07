@@ -256,22 +256,16 @@ export const highlightMethodDefinition = (
   }
 
   // デバッグ: ハイライト対象の確認
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`🎯 Highlighting method definition: ${highlightedMethod.methodName} in ${currentFilePath}`);
-  }
+  debugLog(`🎯 Highlighting method definition: ${highlightedMethod.methodName} in ${currentFilePath}`);
 
   // 対象メソッドを見つける
   const targetMethod = methods.find(method => method.name === highlightedMethod.methodName);
   if (!targetMethod) {
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`❌ Target method not found in methods array:`, methods.map(m => m.name));
-    }
+    debugLog(`❌ Target method not found in methods array:`, methods.map(m => m.name));
     return html;
   }
 
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`✅ Target method found:`, targetMethod);
-  }
+  debugLog(`✅ Target method found:`, targetMethod);
 
   // Rubyのメソッド定義パターンをハイライト
   // def method_name や private def method_name など
@@ -301,9 +295,7 @@ export const highlightMethodDefinition = (
   // パターン1: Prismハイライト済み
   result = result.replace(defPattern, (match, beforeMethod, methodName, afterMethod) => {
     matched = true;
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`🎨 Pattern1 matched: ${match}`);
-    }
+    debugLog(`🎨 Pattern1 matched: ${match}`);
     return `${beforeMethod}<span class="bg-red-200 bg-opacity-60 border-2 border-red-300 rounded px-1">${methodName}</span>${afterMethod}`;
   });
   
@@ -311,9 +303,7 @@ export const highlightMethodDefinition = (
   if (!matched) {
     result = result.replace(simpleDefPattern, (match, defKeyword, methodName, openParen) => {
       matched = true;
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`🎨 Pattern2 matched: ${match}`);
-      }
+      debugLog(`🎨 Pattern2 matched: ${match}`);
       return `${defKeyword}<span class="bg-red-200 bg-opacity-60 border-2 border-red-300 rounded px-1">${methodName}</span>${openParen}`;
     });
   }
@@ -322,16 +312,12 @@ export const highlightMethodDefinition = (
   if (!matched) {
     result = result.replace(existingSpanPattern, (match, beforeSpan, methodName, afterSpan) => {
       matched = true;
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`🎨 Pattern3 matched: ${match}`);
-      }
+      debugLog(`🎨 Pattern3 matched: ${match}`);
       return `${beforeSpan}<span class="bg-red-200 bg-opacity-60 border-2 border-red-300 rounded px-1">${methodName}</span>${afterSpan}`;
     });
   }
 
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`🎯 Method definition highlight result: ${matched ? 'SUCCESS' : 'NO_MATCH'}`);
-  }
+  debugLog(`🎯 Method definition highlight result: ${matched ? 'SUCCESS' : 'NO_MATCH'}`);
 
   return result;
 };
