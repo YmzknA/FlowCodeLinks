@@ -31,6 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [showMethods, setShowMethods] = useState(false);
   const [languageFilter, setLanguageFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'list' | 'tree'>('tree');
+  const [showFileDetails, setShowFileDetails] = useState(false);
 
   const allMethods = useMemo(() => {
     return files.flatMap(file => 
@@ -148,7 +149,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
         
         {/* 統計情報 */}
-        <div className="stats stats-vertical shadow-sm bg-base-100">
+        <div className="stats shadow-sm bg-base-100">
           <div className="stat py-2">
             <div className="stat-title text-xs">表示ファイル</div>
             <div className="stat-value text-sm text-primary">{visibleCount} / {totalCount}</div>
@@ -196,23 +197,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
         
         {!showMethods && (
-          <div className="join w-full">
-            <button
-              onClick={() => setViewMode('tree')}
-              className={`btn btn-sm join-item flex-1 ${
-                viewMode === 'tree' ? 'btn-active' : 'btn-outline'
-              }`}
-            >
-              ツリー表示
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`btn btn-sm join-item flex-1 ${
-                viewMode === 'list' ? 'btn-active' : 'btn-outline'
-              }`}
-            >
-              リスト表示
-            </button>
+          <div className="space-y-2">
+            <div className="join w-full">
+              <button
+                onClick={() => setViewMode('tree')}
+                className={`btn btn-sm join-item flex-1 ${
+                  viewMode === 'tree' ? 'btn-active' : 'btn-outline'
+                }`}
+              >
+                ツリー表示
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`btn btn-sm join-item flex-1 ${
+                  viewMode === 'list' ? 'btn-active' : 'btn-outline'
+                }`}
+              >
+                リスト表示
+              </button>
+            </div>
+            <div className="form-control">
+              <label className="label cursor-pointer">
+                <span className="label-text text-sm">詳細表示</span>
+                <input
+                  type="checkbox"
+                  checked={showFileDetails}
+                  onChange={(e) => setShowFileDetails(e.target.checked)}
+                  className="checkbox checkbox-sm"
+                />
+              </label>
+            </div>
           </div>
         )}
       </div>
@@ -265,6 +279,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onFileToggle={onFileToggle}
               onDirectoryToggle={onDirectoryToggle}
               sidebarWidth={sidebarWidth}
+              showFileDetails={showFileDetails}
             />
           </div>
         ) : (
@@ -282,13 +297,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       <div className="card-body">
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
-                            <div className="font-medium text-sm text-base-content truncate" title={file.fileName}>
-                              {file.fileName}
+                            <div className="flex items-center gap-2 justify-between">
+                              <div className="font-medium text-sm text-base-content truncate" title={file.fileName}>
+                                {file.fileName}
+                              </div>
+                              {showFileDetails && (
+                                <span className="text-xs text-base-content/60 flex-shrink-0">{file.methods.length} メソッド</span>
+                              )}
                             </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className="badge badge-outline badge-xs">{file.language}</span>
-                              <span className="text-xs text-base-content/60">{file.methods.length} メソッド</span>
-                            </div>
+                            {showFileDetails && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="badge badge-outline badge-xs">{file.language}</span>
+                              </div>
+                            )}
                           </div>
                           <label className="cursor-pointer">
                             <input
