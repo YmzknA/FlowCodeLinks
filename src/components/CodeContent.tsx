@@ -14,17 +14,6 @@ interface CodeContentProps {
 
 
 export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMethod, onMethodClick }) => {
-  const [originalClickedMethod, setOriginalClickedMethod] = useState<string | null>(null);
-  
-  // SSR対応: クライアントサイドでのみストレージから取得
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      import('@/utils/secure-storage').then(({ methodHighlightStorage }) => {
-        const stored = methodHighlightStorage.getOriginalMethod();
-        setOriginalClickedMethod(stored);
-      });
-    }
-  }, []);
   const [highlightedCode, setHighlightedCode] = useState<string>('');
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -224,7 +213,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
                   return null;
                 };
                 
-                highlighted = makeImportMethodsClickable(highlighted, importMethods, findMethodDefinition, highlightedMethod, file.path, originalClickedMethod);
+                highlighted = makeImportMethodsClickable(highlighted, importMethods, findMethodDefinition, highlightedMethod, file.path);
               }
             }
             
@@ -248,7 +237,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
     };
 
     highlightCode();
-  }, [file.content, file.path, file.language, file.methods, highlightedMethod, originalClickedMethod, onMethodClick]);
+  }, [file.content, file.path, file.language, file.methods, highlightedMethod, onMethodClick]);
 
   // 最適化されたスクロール計算
   const calculateScrollPosition = useCallback((targetLine: number, containerElement: HTMLElement) => {

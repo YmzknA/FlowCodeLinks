@@ -30,7 +30,6 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
   onImportMethodClick
 }) => {
   const { id, file, position, isCollapsed, showMethodsOnly } = window;
-  const [originalClickedMethod, setOriginalClickedMethod] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [methodHighlightAPI, setMethodHighlightAPI] = useState<{
     setOriginalMethod: (methodName: string) => void;
@@ -46,7 +45,6 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
   useEffect(() => {
     if (isClient) {
       import('@/utils/secure-storage').then(({ methodHighlightStorage }) => {
-        setOriginalClickedMethod(methodHighlightStorage.getOriginalMethod());
         setMethodHighlightAPI({
           setOriginalMethod: methodHighlightStorage.setOriginalMethod,
           clearOriginalMethod: methodHighlightStorage.clearOriginalMethod
@@ -184,7 +182,6 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       // 最初にクリックされたメソッド名を保存（モーダル選択後も保持）
       if (methodHighlightAPI) {
         methodHighlightAPI.setOriginalMethod(methodName);
-        setOriginalClickedMethod(methodName);
       } else {
         // フォールバック
         import('@/utils/secure-storage').then(({ methodHighlightStorage }) => {
@@ -224,12 +221,8 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
   // __allFilesの変更を監視して再処理 - カスタムフックに分離
   const { allFilesVersion } = useAllFilesMonitor(file.path);
 
-  // 初期化時に保存されたメソッド名を復元 & クリーンアップ
+  // コンポーネントのアンマウント時にクリーンアップ
   useEffect(() => {
-    if (methodHighlightAPI) {
-      methodHighlightAPI.setOriginalMethod; // 初期化処理
-    }
-    
     // コンポーネントのアンマウント時にクリーンアップ
     return () => {
       // グローバルプロパティの削除
@@ -377,14 +370,13 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                         findAllMethodCallers,
                         file.path,
                         (window as any).__allFiles,
-                        highlightedMethod,
-                        originalClickedMethod
+                        highlightedMethod
                       );
                     } else {
                       // 全ファイルデータが利用できない場合は、従来の動作を維持
                       // findMethodDefinitionを渡さないことで、全てのメソッドをクリック可能にする
                       // これにより、useAuthのような外部ファイルで定義されたメソッドもクリック可能
-                      highlighted = replaceMethodNameInText(highlighted, methodName, escapedMethodName, undefined, undefined, file.path, undefined, highlightedMethod, originalClickedMethod);
+                      highlighted = replaceMethodNameInText(highlighted, methodName, escapedMethodName, undefined, undefined, file.path, undefined, highlightedMethod);
                     }
                   }
                 });
@@ -416,7 +408,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       processedContentRef.current = currentContentKey;
       highlightCode();
     }
-  }, [file.content, file.methods, file.path, isCollapsed, showMethodsOnly, file.language, allFilesVersion, forceUpdate, highlightedMethod, originalClickedMethod, isClient]);
+  }, [file.content, file.methods, file.path, isCollapsed, showMethodsOnly, file.language, allFilesVersion, forceUpdate, highlightedMethod, isClient]);
 
   // コンテンツ変更後にスクロール情報を更新
   useEffect(() => {

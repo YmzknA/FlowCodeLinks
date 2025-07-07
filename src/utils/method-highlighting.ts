@@ -34,8 +34,7 @@ export const makeImportMethodsClickable = (
   importMethods: string[], 
   findMethodDefinition?: (methodName: string) => { methodName: string; filePath: string } | null,
   highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null,
-  currentFilePath?: string,
-  originalClickedMethod?: string | null
+  currentFilePath?: string
 ): string => {
   let result = html;
   
@@ -127,8 +126,7 @@ export const replaceMethodNameInText = (
   findAllMethodCallers?: (methodName: string) => Array<{ methodName: string; filePath: string; lineNumber?: number }>,
   currentFilePath?: string,
   files?: any[],
-  highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null,
-  originalClickedMethod?: string | null
+  highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null
 ): string => {
   // 外部ライブラリメソッドは即座に非クリック化
   if (isExternalLibraryMethod(methodName)) {
