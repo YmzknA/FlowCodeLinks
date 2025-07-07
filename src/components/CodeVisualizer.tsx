@@ -5,6 +5,7 @@ import { LayoutManager } from './LayoutManager';
 import { DependencyLines } from './DependencyLines';
 import { ZoomableCanvas } from './ZoomableCanvas';
 import { CallersModal } from './CallersModal';
+import { AnimatedArrows } from './AnimatedArrows';
 import { parseRepomixFile } from '@/utils/parser';
 import { analyzeMethodsInFile, extractAllMethodDefinitions } from '@/utils/method-analyzer';
 import { extractDependencies } from '@/utils/dependency-extractor';
@@ -27,6 +28,8 @@ export const CodeVisualizer: React.FC = () => {
   const [externalPan, setExternalPan] = useState<{ x: number; y: number } | null>(null);
   const [callersList, setCallersList] = useState<{ methodName: string; callers: Array<{ methodName: string; filePath: string; lineNumber?: number }> } | null>(null);
   const [showOpenWindowsOnly, setShowOpenWindowsOnly] = useState(true);
+  const [imageModalOpen, setImageModalOpen] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   // ファイル解析と最適化（2段階解析）
   const analysisResult = useMemo(() => {
@@ -402,6 +405,21 @@ export const CodeVisualizer: React.FC = () => {
     }
   }, [findMethodDefinition, handleMethodJump]);
 
+  // 画像クリック時の処理
+  const handleImageClick = useCallback((imageIndex: number) => {
+    setCurrentImageIndex(imageIndex);
+    setImageModalOpen(true);
+  }, []);
+
+  // カルーセルナビゲーション
+  const handlePrevImage = useCallback(() => {
+    setCurrentImageIndex((prevIndex) => (prevIndex - 1 + 3) % 3);
+  }, []);
+
+  const handleNextImage = useCallback(() => {
+    setCurrentImageIndex((prevIndex) => (prevIndex + 1) % 3);
+  }, []);
+
   // メソッドクリック時の処理
   const handleMethodClick = useCallback((methodName: string, currentFilePath: string) => {
     // 現在のファイルでクリックされたメソッドが定義されているかチェック
@@ -455,11 +473,18 @@ export const CodeVisualizer: React.FC = () => {
 
   if (files.length === 0 && !isLoading && !error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-base-100 via-base-200 to-base-300">
+      <div className="min-h-screen bg-gradient-to-br from-base-100 via-base-200 to-base-300 relative overflow-hidden">
+        {/* アニメーション矢印背景 */}
+        <AnimatedArrows 
+          containerWidth={typeof window !== 'undefined' ? window.innerWidth : 1920}
+          containerHeight={typeof window !== 'undefined' ? window.innerHeight : 1080}
+          arrowCount={8}
+        />
+        
         {/* Hero Section */}
         <section 
           ref={heroAnimation.elementRef}
-          className={`hero min-h-screen transition-all duration-1000 ${
+          className={`hero min-h-screen transition-all duration-1000 relative z-10 ${
             heroAnimation.isVisible 
               ? 'opacity-100 translate-y-0' 
               : 'opacity-0 translate-y-10'
@@ -479,7 +504,7 @@ export const CodeVisualizer: React.FC = () => {
               </h1>
               <p className="text-xl text-base-content/80 mb-8 leading-relaxed">
                 Repomixで生成されたmdファイルをアップロードして、<br />
-                コードの関係性を美しく可視化します
+                コードの関係性を分かりやすく可視化します
               </p>
               <div className="mb-12">
                 <label className="btn btn-primary btn-lg gap-3 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
@@ -502,7 +527,7 @@ export const CodeVisualizer: React.FC = () => {
         {/* Features Section */}
         <section 
           ref={featuresAnimation.elementRef}
-          className={`py-20 bg-base-100 transition-all duration-1000 ${
+          className={`py-20 bg-base-100 transition-all duration-1000 relative z-10 ${
             featuresAnimation.isVisible 
               ? 'opacity-100 translate-y-0' 
               : 'opacity-0 translate-y-10'
@@ -517,7 +542,7 @@ export const CodeVisualizer: React.FC = () => {
               主要機能
             </h2>
             <div 
-              ref={featuresGridRef}
+              ref={featuresGridRef as React.RefObject<HTMLDivElement>}
               className="grid grid-cols-1 md:grid-cols-3 gap-8"
             >
               <div className={`card bg-base-200 shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-500 hover:-translate-y-2 ${
@@ -580,7 +605,7 @@ export const CodeVisualizer: React.FC = () => {
         {/* Gallery Section */}
         <section 
           ref={galleryAnimation.elementRef}
-          className={`py-20 bg-base-200 transition-all duration-1000 ${
+          className={`py-20 bg-base-200 transition-all duration-1000 relative z-10 ${
             galleryAnimation.isVisible 
               ? 'opacity-100 translate-y-0' 
               : 'opacity-0 translate-y-10'
@@ -595,7 +620,7 @@ export const CodeVisualizer: React.FC = () => {
               使用イメージ
             </h2>
             <div 
-              ref={galleryGridRef}
+              ref={galleryGridRef as React.RefObject<HTMLDivElement>}
               className="grid grid-cols-1 lg:grid-cols-2 gap-8"
             >
               <div className={`card bg-base-100 shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-700 group ${
@@ -603,9 +628,9 @@ export const CodeVisualizer: React.FC = () => {
                   ? 'opacity-100 translate-y-0 scale-100' 
                   : 'opacity-0 translate-y-8 scale-95'
               }`}>
-                <figure className="px-4 pt-4 overflow-hidden">
+                <figure className="px-4 pt-4 overflow-hidden cursor-pointer" onClick={() => handleImageClick(0)}>
                   <img 
-                    src="/images/screenshot-main.png" 
+                    src="/how_to_1.png" 
                     alt="メインインターフェース"
                     className="rounded-xl w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500"
                     onError={(e) => {
@@ -626,9 +651,9 @@ export const CodeVisualizer: React.FC = () => {
                   ? 'opacity-100 translate-y-0 scale-100' 
                   : 'opacity-0 translate-y-8 scale-95'
               }`}>
-                <figure className="px-4 pt-4 overflow-hidden">
+                <figure className="px-4 pt-4 overflow-hidden cursor-pointer" onClick={() => handleImageClick(1)}>
                   <img 
-                    src="/images/screenshot-highlight.png" 
+                    src="/how_to_2.png" 
                     alt="メソッドハイライト"
                     className="rounded-xl w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500"
                     onError={(e) => {
@@ -649,9 +674,9 @@ export const CodeVisualizer: React.FC = () => {
                   ? 'opacity-100 translate-y-0 scale-100' 
                   : 'opacity-0 translate-y-8 scale-95'
               }`}>
-                <figure className="px-4 pt-4 overflow-hidden">
+                <figure className="px-4 pt-4 overflow-hidden cursor-pointer" onClick={() => handleImageClick(2)}>
                   <img 
-                    src="/images/screenshot-connections.png" 
+                    src="/how_to_3.png" 
                     alt="関係性の可視化"
                     className="rounded-xl w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500"
                     onError={(e) => {
@@ -667,33 +692,21 @@ export const CodeVisualizer: React.FC = () => {
                 </div>
               </div>
 
-              <div className={`card bg-base-100 shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-700 group ${
-                visibleGalleryItems.has(3) 
-                  ? 'opacity-100 translate-y-0 scale-100' 
-                  : 'opacity-0 translate-y-8 scale-95'
-              }`}>
-                <figure className="px-4 pt-4 overflow-hidden">
-                  <video 
-                    className="rounded-xl w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500"
-                    controls
-                    poster="/images/demo-thumbnail.png"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.parentNode?.insertAdjacentHTML('afterbegin', '<img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2Y3ZjdmNyIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE4IiBmaWxsPSIjOTk5Ij5kZW1vIHZpZGVvPC90ZXh0Pgo8L3N2Zz4K" class="rounded-xl w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500" alt="Demo Video" />');
-                    }}
-                  >
-                    <source src="/videos/demo.mp4" type="video/mp4" />
-                    <source src="/videos/demo.webm" type="video/webm" />
-                    Your browser does not support the video tag.
-                  </video>
-                </figure>
-                <div className="card-body group-hover:bg-base-200 transition-colors duration-300">
-                  <h3 className="card-title group-hover:text-primary transition-colors duration-300">デモ動画</h3>
-                  <p className="text-base-content/70">
-                    実際の使用方法を動画で確認し、操作感を体感できます
-                  </p>
-                </div>
-              </div>
+
+            </div>
+            <div className="mt-8 text-center">
+              <p className="text-xs text-base-content/50">
+                画像は{' '}
+                <a 
+                  href="https://github.com/rubygems/rubygems.org?tab=MIT-1-ov-file" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-primary hover:text-primary-focus underline"
+                >
+                  rubygems.org
+                </a>
+                {' '}のコードを使用して作成
+              </p>
             </div>
           </div>
         </section>
@@ -701,7 +714,7 @@ export const CodeVisualizer: React.FC = () => {
         {/* CTA Section */}
         <section 
           ref={ctaAnimation.elementRef}
-          className={`py-20 bg-primary text-primary-content transition-all duration-1000 ${
+          className={`py-20 bg-primary text-primary-content transition-all duration-1000 relative z-10 ${
             ctaAnimation.isVisible 
               ? 'opacity-100 translate-y-0' 
               : 'opacity-0 translate-y-10'
@@ -750,7 +763,7 @@ export const CodeVisualizer: React.FC = () => {
         </section>
 
         {/* Footer */}
-        <footer className="footer footer-center p-10 bg-base-300 text-base-content">
+        <footer className="footer footer-center p-10 bg-base-300 text-base-content relative z-10">
           <aside>
             <img 
               src="/logo.png" 
@@ -768,6 +781,123 @@ export const CodeVisualizer: React.FC = () => {
             </p>
           </aside>
         </footer>
+
+        {/* ホーム画面用daisyUIカルーセルモーダル */}
+        <dialog className={`modal ${imageModalOpen ? 'modal-open' : ''}`}>
+          <div className="modal-box max-w-5xl">
+            {/* モーダルヘッダー */}
+            <div className="flex justify-between items-center pb-4">
+              <h3 className="font-bold text-lg">
+                {currentImageIndex === 0 && "メインインターフェース"}
+                {currentImageIndex === 1 && "メソッドハイライト"}
+                {currentImageIndex === 2 && "関係性の可視化"}
+              </h3>
+              <button 
+                className="btn btn-sm btn-circle btn-ghost"
+                onClick={() => setImageModalOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* daisyUIカルーセル */}
+            <div className="carousel w-full">
+              <div id="slide1" className={`carousel-item relative w-full ${currentImageIndex === 0 ? 'flex' : 'hidden'}`}>
+                <img 
+                  src="/how_to_1.png" 
+                  className="w-full object-contain max-h-[60vh]" 
+                  alt="メインインターフェース" 
+                />
+                <div className="absolute flex justify-between transform -translate-y-1/2 left-5 right-5 top-1/2">
+                  <button 
+                    className="btn btn-circle"
+                    onClick={handlePrevImage}
+                  >
+                    ❮
+                  </button> 
+                  <button 
+                    className="btn btn-circle"
+                    onClick={handleNextImage}
+                  >
+                    ❯
+                  </button>
+                </div>
+              </div> 
+
+              <div id="slide2" className={`carousel-item relative w-full ${currentImageIndex === 1 ? 'flex' : 'hidden'}`}>
+                <img 
+                  src="/how_to_2.png" 
+                  className="w-full object-contain max-h-[60vh]" 
+                  alt="メソッドハイライト" 
+                />
+                <div className="absolute flex justify-between transform -translate-y-1/2 left-5 right-5 top-1/2">
+                  <button 
+                    className="btn btn-circle"
+                    onClick={handlePrevImage}
+                  >
+                    ❮
+                  </button> 
+                  <button 
+                    className="btn btn-circle"
+                    onClick={handleNextImage}
+                  >
+                    ❯
+                  </button>
+                </div>
+              </div> 
+
+              <div id="slide3" className={`carousel-item relative w-full ${currentImageIndex === 2 ? 'flex' : 'hidden'}`}>
+                <img 
+                  src="/how_to_3.png" 
+                  className="w-full object-contain max-h-[60vh]" 
+                  alt="関係性の可視化" 
+                />
+                <div className="absolute flex justify-between transform -translate-y-1/2 left-5 right-5 top-1/2">
+                  <button 
+                    className="btn btn-circle"
+                    onClick={handlePrevImage}
+                  >
+                    ❮
+                  </button> 
+                  <button 
+                    className="btn btn-circle"
+                    onClick={handleNextImage}
+                  >
+                    ❯
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* ドットインジケーター */}
+            <div className="flex justify-center w-full py-2 gap-2">
+              {[0, 1, 2].map((index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentImageIndex(index)}
+                  className={`btn btn-xs ${index === currentImageIndex ? 'btn-primary' : 'btn-outline'}`}
+                >
+                  {index + 1}
+                </button>
+              ))}
+            </div>
+
+            {/* モーダルフッター */}
+            <div className="modal-action">
+              <button 
+                className="btn"
+                onClick={() => setImageModalOpen(false)}
+              >
+                閉じる
+              </button>
+            </div>
+          </div>
+          <div 
+            className="modal-backdrop"
+            onClick={() => setImageModalOpen(false)}
+          >
+          </div>
+        </dialog>
       </div>
     );
   }
@@ -867,8 +997,8 @@ export const CodeVisualizer: React.FC = () => {
       
       {/* メインエリア */}
       <div className="flex-1 relative bg-base-300/20 min-h-screen overflow-hidden">
-        {/* ファイル変更ボタン */}
-        <div className="absolute top-4 left-4 z-50">
+        {/* ファイル変更ボタンとホーム戻るボタン */}
+        <div className="absolute top-4 left-4 z-50 flex gap-2">
           <label className="btn btn-secondary btn-sm gap-2 shadow-lg">
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
@@ -881,6 +1011,23 @@ export const CodeVisualizer: React.FC = () => {
               className="hidden"
             />
           </label>
+          
+          <button 
+            className="btn btn-primary btn-sm gap-2 shadow-lg"
+            onClick={() => {
+              setRepomixContent('');
+              setVisibleFiles([]);
+              setFloatingWindows([]);
+              setHighlightedMethod(null);
+              setError(null);
+            }}
+            title="ホーム画面に戻る"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            ホーム
+          </button>
         </div>
 
         {/* ズーム可能キャンバス */}
@@ -929,6 +1076,123 @@ export const CodeVisualizer: React.FC = () => {
           openWindows={openWindowPaths}
         />
       )}
+
+      {/* daisyUI画像カルーセルモーダル（解析画面用） */}
+      <dialog className={`modal ${imageModalOpen ? 'modal-open' : ''}`}>
+        <div className="modal-box max-w-5xl">
+          {/* モーダルヘッダー */}
+          <div className="flex justify-between items-center pb-4">
+            <h3 className="font-bold text-lg">
+              {currentImageIndex === 0 && "メインインターフェース"}
+              {currentImageIndex === 1 && "メソッドハイライト"}
+              {currentImageIndex === 2 && "関係性の可視化"}
+            </h3>
+            <button 
+              className="btn btn-sm btn-circle btn-ghost"
+              onClick={() => setImageModalOpen(false)}
+            >
+              ✕
+            </button>
+          </div>
+
+          {/* daisyUIカルーセル */}
+          <div className="carousel w-full">
+            <div id="slide1" className={`carousel-item relative w-full ${currentImageIndex === 0 ? 'flex' : 'hidden'}`}>
+              <img 
+                src="/how_to_1.png" 
+                className="w-full object-contain max-h-[60vh]" 
+                alt="メインインターフェース" 
+              />
+              <div className="absolute flex justify-between transform -translate-y-1/2 left-5 right-5 top-1/2">
+                <button 
+                  className="btn btn-circle"
+                  onClick={handlePrevImage}
+                >
+                  ❮
+                </button> 
+                <button 
+                  className="btn btn-circle"
+                  onClick={handleNextImage}
+                >
+                  ❯
+                </button>
+              </div>
+            </div> 
+
+            <div id="slide2" className={`carousel-item relative w-full ${currentImageIndex === 1 ? 'flex' : 'hidden'}`}>
+              <img 
+                src="/how_to_2.png" 
+                className="w-full object-contain max-h-[60vh]" 
+                alt="メソッドハイライト" 
+              />
+              <div className="absolute flex justify-between transform -translate-y-1/2 left-5 right-5 top-1/2">
+                <button 
+                  className="btn btn-circle"
+                  onClick={handlePrevImage}
+                >
+                  ❮
+                </button> 
+                <button 
+                  className="btn btn-circle"
+                  onClick={handleNextImage}
+                >
+                  ❯
+                </button>
+              </div>
+            </div> 
+
+            <div id="slide3" className={`carousel-item relative w-full ${currentImageIndex === 2 ? 'flex' : 'hidden'}`}>
+              <img 
+                src="/how_to_3.png" 
+                className="w-full object-contain max-h-[60vh]" 
+                alt="関係性の可視化" 
+              />
+              <div className="absolute flex justify-between transform -translate-y-1/2 left-5 right-5 top-1/2">
+                <button 
+                  className="btn btn-circle"
+                  onClick={handlePrevImage}
+                >
+                  ❮
+                </button> 
+                <button 
+                  className="btn btn-circle"
+                  onClick={handleNextImage}
+                >
+                  ❯
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ドットインジケーター */}
+          <div className="flex justify-center w-full py-2 gap-2">
+            {[0, 1, 2].map((index) => (
+              <button
+                key={index}
+                onClick={() => setCurrentImageIndex(index)}
+                className={`btn btn-xs ${index === currentImageIndex ? 'btn-primary' : 'btn-outline'}`}
+              >
+                {index + 1}
+              </button>
+            ))}
+          </div>
+
+          {/* モーダルフッター */}
+          <div className="modal-action">
+            <button 
+              className="btn"
+              onClick={() => setImageModalOpen(false)}
+            >
+              閉じる
+            </button>
+          </div>
+        </div>
+        <div 
+          className="modal-backdrop"
+          onClick={() => setImageModalOpen(false)}
+        >
+        </div>
+      </dialog>
     </div>
   );
 };
