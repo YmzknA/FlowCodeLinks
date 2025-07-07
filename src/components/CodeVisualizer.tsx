@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import Image from 'next/image';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Sidebar } from './Sidebar';
 import { LayoutManager } from './LayoutManager';
@@ -493,10 +494,13 @@ export const CodeVisualizer: React.FC = () => {
           <div className="hero-content text-center">
             <div className="max-w-4xl">
               <div className="mb-8">
-                <img 
+                <Image 
                   src="/logo.png" 
                   alt="FlowCodeLinks Logo" 
-                  className="w-32 h-32 mx-auto mb-6 hover:scale-110 transition-transform duration-300"
+                  width={128}
+                  height={128}
+                  className="mx-auto mb-6 hover:scale-110 transition-transform duration-300"
+                  priority
                 />
               </div>
               <h1 className="text-6xl font-bold text-primary mb-6 raleway">
