@@ -4,6 +4,7 @@ import { sanitizeContent } from '@/utils/security';
 import { debounce, optimizedScroll } from '@/utils/performance';
 import { useWheelScrollIsolation } from '@/hooks/useWheelScrollIsolation';
 import { replaceMethodNameInText, makeImportMethodsClickable, highlightMethodDefinition } from '@/utils/method-highlighting';
+import { debugLog, debugWarn } from '@/utils/debug';
 
 interface CodeContentProps {
   file: ParsedFile;
@@ -13,6 +14,17 @@ interface CodeContentProps {
 
 
 export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMethod, onMethodClick }) => {
+  const [originalClickedMethod, setOriginalClickedMethod] = useState<string | null>(null);
+  
+  // SSR対応: クライアントサイドでのみストレージから取得
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      import('@/utils/secure-storage').then(({ methodHighlightStorage }) => {
+        const stored = methodHighlightStorage.getOriginalMethod();
+        setOriginalClickedMethod(stored);
+      });
+    }
+  }, []);
   const [highlightedCode, setHighlightedCode] = useState<string>('');
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -129,7 +141,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
               // 大規模ファイル検出とフォールバック
               const sortedMethodNames = clickableMethodNames.size > 1000 
                 ? (() => {
-                    console.warn('Large file detected, using simplified processing');
+                    debugWarn('Large file detected, using simplified processing');
                     return createSortedArray(new Set(Array.from(clickableMethodNames).slice(0, 500)));
                   })()
                 : createSortedArray(clickableMethodNames);
@@ -141,7 +153,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
                 
                 // デバッグログ
                 if (isHighlighted) {
-                  console.log(`🔥 HIGHLIGHTING METHOD (CodeContent): ${methodName} in ${file.path}`);
+                  debugLog(`🔥 HIGHLIGHTING METHOD (CodeContent): ${methodName} in ${file.path}`);
                 }
                 
                 const baseClasses = "cursor-pointer hover:bg-blue-900 hover:bg-opacity-40 rounded px-1 relative";
@@ -162,7 +174,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
                   );
                   
                   highlighted = highlighted.replace(definitionPattern, 
-                    `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}">$1$2<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`
+                    `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}">$1$2<span class="absolute -top-1 -right-1 text-xs text-yellow-400" aria-hidden="true" title="クリック可能なメソッド">*</span></span>`
                   );
                   
                   // パターン2: メソッド呼び出し - method_name<span class="token operator">?</span>
@@ -172,14 +184,14 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
                   );
                   
                   highlighted = highlighted.replace(callPattern, 
-                    `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}">$1$2<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`
+                    `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}">$1$2<span class="absolute -top-1 -right-1 text-xs text-yellow-400" aria-hidden="true" title="クリック可能なメソッド">*</span></span>`
                   );
                 } else {
                   // 通常のメソッド名の処理（従来通り）
                   const escapedMethodName = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                   const methodNameRegex = new RegExp(`(?<![\\w])${escapedMethodName}(?![\\w])`, 'g');
                   highlighted = highlighted.replace(methodNameRegex, 
-                    `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}">$&<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`
+                    `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}">$&<span class="absolute -top-1 -right-1 text-xs text-yellow-400" aria-hidden="true" title="クリック可能なメソッド">*</span></span>`
                   );
                 }
               });
@@ -212,7 +224,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
                   return null;
                 };
                 
-                highlighted = makeImportMethodsClickable(highlighted, importMethods, findMethodDefinition, highlightedMethod, file.path);
+                highlighted = makeImportMethodsClickable(highlighted, importMethods, findMethodDefinition, highlightedMethod, file.path, originalClickedMethod);
               }
             }
             
@@ -236,7 +248,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
     };
 
     highlightCode();
-  }, [file.content, file.language, file.methods, onMethodClick]);
+  }, [file.content, file.path, file.language, file.methods, highlightedMethod, originalClickedMethod, onMethodClick]);
 
   // 最適化されたスクロール計算
   const calculateScrollPosition = useCallback((targetLine: number, containerElement: HTMLElement) => {

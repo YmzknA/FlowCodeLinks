@@ -2,6 +2,7 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { FloatingWindow, Dependency, ScrollInfo } from '@/types/codebase';
 import { LRUCurveCache } from '@/utils/lru-cache';
 import { CURVE_CONFIG, COLOR_PALETTE, HIGHLIGHT_COLORS } from '@/config/curve-settings';
+import { debugWarn } from '@/utils/debug';
 
 // メモ化された個別の線コンポーネント
 interface DependencyLineProps {
@@ -475,10 +476,11 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
 
   // 定期的なメモリクリーンアップ（メモリリークを防ぐ）
   useEffect(() => {
+    const currentCurveParams = usedCurveParams.current;
     const interval = setInterval(() => {
-      if (usedCurveParams.current && usedCurveParams.current.size > 100) {
-        console.warn('Clearing curve parameters cache to prevent memory leak');
-        usedCurveParams.current.clear();
+      if (currentCurveParams && currentCurveParams.size > 100) {
+        debugWarn('Clearing curve parameters cache to prevent memory leak');
+        currentCurveParams.clear();
       }
     }, 30000); // 30秒ごとにチェック
 

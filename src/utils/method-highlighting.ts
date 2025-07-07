@@ -16,9 +16,7 @@ const createProtectMarker = (): string => {
     
     return `__PROTECT_${timestamp}_${random1}_${random2}__`;
   } catch (error) {
-    if (process.env.NODE_ENV === 'development') {
-      console.error('Failed to create protect marker:', error);
-    }
+    debugError('Failed to create protect marker:', error);
     // フォールバック: 単純な連番
     return `__PROTECT_${Date.now()}_FALLBACK_${Math.floor(Math.random() * 10000)}__`;
   }
@@ -36,7 +34,8 @@ export const makeImportMethodsClickable = (
   importMethods: string[], 
   findMethodDefinition?: (methodName: string) => { methodName: string; filePath: string } | null,
   highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null,
-  currentFilePath?: string
+  currentFilePath?: string,
+  originalClickedMethod?: string | null
 ): string => {
   let result = html;
   
@@ -62,8 +61,9 @@ export const makeImportMethodsClickable = (
     }
     
     // ハイライト対象かどうかを判定
-    const isHighlighted = highlightedMethod && 
-                         highlightedMethod.methodName === methodName && 
+    const isHighlighted = originalClickedMethod && 
+                         originalClickedMethod === methodName && 
+                         highlightedMethod && 
                          highlightedMethod.filePath === currentFilePath;
     
     const escapedMethodName = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -84,12 +84,12 @@ export const makeImportMethodsClickable = (
     // 通常のパターンを処理
     result = result.replace(plainPattern, (match) => {
       // import文の内部かどうかをチェック（簡易的）
-      return `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}" data-import-method="true">${match}<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`;
+      return `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}" data-import-method="true">${match}<span class="absolute -top-1 -right-1 text-xs text-yellow-400" aria-hidden="true" title="クリック可能なメソッド">*</span></span>`;
     });
     
     // Prismハイライト済みパターンを処理
     result = result.replace(prismPattern, (match, openTag, methodNamePart, closeTag) => {
-      return `${openTag}<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}" data-import-method="true">${methodNamePart}<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>${closeTag}`;
+      return `${openTag}<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}" data-import-method="true">${methodNamePart}<span class="absolute -top-1 -right-1 text-xs text-yellow-400" aria-hidden="true" title="クリック可能なメソッド">*</span></span>${closeTag}`;
     });
   });
   
@@ -116,6 +116,7 @@ export const makeImportMethodsClickable = (
  */
 import { isExternalLibraryMethod } from '@/config/external-methods';
 import { methodHighlightStorage } from '@/utils/secure-storage';
+import { debugLog, debugError } from '@/utils/debug';
 
 export const replaceMethodNameInText = (
   html: string, 
@@ -125,7 +126,8 @@ export const replaceMethodNameInText = (
   findAllMethodCallers?: (methodName: string) => Array<{ methodName: string; filePath: string; lineNumber?: number }>,
   currentFilePath?: string,
   files?: any[],
-  highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null
+  highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null,
+  originalClickedMethod?: string | null
 ): string => {
   // 外部ライブラリメソッドは即座に非クリック化
   if (isExternalLibraryMethod(methodName)) {
@@ -210,7 +212,6 @@ export const replaceMethodNameInText = (
   
   // ハイライト対象かどうかを判定（完全一致のみ）
   // 最初にクリックしたメソッド名をハイライト
-  const originalClickedMethod = methodHighlightStorage.getOriginalMethod();
   const isHighlighted = originalClickedMethod && 
                        originalClickedMethod === methodName && 
                        highlightedMethod && 
@@ -221,7 +222,7 @@ export const replaceMethodNameInText = (
   const highlightClasses = isHighlighted ? " bg-red-200 bg-opacity-60 border-2 border-red-300" : "";
   
   result = result.replace(methodNameRegex, 
-    `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}">$&<span class="absolute -top-1 -right-1 text-xs text-yellow-400">*</span></span>`
+    `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}">$&<span class="absolute -top-1 -right-1 text-xs text-yellow-400" aria-hidden="true" title="クリック可能なメソッド">*</span></span>`
   );
   
   // 保護されたHTMLタグと属性を復元
@@ -244,7 +245,7 @@ export const replaceMethodNameInText = (
  */
 export const highlightMethodDefinition = (
   html: string,
-  highlightedMethod: { methodName: string; filePath: string; lineNumber?: number } | null,
+  highlightedMethod: { methodName: string; filePath: string; lineNumber?: number } | null | undefined,
   currentFilePath: string,
   methods: Array<{ name: string; startLine: number; endLine: number; type: string }> = []
 ): string => {

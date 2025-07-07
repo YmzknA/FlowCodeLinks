@@ -1,46 +1,21 @@
 /**
- * Secure storage utility for sensitive data
- * Uses simple base64 encoding for obfuscation (not true encryption)
+ * Simple storage utility for UI state
+ * No encryption needed for non-sensitive UI data
  */
 
-const STORAGE_KEY_PREFIX = '__CodeFlow_';
-
-/**
- * Simple base64 encode for obfuscation
- */
-const encode = (data: string): string => {
-  try {
-    return btoa(data);
-  } catch (error) {
-    console.warn('Failed to encode data:', error);
-    return data;
-  }
-};
+const STORAGE_KEY_PREFIX = 'codeflow_';
 
 /**
- * Simple base64 decode for obfuscation
+ * Simple sessionStorage wrapper
  */
-const decode = (data: string): string => {
-  try {
-    return atob(data);
-  } catch (error) {
-    console.warn('Failed to decode data:', error);
-    return data;
-  }
-};
-
-/**
- * Securely store data in sessionStorage
- */
-export const secureSessionStorage = {
+export const simpleStorage = {
   setItem: (key: string, value: string): void => {
     if (typeof window === 'undefined') return;
     
     try {
-      const encodedValue = encode(value);
-      sessionStorage.setItem(STORAGE_KEY_PREFIX + key, encodedValue);
+      sessionStorage.setItem(STORAGE_KEY_PREFIX + key, value);
     } catch (error) {
-      console.warn('Failed to store data securely:', error);
+      // Silently fail if storage is not available
     }
   },
 
@@ -48,12 +23,8 @@ export const secureSessionStorage = {
     if (typeof window === 'undefined') return null;
     
     try {
-      const encodedValue = sessionStorage.getItem(STORAGE_KEY_PREFIX + key);
-      if (!encodedValue) return null;
-      
-      return decode(encodedValue);
+      return sessionStorage.getItem(STORAGE_KEY_PREFIX + key);
     } catch (error) {
-      console.warn('Failed to retrieve data securely:', error);
       return null;
     }
   },
@@ -64,7 +35,7 @@ export const secureSessionStorage = {
     try {
       sessionStorage.removeItem(STORAGE_KEY_PREFIX + key);
     } catch (error) {
-      console.warn('Failed to remove data securely:', error);
+      // Silently fail if storage is not available
     }
   },
 
@@ -80,44 +51,22 @@ export const secureSessionStorage = {
         }
       });
     } catch (error) {
-      console.warn('Failed to clear secure storage:', error);
+      // Silently fail if storage is not available
     }
   }
 };
 
-/**
- * Manage method highlighting state securely
- */
+// Legacy compatibility - will be removed after Context API migration
 export const methodHighlightStorage = {
   setOriginalMethod: (methodName: string): void => {
-    // Store in both window object and secure session storage
-    if (typeof window !== 'undefined') {
-      (window as any).__originalClickedMethod = methodName;
-      secureSessionStorage.setItem('originalClickedMethod', methodName);
-    }
+    simpleStorage.setItem('originalClickedMethod', methodName);
   },
 
   getOriginalMethod: (): string | null => {
-    if (typeof window === 'undefined') return null;
-    
-    // Try window object first, then secure session storage
-    const windowMethod = (window as any).__originalClickedMethod;
-    if (windowMethod) return windowMethod;
-    
-    const storedMethod = secureSessionStorage.getItem('originalClickedMethod');
-    if (storedMethod) {
-      // Restore to window object for consistency
-      (window as any).__originalClickedMethod = storedMethod;
-      return storedMethod;
-    }
-    
-    return null;
+    return simpleStorage.getItem('originalClickedMethod');
   },
 
   clearOriginalMethod: (): void => {
-    if (typeof window !== 'undefined') {
-      delete (window as any).__originalClickedMethod;
-      secureSessionStorage.removeItem('originalClickedMethod');
-    }
+    simpleStorage.removeItem('originalClickedMethod');
   }
 };
