@@ -406,7 +406,7 @@ export const CodeVisualizer: React.FC = () => {
     if (definition) {
       handleMethodJump(definition);
     } else {
-      console.warn(`Method definition not found: ${methodName}`);
+      // Method definition not found
     }
   }, [findMethodDefinition, handleMethodJump]);
 

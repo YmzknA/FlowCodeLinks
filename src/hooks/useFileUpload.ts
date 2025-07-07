@@ -38,7 +38,7 @@ export const useFileUpload = (): UseFileUploadReturn => {
     
     // 5MB以上のファイルに対する警告
     if (file.size > WARNING_FILE_SIZE) {
-      console.warn(`大きなファイル (${(file.size / 1024 / 1024).toFixed(1)}MB) が選択されました。処理に時間がかかる場合があります。`);
+      // 大きなファイルが選択されました。処理に時間がかかる場合があります。
     }
 
     // ファイル形式チェック

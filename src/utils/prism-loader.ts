@@ -61,7 +61,7 @@ export const createPrismLoader = (): PrismLoader => {
       }
     } catch (error) {
       if (process.env.NODE_ENV === 'development') {
-        console.warn(`Failed to load Prism component for ${language}:`, error);
+        // Failed to load Prism component
       }
     }
 

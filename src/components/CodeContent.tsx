@@ -77,7 +77,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
         }
         
         if (!prism) {
-          console.warn('Prism.js not available, using fallback');
+          // Prism.js not available, using fallback
           setHighlightedCode(sanitizeContent(file.content, 'html-content'));
           return;
         }

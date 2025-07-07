@@ -74,7 +74,7 @@ export const FilesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
         (window as any).__allFiles = files;
         
         if (MIGRATION_CONFIG.showDeprecationWarnings) {
-          console.warn('⚠️ [FlowCodeLinks] グローバル変数への書き込みは開発環境のみです。本番環境では無効化されています。');
+          // グローバル変数への書き込みは開発環境のみ
         }
       } else {
         // 本番環境: セキュリティのためグローバル変数は設定しない
@@ -177,7 +177,7 @@ export const useFilesWithFallback = () => {
     
     // 本番環境では空配列（安全な動作）
     if (MIGRATION_CONFIG.showDeprecationWarnings) {
-      console.warn('⚠️ [FlowCodeLinks] Context APIが利用できません。Providerで包んでください。');
+      // Context APIが利用できません。Providerで包んでください。
     }
     return [];
   })();

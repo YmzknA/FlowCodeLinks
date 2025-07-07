@@ -194,7 +194,7 @@ const calculateControlPoints = (
   while (attempts < maxAttempts) {
     // タイムアウトチェック
     if (Date.now() - startTime > timeout) {
-      console.warn('Z-curve calculation timeout, using fallback');
+      // Z-curve calculation timeout, using fallback
       break;
     }
     
