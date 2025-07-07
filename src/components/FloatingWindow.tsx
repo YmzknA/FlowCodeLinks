@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { FloatingWindow as FloatingWindowType, ScrollInfo } from '@/types/codebase';
 import { useWheelScrollIsolation } from '@/hooks/useWheelScrollIsolation';
-import { replaceMethodNameInText } from '@/utils/method-highlighting';
+import { replaceMethodNameInText, highlightMethodDefinition } from '@/utils/method-highlighting';
 import { prismLoader } from '@/utils/prism-loader';
 import { useAllFilesMonitor } from '@/hooks/useAllFilesMonitor';
+// import { useMethodHighlight } from '@/context/MethodHighlightContext'; // SSR対応のため動的インポートに変更
 
 interface FloatingWindowProps {
   window: FloatingWindowType;
@@ -29,8 +30,24 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
   onImportMethodClick
 }) => {
   const { id, file, position, isCollapsed, showMethodsOnly } = window;
-  
-  
+  const [originalClickedMethod, setOriginalClickedMethod] = useState<string | null>(null);
+  const [methodHighlightAPI, setMethodHighlightAPI] = useState<{
+    setOriginalMethod: (methodName: string) => void;
+    clearOriginalMethod: () => void;
+  } | null>(null);
+
+  // SSR対応: クライアントサイドでのみストレージから取得
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      import('@/utils/secure-storage').then(({ methodHighlightStorage }) => {
+        setOriginalClickedMethod(methodHighlightStorage.getOriginalMethod());
+        setMethodHighlightAPI({
+          setOriginalMethod: methodHighlightStorage.setOriginalMethod,
+          clearOriginalMethod: methodHighlightStorage.clearOriginalMethod
+        });
+      });
+    }
+  }, []);
 
   const [highlightedCode, setHighlightedCode] = useState<string>('');
   const processedContentRef = useRef<string>('');
@@ -55,6 +72,10 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
   };
 
   const handleClose = () => {
+    // ウィンドウを閉じる時にクリック状態をクリア
+    if (methodHighlightAPI) {
+      methodHighlightAPI.clearOriginalMethod();
+    }
     onClose(id);
   };
 
@@ -146,6 +167,12 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       
       // import文内のメソッドの場合は専用のハンドラーを呼び出し
       // 通常のメソッドの場合は従来のハンドラーを呼び出し
+      // 最初にクリックされたメソッド名を保存（モーダル選択後も保持）
+      if (methodHighlightAPI) {
+        methodHighlightAPI.setOriginalMethod(methodName);
+        setOriginalClickedMethod(methodName);
+      }
+      
       setTimeout(() => {
         if (isImportMethod && onImportMethodClickRef?.current) {
           onImportMethodClickRef.current(methodName!);
@@ -175,9 +202,18 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
   // __allFilesの変更を監視して再処理 - カスタムフックに分離
   const { allFilesVersion } = useAllFilesMonitor(file.path);
 
+  // コンポーネントのアンマウント時にクリーンアップ
+  useEffect(() => {
+    return () => {
+      // コンポーネントがアンマウントされる時は何もしない
+      // グローバル状態はContext側で管理
+    };
+  }, []);
+
   // シンタックスハイライトを適用
   useEffect(() => {
     const highlightCode = async () => {
+      
       // クライアントサイドでのみ実行
       if (typeof window === 'undefined') {
         setHighlightedCode(file.content || '');
@@ -245,6 +281,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                 // 長いメソッド名から先に処理して部分置換を防ぐ
                 const sortedMethodNames = Array.from(clickableMethodNames).sort((a, b) => b.length - a.length);
                 
+                
                 // findMethodDefinition関数の参照を取得
                 const findMethodDefinition = (methodName: string) => {
                   // 全ファイルからメソッド定義を検索
@@ -310,17 +347,23 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
                         findMethodDefinition,
                         findAllMethodCallers,
                         file.path,
-                        (window as any).__allFiles
+                        (window as any).__allFiles,
+                        highlightedMethod,
+                        originalClickedMethod
                       );
                     } else {
                       // 全ファイルデータが利用できない場合は、従来の動作を維持
                       // findMethodDefinitionを渡さないことで、全てのメソッドをクリック可能にする
                       // これにより、useAuthのような外部ファイルで定義されたメソッドもクリック可能
-                      highlighted = replaceMethodNameInText(highlighted, methodName, escapedMethodName);
+                      highlighted = replaceMethodNameInText(highlighted, methodName, escapedMethodName, undefined, undefined, file.path, undefined, highlightedMethod, originalClickedMethod);
                     }
                   }
                 });
               }
+              
+              // メソッド定義をハイライト
+              highlighted = highlightMethodDefinition(highlighted, highlightedMethod, file.path, file.methods);
+              
               
               setHighlightedCode(highlighted);
             } catch (error) {
@@ -339,12 +382,12 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
     };
 
     // 前回と同じコンテンツの場合は処理をスキップ
-    const currentContentKey = `${file.content}-${isCollapsed}-${showMethodsOnly}-${file.language}-${allFilesVersion}`;
+    const currentContentKey = `${file.content}-${isCollapsed}-${showMethodsOnly}-${file.language}-${allFilesVersion}-${originalClickedMethod}-${highlightedMethod?.methodName}-${highlightedMethod?.filePath}`;
     if (processedContentRef.current !== currentContentKey) {
       processedContentRef.current = currentContentKey;
       highlightCode();
     }
-  }, [file.content, isCollapsed, showMethodsOnly, file.language, allFilesVersion]);
+  }, [file.content, file.methods, file.path, isCollapsed, showMethodsOnly, file.language, allFilesVersion, originalClickedMethod, highlightedMethod, window]);
 
   // コンテンツ変更後にスクロール情報を更新
   useEffect(() => {
@@ -357,7 +400,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
     }, 100);
 
     return () => clearTimeout(timer);
-  }, [id]);
+  }, [id, window]);
 
   // highlightedMethodの変更を監視してフラグをリセット
   useEffect(() => {
@@ -425,7 +468,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       // スクロール完了後にフラグを設定
       hasJumpedToMethod.current = true;
     }
-  }, [highlightedMethod, file.path, file.methods, file.totalLines, isCollapsed, showMethodsOnly]);
+  }, [highlightedMethod, file.path, file.methods, file.totalLines, isCollapsed, showMethodsOnly, window]);
 
   // メソッドのみ表示モードでのスクロール
   useEffect(() => {
@@ -470,7 +513,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
         hasJumpedToMethod.current = true;
       }
     }
-  }, [highlightedMethod, file.path, isCollapsed, showMethodsOnly]);
+  }, [highlightedMethod, file.path, isCollapsed, showMethodsOnly, window]);
 
   // 非表示の場合は早期リターン
   if (!window.isVisible) {

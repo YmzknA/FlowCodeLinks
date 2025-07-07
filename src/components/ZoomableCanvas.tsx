@@ -137,7 +137,7 @@ export const ZoomableCanvas: React.FC<ZoomableCanvasProps> = ({
       setPan(newPan);
       onPanChange?.(newPan);
     }
-  }, [pan, zoom, onZoomChange, onPanChange]);
+  }, [zoom, onZoomChange, onPanChange]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
