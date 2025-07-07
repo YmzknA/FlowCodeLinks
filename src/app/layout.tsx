@@ -3,6 +3,13 @@ import './globals.css'
 import '../styles/prism-theme.css'
 import { FilesProvider } from '@/context/FilesContext'
 
+const baseUrl = process.env.NODE_ENV === 'production' 
+  ? 'https://flow-code-links.vercel.app'
+  : 'http://localhost:3001';
+
+const TITLE = 'FlowCodeLinks';
+const DESCRIPTION = 'Visualize code flow and method relationships';
+
 export const metadata: Metadata = {
   title: 'FlowCodeLinks',
   description: 'Visualize code flow and method relationships',
