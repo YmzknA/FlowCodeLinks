@@ -42,10 +42,9 @@ module.exports = {
           "error": "oklch(60.61% 0.12 15.341)",
           "error-content": "oklch(12.122% 0.024 15.341)",
         },
-      },
-      "dark"
+      }
     ],
-    darkTheme: "nord",
+    darkTheme: false,
     base: true,
     styled: true,
     utils: true,
