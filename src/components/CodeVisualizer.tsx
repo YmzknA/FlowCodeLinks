@@ -12,9 +12,11 @@ import { analyzeMethodsInFile, extractAllMethodDefinitions } from '@/utils/metho
 import { extractDependencies } from '@/utils/dependency-extractor';
 import { useOptimizedAnalysis, useOptimizedDependencies } from '@/utils/performance';
 import { useScrollAnimation, useStaggeredScrollAnimation } from '@/hooks/useScrollAnimation';
+import { useFiles } from '@/context/FilesContext';
 import { ParsedFile, Method, Dependency, FloatingWindow } from '@/types/codebase';
 
 export const CodeVisualizer: React.FC = () => {
+  const { setAllFiles } = useFiles();
   const [repomixContent, setRepomixContent] = useState<string>('');
   const [visibleFiles, setVisibleFiles] = useState<string[]>([]);
   const [highlightedMethod, setHighlightedMethod] = useState<{ methodName: string; filePath: string; lineNumber?: number } | null>(null);
@@ -85,21 +87,10 @@ export const CodeVisualizer: React.FC = () => {
   const optimizedCache = useOptimizedAnalysis(files);
   const visibleDependencies = useOptimizedDependencies(dependencies, visibleFiles);
 
-  // 全ファイルデータをグローバルに設定（メソッドクリック可能性判定用）
+  // 全ファイルデータをContext APIで安全に管理（グローバル変数も後方互換性で並行更新）
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      (window as any).__allFiles = files;
-      
-      // FloatingWindowに更新を通知
-      if (files.length > 0) {
-        // カスタムイベントを発行
-        const event = new CustomEvent('__allFiles_updated', {
-          detail: { files, count: files.length }
-        });
-        window.dispatchEvent(event);
-      }
-    }
-  }, [files]);
+    setAllFiles(files);
+  }, [files, setAllFiles]);
 
   // フィルタリング済みファイルをメモ化して参照安定性を確保
   const visibleFilesData = useMemo(() => {
@@ -828,7 +819,7 @@ export const CodeVisualizer: React.FC = () => {
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  ファイルをアップロード
+                  ファイルを選択して開始
                   <input
                     type="file"
                     accept=".md"

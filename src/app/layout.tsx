@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import '../styles/prism-theme.css'
+import { FilesProvider } from '@/context/FilesContext'
 
 export const metadata: Metadata = {
   title: 'FlowCodeLinks',
@@ -29,9 +30,11 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Raleway:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet" />
       </head>
       <body className="bg-slate-50 text-slate-900 font-sans antialiased raleway">
-        <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
-          {children}
-        </div>
+        <FilesProvider>
+          <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+            {children}
+          </div>
+        </FilesProvider>
       </body>
     </html>
   )

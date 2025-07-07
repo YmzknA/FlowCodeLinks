@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 
 interface ArrowPath {
   id: string;
@@ -24,6 +24,10 @@ export const AnimatedArrows: React.FC<AnimatedArrowsProps> = ({
 }) => {
   const [arrows, setArrows] = useState<ArrowPath[]>([]);
   const [isClient, setIsClient] = useState(false);
+  
+  // メモリリーク防止: タイマーID管理
+  const timeoutRefs = useRef<Set<NodeJS.Timeout>>(new Set());
+  const isActiveRef = useRef(true);
 
   // クライアントサイド確認
   useEffect(() => {
@@ -33,7 +37,11 @@ export const AnimatedArrows: React.FC<AnimatedArrowsProps> = ({
   useEffect(() => {
     if (!isClient) return; // クライアントサイドでのみ実行
     
+    isActiveRef.current = true; // アクティブ状態にリセット
+    
     const generateSingleArrow = () => {
+      if (!isActiveRef.current) return; // アンマウント済みなら処理停止
+      
       const direction = Math.random() > 0.5 ? 'leftToRight' : 'rightToLeft';
       const y = Math.random() * containerHeight;
       const duration = 6000 + Math.random() * 4000; // 6-10秒の長さ
@@ -67,29 +75,45 @@ export const AnimatedArrows: React.FC<AnimatedArrowsProps> = ({
 
       setArrows(prev => [...prev, newArrow]);
 
-      // アニメーション終了後に矢印を削除
-      setTimeout(() => {
+      // アニメーション終了後に矢印を削除（タイマーID管理）
+      const removeTimeout = setTimeout(() => {
+        if (!isActiveRef.current) return;
         setArrows(prev => prev.filter(arrow => arrow.id !== id));
+        timeoutRefs.current.delete(removeTimeout);
       }, duration + 1000);
+      
+      timeoutRefs.current.add(removeTimeout);
     };
 
-    // 初期矢印を生成
+    // 初期矢印を生成（タイマーID管理）
     for (let i = 0; i < arrowCount; i++) {
-      setTimeout(generateSingleArrow, Math.random() * 3000);
+      const initTimeout = setTimeout(generateSingleArrow, Math.random() * 3000);
+      timeoutRefs.current.add(initTimeout);
     }
     
-    // 継続的に新しい矢印を生成（ランダム間隔）
+    // 継続的に新しい矢印を生成（再帰ではなく制御された方式）
     const scheduleNext = () => {
-      setTimeout(() => {
-        generateSingleArrow();
-        scheduleNext();
-      }, 2000 + Math.random() * 3000);
+      if (!isActiveRef.current) return;
+      
+      generateSingleArrow();
+      
+      const nextTimeout = setTimeout(scheduleNext, 2000 + Math.random() * 3000);
+      timeoutRefs.current.add(nextTimeout);
     };
     
-    scheduleNext();
+    // 初回のスケジュール設定
+    const initialScheduleTimeout = setTimeout(scheduleNext, 5000);
+    timeoutRefs.current.add(initialScheduleTimeout);
     
+    // 完全なクリーンアップ処理
     return () => {
-      // クリーンアップ処理は特になし（setTimeoutは自動的にクリアされる）
+      isActiveRef.current = false; // 実行停止フラグ
+      
+      // 全てのタイマーをクリア
+      timeoutRefs.current.forEach(timeoutId => {
+        clearTimeout(timeoutId);
+      });
+      timeoutRefs.current.clear();
     };
   }, [containerWidth, containerHeight, arrowCount, isClient]);
 
