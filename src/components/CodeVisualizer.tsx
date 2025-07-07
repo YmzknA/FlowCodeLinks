@@ -9,6 +9,7 @@ import { parseRepomixFile } from '@/utils/parser';
 import { analyzeMethodsInFile, extractAllMethodDefinitions } from '@/utils/method-analyzer';
 import { extractDependencies } from '@/utils/dependency-extractor';
 import { useOptimizedAnalysis, useOptimizedDependencies } from '@/utils/performance';
+import { useScrollAnimation, useStaggeredScrollAnimation } from '@/hooks/useScrollAnimation';
 import { ParsedFile, Method, Dependency, FloatingWindow } from '@/types/codebase';
 
 export const CodeVisualizer: React.FC = () => {
@@ -439,31 +440,298 @@ export const CodeVisualizer: React.FC = () => {
     return floatingWindows.map(window => window.file.path);
   }, [floatingWindows]);
 
+  // スクロールアニメーション用フック
+  const heroAnimation = useScrollAnimation({ threshold: 0.3 });
+  const featuresAnimation = useScrollAnimation({ threshold: 0.2 });
+  const galleryAnimation = useScrollAnimation({ threshold: 0.1 });
+  const ctaAnimation = useScrollAnimation({ threshold: 0.3 });
+  
+  // 機能カード用段階的アニメーション
+  const { elementRef: featuresGridRef, visibleItems: visibleFeatures } = useStaggeredScrollAnimation(3, 200);
+  
+  // ギャラリーカード用段階的アニメーション
+  const { elementRef: galleryGridRef, visibleItems: visibleGalleryItems } = useStaggeredScrollAnimation(4, 150);
+
 
   if (files.length === 0 && !isLoading && !error) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="card w-[500px] bg-base-200 shadow-2xl">
-          <div className="card-body items-center text-center">
-            <div>
-              <img 
-                src="/logo.png" 
-                alt="FlowCodeLinks Logo" 
-                className="w-40 h-40 mx-auto"
-              />
+      <div className="min-h-screen bg-gradient-to-br from-base-100 via-base-200 to-base-300">
+        {/* Hero Section */}
+        <section 
+          ref={heroAnimation.elementRef}
+          className={`hero min-h-screen transition-all duration-1000 ${
+            heroAnimation.isVisible 
+              ? 'opacity-100 translate-y-0' 
+              : 'opacity-0 translate-y-10'
+          }`}
+        >
+          <div className="hero-content text-center">
+            <div className="max-w-4xl">
+              <div className="mb-8">
+                <img 
+                  src="/logo.png" 
+                  alt="FlowCodeLinks Logo" 
+                  className="w-32 h-32 mx-auto mb-6 hover:scale-110 transition-transform duration-300"
+                />
+              </div>
+              <h1 className="text-6xl font-bold text-primary mb-6 raleway">
+                FlowCodeLinks
+              </h1>
+              <p className="text-xl text-base-content/80 mb-8 leading-relaxed">
+                Repomixで生成されたmdファイルをアップロードして、<br />
+                コードの関係性を美しく可視化します
+              </p>
+              <div className="mb-12">
+                <label className="btn btn-primary btn-lg gap-3 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  ファイルを選択して開始
+                  <input
+                    type="file"
+                    accept=".md"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
             </div>
-            <h1 className="text-4xl font-bold text-black mb-4 raleway">
-              FlowCodeLinks
-            </h1>
-            <p className="text-base-content/70 mb-8 text-lg">
-              Repomixで生成されたmdファイルをアップロードして、コードの関係性を可視化
+          </div>
+        </section>
+
+        {/* Features Section */}
+        <section 
+          ref={featuresAnimation.elementRef}
+          className={`py-20 bg-base-100 transition-all duration-1000 ${
+            featuresAnimation.isVisible 
+              ? 'opacity-100 translate-y-0' 
+              : 'opacity-0 translate-y-10'
+          }`}
+        >
+          <div className="container mx-auto px-4">
+            <h2 className={`text-4xl font-bold text-center mb-16 raleway transition-all duration-1000 delay-300 ${
+              featuresAnimation.isVisible 
+                ? 'opacity-100 translate-y-0' 
+                : 'opacity-0 translate-y-5'
+            }`}>
+              主要機能
+            </h2>
+            <div 
+              ref={featuresGridRef}
+              className="grid grid-cols-1 md:grid-cols-3 gap-8"
+            >
+              <div className={`card bg-base-200 shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-500 hover:-translate-y-2 ${
+                visibleFeatures.has(0) 
+                  ? 'opacity-100 translate-y-0 scale-100' 
+                  : 'opacity-0 translate-y-8 scale-95'
+              }`}>
+                <div className="card-body text-center">
+                  <div className="text-primary mb-4 transition-all duration-300">
+                    <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <h3 className="card-title justify-center mb-2">コード解析</h3>
+                  <p className="text-base-content/70">
+                    Rubyのメソッドや関数を自動で解析し、構造を把握します
+                  </p>
+                </div>
+              </div>
+
+              <div className={`card bg-base-200 shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-500 hover:-translate-y-2 ${
+                visibleFeatures.has(1) 
+                  ? 'opacity-100 translate-y-0 scale-100' 
+                  : 'opacity-0 translate-y-8 scale-95'
+              }`}>
+                <div className="card-body text-center">
+                  <div className="text-primary mb-4 hover:animate-pulse transition-all duration-300">
+                    <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <h3 className="card-title justify-center mb-2">関係性可視化</h3>
+                  <p className="text-base-content/70">
+                    メソッド間の呼び出し関係を矢印で表示し、コードの流れを直感的に理解できます
+                  </p>
+                </div>
+              </div>
+
+              <div className={`card bg-base-200 shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-500 hover:-translate-y-2 ${
+                visibleFeatures.has(2) 
+                  ? 'opacity-100 translate-y-0 scale-100' 
+                  : 'opacity-0 translate-y-8 scale-95'
+              }`}>
+                <div className="card-body text-center">
+                  <div className="text-primary mb-4 transition-all duration-300">
+                    <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                    </svg>
+                  </div>
+                  <h3 className="card-title justify-center mb-2">インタラクティブUI</h3>
+                  <p className="text-base-content/70">
+                    ドラッグ&ドロップ、検索、フィルタリング機能で効率的にコードを探索できます
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* Gallery Section */}
+        <section 
+          ref={galleryAnimation.elementRef}
+          className={`py-20 bg-base-200 transition-all duration-1000 ${
+            galleryAnimation.isVisible 
+              ? 'opacity-100 translate-y-0' 
+              : 'opacity-0 translate-y-10'
+          }`}
+        >
+          <div className="container mx-auto px-4">
+            <h2 className={`text-4xl font-bold text-center mb-16 raleway transition-all duration-1000 delay-300 ${
+              galleryAnimation.isVisible 
+                ? 'opacity-100 translate-y-0' 
+                : 'opacity-0 translate-y-5'
+            }`}>
+              使用イメージ
+            </h2>
+            <div 
+              ref={galleryGridRef}
+              className="grid grid-cols-1 lg:grid-cols-2 gap-8"
+            >
+              <div className={`card bg-base-100 shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-700 group ${
+                visibleGalleryItems.has(0) 
+                  ? 'opacity-100 translate-y-0 scale-100' 
+                  : 'opacity-0 translate-y-8 scale-95'
+              }`}>
+                <figure className="px-4 pt-4 overflow-hidden">
+                  <img 
+                    src="/images/screenshot-main.png" 
+                    alt="メインインターフェース"
+                    className="rounded-xl w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500"
+                    onError={(e) => {
+                      e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2Y3ZjdmNyIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE4IiBmaWxsPSIjOTk5Ij5tYWluIGludGVyZmFjZTwvdGV4dD4KICA8L3N2Zz4K';
+                    }}
+                  />
+                </figure>
+                <div className="card-body group-hover:bg-base-200 transition-colors duration-300">
+                  <h3 className="card-title group-hover:text-primary transition-colors duration-300">メインインターフェース</h3>
+                  <p className="text-base-content/70">
+                    コードファイルをフローティングウィンドウで表示し、サイドバーでファイル構造を確認できます
+                  </p>
+                </div>
+              </div>
+
+              <div className={`card bg-base-100 shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-700 group ${
+                visibleGalleryItems.has(1) 
+                  ? 'opacity-100 translate-y-0 scale-100' 
+                  : 'opacity-0 translate-y-8 scale-95'
+              }`}>
+                <figure className="px-4 pt-4 overflow-hidden">
+                  <img 
+                    src="/images/screenshot-highlight.png" 
+                    alt="メソッドハイライト"
+                    className="rounded-xl w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500"
+                    onError={(e) => {
+                      e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2Y3ZjdmNyIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE4IiBmaWxsPSIjOTk5Ij5tZXRob2QgaGlnaGxpZ2h0PC90ZXh0Pgo8L3N2Zz4K';
+                    }}
+                  />
+                </figure>
+                <div className="card-body group-hover:bg-base-200 transition-colors duration-300">
+                  <h3 className="card-title group-hover:text-primary transition-colors duration-300">メソッドハイライト</h3>
+                  <p className="text-base-content/70">
+                    クリックしたメソッドがハイライトされ、呼び出し関係を視覚的に確認できます
+                  </p>
+                </div>
+              </div>
+
+              <div className={`card bg-base-100 shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-700 group ${
+                visibleGalleryItems.has(2) 
+                  ? 'opacity-100 translate-y-0 scale-100' 
+                  : 'opacity-0 translate-y-8 scale-95'
+              }`}>
+                <figure className="px-4 pt-4 overflow-hidden">
+                  <img 
+                    src="/images/screenshot-connections.png" 
+                    alt="関係性の可視化"
+                    className="rounded-xl w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500"
+                    onError={(e) => {
+                      e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2Y3ZjdmNyIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE4IiBmaWxsPSIjOTk5Ij5jb25uZWN0aW9ucyB2aWV3PC90ZXh0Pgo8L3N2Zz4K';
+                    }}
+                  />
+                </figure>
+                <div className="card-body group-hover:bg-base-200 transition-colors duration-300">
+                  <h3 className="card-title group-hover:text-primary transition-colors duration-300">関係性の可視化</h3>
+                  <p className="text-base-content/70">
+                    メソッド間の呼び出し関係を矢印で表示し、コードの流れを把握できます
+                  </p>
+                </div>
+              </div>
+
+              <div className={`card bg-base-100 shadow-xl hover:shadow-2xl hover:scale-105 transition-all duration-700 group ${
+                visibleGalleryItems.has(3) 
+                  ? 'opacity-100 translate-y-0 scale-100' 
+                  : 'opacity-0 translate-y-8 scale-95'
+              }`}>
+                <figure className="px-4 pt-4 overflow-hidden">
+                  <video 
+                    className="rounded-xl w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500"
+                    controls
+                    poster="/images/demo-thumbnail.png"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.parentNode?.insertAdjacentHTML('afterbegin', '<img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8cmVjdCB3aWR0aD0iNDAwIiBoZWlnaHQ9IjMwMCIgZmlsbD0iI2Y3ZjdmNyIvPgogIDx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBkb21pbmFudC1iYXNlbGluZT0ibWlkZGxlIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmb250LXNpemU9IjE4IiBmaWxsPSIjOTk5Ij5kZW1vIHZpZGVvPC90ZXh0Pgo8L3N2Zz4K" class="rounded-xl w-full h-64 object-cover group-hover:scale-110 transition-transform duration-500" alt="Demo Video" />');
+                    }}
+                  >
+                    <source src="/videos/demo.mp4" type="video/mp4" />
+                    <source src="/videos/demo.webm" type="video/webm" />
+                    Your browser does not support the video tag.
+                  </video>
+                </figure>
+                <div className="card-body group-hover:bg-base-200 transition-colors duration-300">
+                  <h3 className="card-title group-hover:text-primary transition-colors duration-300">デモ動画</h3>
+                  <p className="text-base-content/70">
+                    実際の使用方法を動画で確認し、操作感を体感できます
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA Section */}
+        <section 
+          ref={ctaAnimation.elementRef}
+          className={`py-20 bg-primary text-primary-content transition-all duration-1000 ${
+            ctaAnimation.isVisible 
+              ? 'opacity-100 translate-y-0' 
+              : 'opacity-0 translate-y-10'
+          }`}
+        >
+          <div className="container mx-auto px-4 text-center">
+            <h2 className={`text-4xl font-bold mb-6 raleway transition-all duration-1000 delay-300 ${
+              ctaAnimation.isVisible 
+                ? 'opacity-100 translate-y-0' 
+                : 'opacity-0 translate-y-5'
+            }`}>
+              今すぐ始めましょう
+            </h2>
+            <p className={`text-xl mb-8 opacity-90 transition-all duration-1000 delay-500 ${
+              ctaAnimation.isVisible 
+                ? 'opacity-90 translate-y-0' 
+                : 'opacity-0 translate-y-5'
+            }`}>
+              コードの可視化で、開発効率を向上させましょう
             </p>
-            <div className="card-actions">
-              <label className="btn btn-primary btn-lg gap-2">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className={`flex flex-col sm:flex-row gap-4 justify-center transition-all duration-1000 delay-700 ${
+              ctaAnimation.isVisible 
+                ? 'opacity-100 translate-y-0' 
+                : 'opacity-0 translate-y-5'
+            }`}>
+              <label className="btn btn-secondary btn-lg gap-3 shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 animate-pulse hover:animate-none">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                ファイルを選択
+                ファイルをアップロード
                 <input
                   type="file"
                   accept=".md"
@@ -471,9 +739,35 @@ export const CodeVisualizer: React.FC = () => {
                   className="hidden"
                 />
               </label>
+              <a href="#features" className="btn btn-outline btn-secondary btn-lg gap-3 hover:scale-105 transition-all duration-300">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                詳細を見る
+              </a>
             </div>
           </div>
-        </div>
+        </section>
+
+        {/* Footer */}
+        <footer className="footer footer-center p-10 bg-base-300 text-base-content">
+          <aside>
+            <img 
+              src="/logo.png" 
+              alt="FlowCodeLinks Logo" 
+              className="w-12 h-12 mb-4"
+            />
+            <p className="font-bold">
+              FlowCodeLinks
+            </p>
+            <p className="text-base-content/70">
+              コードの関係性を可視化するツール
+            </p>
+            <p className="text-sm text-base-content/60 mt-4">
+              © 2025 FlowCodeLinks. All rights reserved.
+            </p>
+          </aside>
+        </footer>
       </div>
     );
   }
