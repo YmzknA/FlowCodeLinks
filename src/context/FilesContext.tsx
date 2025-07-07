@@ -79,7 +79,7 @@ export const FilesProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       } else {
         // 本番環境: セキュリティのためグローバル変数は設定しない
         if (MIGRATION_CONFIG.showDeprecationWarnings) {
-          console.info('ℹ️ [FlowCodeLinks] セキュリティのため、本番環境ではグローバル変数は使用されません。');
+          // console.info('ℹ️ [FlowCodeLinks] セキュリティのため、本番環境ではグローバル変数は使用されません。');
         }
       }
       
