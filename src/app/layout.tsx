@@ -7,15 +7,18 @@ const baseUrl = process.env.NODE_ENV === 'production'
   ? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://flow-code-links.vercel.app')
   : 'http://localhost:3001';
 
+const TITLE = 'FlowCodeLinks';
+const DESCRIPTION = 'Visualize code flow and method relationships';
+
 export const metadata: Metadata = {
-  title: 'FlowCodeLinks',
-  description: 'Visualize code flow and method relationships',
+  title: TITLE,
+  description: DESCRIPTION,
   metadataBase: new URL(baseUrl),
   openGraph: {
-    title: 'FlowCodeLinks',
-    description: 'Visualize code flow and method relationships',
+    title: TITLE,
+    description: DESCRIPTION,
     url: baseUrl,
-    siteName: 'FlowCodeLinks',
+    siteName: TITLE,
     images: [
       {
         url: `${baseUrl}/ogp.png`,
@@ -29,8 +32,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'FlowCodeLinks',
-    description: 'Visualize code flow and method relationships',
+    title: TITLE,
+    description: DESCRIPTION,
     images: [`${baseUrl}/ogp.png`],
   },
 }
