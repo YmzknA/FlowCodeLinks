@@ -169,48 +169,9 @@ export const ZoomableCanvas: React.FC<ZoomableCanvasProps> = ({
 
   return (
     <div className={`relative overflow-hidden ${className}`}>
-      {/* ズームコントロール */}
-      <div className="absolute top-4 right-4 z-50 bg-white rounded-lg shadow-lg p-2 space-y-2">
-        <button
-          onClick={() => {
-            const newZoom = Math.min(3, zoom * 1.2);
-            setZoom(newZoom);
-            onZoomChange?.(newZoom);
-          }}
-          className="block w-8 h-8 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm font-bold"
-          title="ズームイン"
-        >
-          +
-        </button>
-        <button
-          onClick={() => {
-            const newZoom = Math.max(0.1, zoom / 1.2);
-            setZoom(newZoom);
-            onZoomChange?.(newZoom);
-          }}
-          className="block w-8 h-8 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm font-bold"
-          title="ズームアウト"
-        >
-          -
-        </button>
-        <button
-          onClick={fitToView}
-          className="block w-8 h-8 bg-green-500 text-white rounded hover:bg-green-600 text-xs font-bold"
-          title="全体表示"
-        >
-          □
-        </button>
-        <button
-          onClick={resetView}
-          className="block w-8 h-8 bg-gray-500 text-white rounded hover:bg-gray-600 text-xs font-bold"
-          title="リセット"
-        >
-          ⌂
-        </button>
-      </div>
 
       {/* ズーム倍率表示 */}
-      <div className="absolute bottom-4 right-4 z-50 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm">
+      <div className="absolute bottom-4 right-4 z-50 bg-base-200 text-base-content px-2 py-1 rounded text-sm border border-base-300">
         {Math.round(zoom * 100)}%
       </div>
 
