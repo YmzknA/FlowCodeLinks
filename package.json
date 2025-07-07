@@ -17,6 +17,7 @@
     "@types/dompurify": "^3.0.5",
     "@typescript-eslint/types": "^8.35.1",
     "@typescript-eslint/typescript-estree": "^8.35.1",
+    "daisyui": "^5.0.46",
     "dompurify": "^3.2.6",
     "next": "^14.2.30",
     "prismjs": "^1.30.0",
