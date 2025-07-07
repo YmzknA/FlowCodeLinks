@@ -439,29 +439,39 @@ export const CodeVisualizer: React.FC = () => {
     return floatingWindows.map(window => window.file.path);
   }, [floatingWindows]);
 
+
   if (files.length === 0 && !isLoading && !error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
-          <div className="text-center">
-            <div className="text-blue-500 text-6xl mb-4">📁</div>
-            <h1 className="text-xl font-bold text-gray-900 mb-2">
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="card w-[500px] bg-base-200 shadow-2xl">
+          <div className="card-body items-center text-center">
+            <div className="mb-8">
+              <img 
+                src="/logo.png" 
+                alt="FlowCodeLinks Logo" 
+                className="w-40 h-40 mx-auto mb-6"
+              />
+            </div>
+            <h1 className="text-5xl font-bold text-black mb-4 raleway">
               FlowCodeLinks
             </h1>
-            <p className="text-gray-600 mb-4">
-              Repomixで生成されたmdファイルをアップロードして、コードの関係性を可視化しましょう。
+            <p className="text-base-content/70 mb-8 text-lg">
+              Repomixで生成されたmdファイルをアップロードして、コードの関係性を可視化
             </p>
-            <label className="block">
-              <input
-                type="file"
-                accept=".md"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-              <div className="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 cursor-pointer">
-                mdファイルを選択
-              </div>
-            </label>
+            <div className="card-actions">
+              <label className="btn btn-primary btn-lg gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                ファイルを選択
+                <input
+                  type="file"
+                  accept=".md"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
           </div>
         </div>
       </div>
@@ -470,10 +480,10 @@ export const CodeVisualizer: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">コードを解析中...</p>
+          <span className="loading loading-spinner loading-lg text-primary mb-4"></span>
+          <p className="text-base-content/70 text-lg">コードを解析中...</p>
         </div>
       </div>
     );
@@ -481,21 +491,23 @@ export const CodeVisualizer: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="max-w-md w-full bg-white rounded-lg shadow-lg p-6">
-          <div className="text-center">
-            <div className="text-red-500 text-6xl mb-4">❌</div>
-            <h1 className="text-xl font-bold text-gray-900 mb-2">エラー</h1>
-            <p className="text-gray-600 mb-4">{error}</p>
-            <button
-              onClick={() => {
-                setError(null);
-                setRepomixContent('');
-              }}
-              className="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-            >
-              最初に戻る
-            </button>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="card w-96 bg-base-200 shadow-2xl">
+          <div className="card-body items-center text-center">
+            <div className="text-error text-6xl mb-4">⚠️</div>
+            <h1 className="card-title text-xl text-error mb-2">エラーが発生しました</h1>
+            <p className="text-base-content/70 mb-6">{error}</p>
+            <div className="card-actions">
+              <button
+                onClick={() => {
+                  setError(null);
+                  setRepomixContent('');
+                }}
+                className="btn btn-primary btn-wide"
+              >
+                最初に戻る
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -503,7 +515,7 @@ export const CodeVisualizer: React.FC = () => {
   }
 
   return (
-    <div className="h-screen w-full flex bg-gray-100 overflow-hidden">
+    <div className="h-screen w-full flex bg-base-100 overflow-hidden">
       {/* サイドバー */}
       <div 
         className={`relative flex-shrink-0 ${sidebarCollapsed ? 'w-12' : ''}`}
@@ -512,7 +524,7 @@ export const CodeVisualizer: React.FC = () => {
         {/* サイドバー折りたたみボタン */}
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="absolute top-4 -right-3 z-50 w-6 h-6 bg-white border border-gray-300 rounded-full flex items-center justify-center shadow-sm hover:bg-gray-50 text-xs"
+          className="btn btn-circle btn-sm btn-outline absolute top-4 -right-3 z-50 shadow-lg"
           title={sidebarCollapsed ? 'サイドバーを開く' : 'サイドバーを閉じる'}
         >
           {sidebarCollapsed ? '▶' : '◀'}
@@ -536,7 +548,7 @@ export const CodeVisualizer: React.FC = () => {
         {/* リサイズハンドル */}
         {!sidebarCollapsed && (
           <div
-            className="absolute top-0 right-0 w-1 h-full bg-gray-300 hover:bg-blue-500 cursor-col-resize transition-colors"
+            className="absolute top-0 right-0 w-1 h-full bg-base-300 hover:bg-primary cursor-col-resize transition-colors"
             onMouseDown={handleMouseDown}
             title="サイドバーの幅を調整"
           />
@@ -544,13 +556,15 @@ export const CodeVisualizer: React.FC = () => {
         
         {/* 折りたたみ時のミニコントロール */}
         {sidebarCollapsed && (
-          <div className="h-full bg-gray-200 border-r border-gray-300 flex flex-col items-center justify-center space-y-6">
-            <div className="flex flex-col items-center space-y-1">
-              <div className="text-sm font-semibold text-gray-700">
-                {files.length}
-              </div>
-              <div className="text-xs text-gray-500">
-                files
+          <div className="h-full bg-base-200 border-r border-base-300 flex flex-col items-center justify-center space-y-6">
+            <div className="stats stats-vertical shadow-sm">
+              <div className="stat place-items-center py-2">
+                <div className="stat-value text-sm text-primary">
+                  {files.length}
+                </div>
+                <div className="stat-desc text-xs">
+                  files
+                </div>
               </div>
             </div>
           </div>
@@ -558,19 +572,20 @@ export const CodeVisualizer: React.FC = () => {
       </div>
       
       {/* メインエリア */}
-      <div className="flex-1 relative bg-gray-50 min-h-screen overflow-hidden">
+      <div className="flex-1 relative bg-base-300/20 min-h-screen overflow-hidden">
         {/* ファイル変更ボタン */}
         <div className="absolute top-4 left-4 z-50">
-          <label className="block">
+          <label className="btn btn-secondary btn-sm gap-2 shadow-lg">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            ファイル変更
             <input
               type="file"
               accept=".md"
               onChange={handleFileUpload}
               className="hidden"
             />
-            <div className="bg-white border border-gray-300 px-3 py-2 rounded shadow-sm hover:bg-gray-50 cursor-pointer text-sm">
-              ファイル変更
-            </div>
           </label>
         </div>
 
