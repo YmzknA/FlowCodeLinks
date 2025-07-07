@@ -4,7 +4,7 @@ import '../styles/prism-theme.css'
 import { FilesProvider } from '@/context/FilesContext'
 
 const baseUrl = process.env.NODE_ENV === 'production' 
-  ? (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://flow-code-links.vercel.app')
+  ? 'https://flow-code-links.vercel.app'
   : 'http://localhost:3001';
 
 const TITLE = 'FlowCodeLinks';
