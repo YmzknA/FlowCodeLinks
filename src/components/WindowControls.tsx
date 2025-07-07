@@ -45,17 +45,17 @@ export const WindowControls: React.FC<WindowControlsProps> = ({
 
   if (files.length === 0) {
     return (
-      <div className="bg-white border-r border-gray-300 w-80 p-4">
-        <div className="text-gray-500 text-center">ファイルがありません</div>
+      <div className="bg-base-100 border-r border-base-300 w-80 p-4">
+        <div className="text-base-content/60 text-center">ファイルがありません</div>
       </div>
     );
   }
 
   return (
-    <div className="bg-white border-r border-gray-300 w-80 h-full flex flex-col">
+    <div className="bg-base-100 border-r border-base-300 w-80 h-full flex flex-col">
       {/* ヘッダー */}
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800 mb-2">ファイル管理</h2>
+      <div className="p-4 border-b border-base-300">
+        <h2 className="text-lg font-semibold text-base-content mb-2">ファイル管理</h2>
         
         {/* 検索 */}
         <input
@@ -63,27 +63,27 @@ export const WindowControls: React.FC<WindowControlsProps> = ({
           placeholder="ファイル検索..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+          className="input input-bordered input-sm w-full"
         />
         
         {/* ステータス */}
-        <div className="mt-2 text-sm text-gray-600">
+        <div className="mt-2 text-sm text-base-content/60">
           表示中: {visibleCount} / {totalCount}
         </div>
       </div>
 
       {/* 操作ボタン */}
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-base-300">
         <div className="flex space-x-2 mb-2">
           <button
             onClick={onShowAll}
-            className="flex-1 px-3 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+            className="btn btn-primary btn-sm flex-1"
           >
             全て表示
           </button>
           <button
             onClick={onHideAll}
-            className="flex-1 px-3 py-2 bg-gray-500 text-white text-sm rounded hover:bg-gray-600"
+            className="btn btn-secondary btn-sm flex-1"
           >
             全て非表示
           </button>
@@ -91,7 +91,7 @@ export const WindowControls: React.FC<WindowControlsProps> = ({
         
         <button
           onClick={() => setShowMethods(!showMethods)}
-          className="w-full px-3 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600"
+          className="btn btn-accent btn-sm w-full"
         >
           {showMethods ? 'ファイル表示' : 'メソッド表示'}
         </button>
@@ -101,12 +101,12 @@ export const WindowControls: React.FC<WindowControlsProps> = ({
       <div className="flex-1 overflow-y-auto">
         {showMethods ? (
           <div className="p-4">
-            <h3 className="font-semibold text-gray-700 mb-2">メソッド一覧</h3>
+            <h3 className="font-semibold text-base-content mb-2">メソッド一覧</h3>
             {files.flatMap(file => 
               file.methods.map((method, index) => (
-                <div key={`${file.path}-${index}`} className="mb-2 p-2 bg-gray-50 rounded">
-                  <div className="font-medium text-blue-600">{method.name}</div>
-                  <div className="text-xs text-gray-500">{file.fileName}</div>
+                <div key={`${file.path}-${index}`} className="mb-2 p-2 bg-base-200 rounded">
+                  <div className="font-medium text-primary">{method.name}</div>
+                  <div className="text-xs text-base-content/60">{file.fileName}</div>
                 </div>
               ))
             )}
@@ -115,22 +115,22 @@ export const WindowControls: React.FC<WindowControlsProps> = ({
           <div className="p-4">
             {Object.entries(groupedFiles).map(([directory, dirFiles]) => (
               <div key={directory} className="mb-4">
-                <h3 className="font-semibold text-gray-700 mb-2 text-sm">{directory}</h3>
+                <h3 className="font-semibold text-base-content mb-2 text-sm">{directory}</h3>
                 {dirFiles.map(file => {
                   const isVisible = visibleFiles.includes(file.path);
                   return (
-                    <div key={file.path} className="flex items-center justify-between mb-1 p-2 hover:bg-gray-50 rounded">
+                    <div key={file.path} className="flex items-center justify-between mb-1 p-2 hover:bg-base-200 rounded">
                       <div className="flex-1">
-                        <div className="font-medium text-sm">{file.fileName}</div>
-                        <div className="text-xs text-gray-500">{file.language}</div>
+                        <div className="font-medium text-sm text-base-content">{file.fileName}</div>
+                        <div className="text-xs text-base-content/60">{file.language}</div>
                       </div>
                       <button
                         onClick={() => onFileToggle(file.path)}
                         aria-label={`${file.path} の表示切り替え`}
-                        className={`w-6 h-6 rounded border-2 flex items-center justify-center ${
+                        className={`btn btn-xs btn-circle ${
                           isVisible 
-                            ? 'bg-blue-500 border-blue-500 text-white' 
-                            : 'bg-white border-gray-300'
+                            ? 'btn-primary' 
+                            : 'btn-ghost'
                         }`}
                       >
                         {isVisible && '✓'}

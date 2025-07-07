@@ -40,13 +40,13 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              // 環境に応じた script-src の設定
-              "script-src 'self'" + (process.env.NODE_ENV === 'development' ? " 'unsafe-inline' 'unsafe-eval'" : " 'unsafe-inline'"),
-              // 環境に応じた style-src の設定
-              "style-src 'self'" + (process.env.NODE_ENV === 'development' ? " 'unsafe-inline'" : " 'unsafe-inline'"),
+              // 環境に応じた script-src の設定（Vercel Live Feedback対応）
+              "script-src 'self' https://vercel.live" + (process.env.NODE_ENV === 'development' ? " 'unsafe-inline' 'unsafe-eval'" : " 'unsafe-inline'"),
+              // 環境に応じた style-src の設定（Google Fontsを追加）
+              "style-src 'self' https://fonts.googleapis.com" + (process.env.NODE_ENV === 'development' ? " 'unsafe-inline'" : " 'unsafe-inline'"),
               "img-src 'self' data: blob:",
-              "connect-src 'self'",
-              "font-src 'self'",
+              "connect-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com",
+              "font-src 'self' https://fonts.gstatic.com",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",

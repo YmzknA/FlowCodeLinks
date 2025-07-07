@@ -31,6 +31,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [showMethods, setShowMethods] = useState(false);
   const [languageFilter, setLanguageFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'list' | 'tree'>('tree');
+  const [showFileDetails, setShowFileDetails] = useState(false);
 
   const allMethods = useMemo(() => {
     return files.flatMap(file => 
@@ -112,62 +113,75 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <div 
-      className="bg-white border-r border-gray-300 h-full flex flex-col flex-shrink-0"
+      className="bg-base-200 border-r border-base-300 h-full flex flex-col flex-shrink-0"
       style={{ width: `${sidebarWidth}px` }}
     >
       {/* ヘッダー */}
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="text-lg font-semibold text-gray-800 mb-3">ファイル管理</h2>
+      <div className="p-4 border-b border-base-300">
+        <h2 className="text-lg font-semibold text-base-content mb-3 flex items-center gap-2">
+          <span className="text-primary">📁</span>
+          ファイル管理
+        </h2>
         
         {/* 検索 */}
-        <input
-          type="text"
-          placeholder="ファイル・メソッド検索..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3"
-        />
+        <div className="form-control mb-3">
+          <input
+            type="text"
+            placeholder="ファイル・メソッド検索..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="input input-bordered input-sm w-full"
+          />
+        </div>
         
         {/* 言語フィルター */}
-        <select
-          value={languageFilter}
-          onChange={(e) => setLanguageFilter(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm mb-3"
-        >
-          <option value="all">全ての言語</option>
-          {languages.map(lang => (
-            <option key={lang} value={lang}>{lang}</option>
-          ))}
-        </select>
+        <div className="form-control mb-3">
+          <select
+            value={languageFilter}
+            onChange={(e) => setLanguageFilter(e.target.value)}
+            className="select select-bordered select-sm w-full"
+          >
+            <option value="all">全ての言語</option>
+            {languages.map(lang => (
+              <option key={lang} value={lang}>{lang}</option>
+            ))}
+          </select>
+        </div>
         
         {/* 統計情報 */}
-        <div className="text-sm text-gray-600 space-y-1">
-          <div>表示中: {visibleCount} / {totalCount}</div>
-          <div>総メソッド数: {totalMethods}</div>
+        <div className="stats shadow-sm bg-base-100">
+          <div className="stat py-2">
+            <div className="stat-title text-xs">表示ファイル</div>
+            <div className="stat-value text-sm text-primary">{visibleCount} / {totalCount}</div>
+          </div>
+          <div className="stat py-2">
+            <div className="stat-title text-xs">総メソッド数</div>
+            <div className="stat-value text-sm text-secondary">{totalMethods}</div>
+          </div>
         </div>
       </div>
 
       {/* 操作ボタン */}
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex space-x-2 mb-3">
+      <div className="p-4 border-b border-base-300">
+        <div className="flex gap-2 mb-3">
           <button
             onClick={onShowAll}
-            className="flex-1 px-3 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600"
+            className="btn btn-primary btn-sm flex-1"
           >
             全て表示
           </button>
           <button
             onClick={onHideAll}
-            className="flex-1 px-3 py-2 bg-gray-500 text-white text-sm rounded hover:bg-gray-600"
+            className="btn btn-neutral btn-sm flex-1"
           >
             全て非表示
           </button>
         </div>
         
-        <div className="flex space-x-2 mb-2">
+        <div className="flex gap-2 mb-2">
           <button
             onClick={() => setShowMethods(!showMethods)}
-            className="flex-1 px-3 py-2 bg-green-500 text-white text-sm rounded hover:bg-green-600"
+            className="btn btn-accent btn-sm flex-1"
           >
             {showMethods ? 'ファイル表示' : 'メソッド表示'}
           </button>
@@ -175,7 +189,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {highlightedMethod && (
             <button
               onClick={onClearHighlight}
-              className="px-3 py-2 bg-red-500 text-white text-sm rounded hover:bg-red-600"
+              className="btn btn-error btn-sm"
             >
               ハイライト解除
             </button>
@@ -183,27 +197,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
         
         {!showMethods && (
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setViewMode('tree')}
-              className={`flex-1 px-3 py-2 text-sm rounded ${
-                viewMode === 'tree' 
-                  ? 'bg-purple-500 text-white' 
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              ツリー表示
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`flex-1 px-3 py-2 text-sm rounded ${
-                viewMode === 'list' 
-                  ? 'bg-purple-500 text-white' 
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
-              リスト表示
-            </button>
+          <div className="space-y-2">
+            <div className="join w-full">
+              <button
+                onClick={() => setViewMode('tree')}
+                className={`btn btn-sm join-item flex-1 ${
+                  viewMode === 'tree' ? 'btn-active' : 'btn-outline'
+                }`}
+              >
+                ツリー表示
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`btn btn-sm join-item flex-1 ${
+                  viewMode === 'list' ? 'btn-active' : 'btn-outline'
+                }`}
+              >
+                リスト表示
+              </button>
+            </div>
+            <div className="form-control">
+              <label className="label cursor-pointer">
+                <span className="label-text text-sm">詳細表示</span>
+                <input
+                  type="checkbox"
+                  checked={showFileDetails}
+                  onChange={(e) => setShowFileDetails(e.target.checked)}
+                  className="checkbox checkbox-sm"
+                />
+              </label>
+            </div>
           </div>
         )}
       </div>
@@ -211,33 +234,39 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* コンテンツ */}
       <div className="flex-1 overflow-y-auto">
         {filteredItems.length === 0 ? (
-          <div className="p-4 text-center text-gray-500">
-            検索結果がありません
+          <div className="p-4 text-center">
+            <div className="text-base-content/50 text-lg mb-2">🔍</div>
+            <div className="text-base-content/60">検索結果がありません</div>
           </div>
         ) : showMethods ? (
           <div className="p-4">
-            <h3 className="font-semibold text-gray-700 mb-3">メソッド一覧</h3>
+            <h3 className="font-semibold text-base-content mb-3 flex items-center gap-2">
+              <span className="text-accent">⚡</span>
+              メソッド一覧
+            </h3>
             {(filteredItems as (Method & { fileName: string })[]).map((method, index) => (
               <div 
                 key={`${method.filePath}-${index}`} 
-                className={`mb-2 p-3 rounded cursor-pointer transition-colors ${
+                className={`card card-compact mb-2 cursor-pointer transition-all hover:shadow-md ${
                   isMethodHighlighted(method) 
-                    ? 'bg-yellow-100 border-yellow-300 border highlighted' 
-                    : 'bg-gray-50 hover:bg-gray-100'
+                    ? 'bg-warning/20 border border-warning shadow-lg' 
+                    : 'bg-base-100 hover:bg-base-300/50'
                 }`}
                 onClick={() => handleMethodClick(method)}
               >
-                <div className="font-medium text-blue-600 truncate" title={method.name}>
-                  {method.name}
-                  {method.type === 'erb_call' && (
-                    <span className="ml-1 text-xs text-purple-500">(called in ERB)</span>
-                  )}
-                </div>
-                <div className="text-xs text-gray-500 truncate" title={method.fileName}>
-                  {method.fileName}
-                </div>
-                <div className="text-xs text-gray-400 truncate" title={method.type}>
-                  {method.type === 'erb_call' ? 'erb call' : method.type}
+                <div className="card-body">
+                  <div className="font-medium text-primary truncate" title={method.name}>
+                    {method.name}
+                    {method.type === 'erb_call' && (
+                      <span className="badge badge-secondary badge-xs ml-2">ERB</span>
+                    )}
+                  </div>
+                  <div className="text-xs text-base-content/60 truncate" title={method.fileName}>
+                    {method.fileName}
+                  </div>
+                  <div className="text-xs text-base-content/40 truncate" title={method.type}>
+                    {method.type === 'erb_call' ? 'erb call' : method.type}
+                  </div>
                 </div>
               </div>
             ))}
@@ -250,41 +279,49 @@ export const Sidebar: React.FC<SidebarProps> = ({
               onFileToggle={onFileToggle}
               onDirectoryToggle={onDirectoryToggle}
               sidebarWidth={sidebarWidth}
+              showFileDetails={showFileDetails}
             />
           </div>
         ) : (
           <div className="p-4">
             {Object.entries(groupedFiles).map(([directory, dirFiles]) => (
               <div key={directory} className="mb-4">
-                <h3 className="font-semibold text-gray-700 mb-2 text-sm">{directory}</h3>
+                <h3 className="font-semibold text-base-content mb-2 text-sm flex items-center gap-2">
+                  <span className="text-info">📂</span>
+                  {directory}
+                </h3>
                 {dirFiles.map(file => {
                   const isVisible = visibleFiles.includes(file.path);
                   return (
-                    <div key={file.path} className="flex items-center justify-between mb-1 p-2 hover:bg-gray-50 rounded">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-sm truncate" title={file.fileName}>
-                          {file.fileName}
+                    <div key={file.path} className="card card-compact mb-2 bg-base-100 hover:bg-base-300/50 transition-colors">
+                      <div className="card-body">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 justify-between">
+                              <div className="font-medium text-sm text-base-content truncate" title={file.fileName}>
+                                {file.fileName}
+                              </div>
+                              {showFileDetails && (
+                                <span className="text-xs text-base-content/60 flex-shrink-0">{file.methods.length} メソッド</span>
+                              )}
+                            </div>
+                            {showFileDetails && (
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="badge badge-outline badge-xs">{file.language}</span>
+                              </div>
+                            )}
+                          </div>
+                          <label className="cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={isVisible}
+                              onChange={() => onFileToggle(file.path)}
+                              className="checkbox checkbox-primary checkbox-sm"
+                              aria-label={`${file.path} の表示切り替え`}
+                            />
+                          </label>
                         </div>
-                        <div className="text-xs text-gray-500 truncate" title={file.language}>
-                          {file.language}
-                        </div>
-                        <div className="text-xs text-gray-400">{file.methods.length} メソッド</div>
                       </div>
-                      <button
-                        onClick={() => onFileToggle(file.path)}
-                        aria-label={`${file.path} の表示切り替え`}
-                        className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-colors ${
-                          isVisible 
-                            ? 'bg-blue-500 border-blue-500 text-white' 
-                            : 'bg-white border-gray-300 hover:border-blue-400'
-                        }`}
-                      >
-                        {isVisible && (
-                          <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none">
-                            <path d="M2 6L5 9L10 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                        )}
-                      </button>
                     </div>
                   );
                 })}

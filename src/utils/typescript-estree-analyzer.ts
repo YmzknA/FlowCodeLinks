@@ -84,7 +84,7 @@ function loadTypeScriptESTree(): ESTreeParser | null {
       TSESTreeTypes: tsTypes.TSESTree
     };
   } catch (error) {
-    console.warn('TypeScript ESTree not available:', error);
+    // TypeScript ESTree not available
     return null;
   }
 }
@@ -100,7 +100,7 @@ function isTypeScriptESTreeAvailable(): boolean {
   
   // ブラウザ環境シミュレーション時（window が定義されているかつ require が undefined）はfalseを返す
   if (typeof window !== 'undefined' && typeof require === 'undefined') {
-    console.warn('TypeScript ESTree not available in browser environment. Using fallback analysis.');
+    // TypeScript ESTree not available in browser environment. Using fallback analysis.
     return false;
   }
   
@@ -109,7 +109,7 @@ function isTypeScriptESTreeAvailable(): boolean {
   
   // 本番環境ではログを制限
   if (!isAvailable && process.env.NODE_ENV === 'development') {
-    console.warn('TypeScript ESTree not available in browser environment. Using fallback analysis.');
+    // TypeScript ESTree not available in browser environment. Using fallback analysis.
   }
   
   return isAvailable;
@@ -125,7 +125,7 @@ export function extractTypeScriptMethodDefinitionsWithESTree(file: ParsedFile): 
 
   // ファイルサイズ制限チェック
   if (file.content.length > MAX_FILE_SIZE) {
-    console.warn(`File too large for AST parsing: ${file.path} (${file.content.length} bytes)`);
+    // File too large for AST parsing
     return [];
   }
 
@@ -165,7 +165,7 @@ export function extractTypeScriptMethodDefinitionsWithESTree(file: ParsedFile): 
     return methods;
     
   } catch (error) {
-    console.warn(`TypeScript ESTree parsing failed for ${file.path}:`, error);
+    // TypeScript ESTree parsing failed
     return [];
   }
 }
@@ -228,7 +228,7 @@ export function analyzeTypeScriptWithESTree(file: ParsedFile, allDefinedMethods?
 
   // ファイルサイズ制限チェック（DoS攻撃対策）
   if (file.content.length > MAX_FILE_SIZE) {
-    console.warn(`File too large for AST parsing: ${file.path} (${file.content.length} bytes)`);
+    // File too large for AST parsing
     return analyzeTypeScriptWithRegex(file, allDefinedMethods);
   }
 
@@ -251,7 +251,7 @@ export function analyzeTypeScriptWithESTree(file: ParsedFile, allDefinedMethods?
   if (isTypeScriptESTreeAvailable()) {
     const esTree = loadTypeScriptESTree();
     if (!esTree) {
-      console.warn('Failed to load TypeScript ESTree, falling back to regex analysis');
+      // Failed to load TypeScript ESTree, falling back to regex analysis
       result = analyzeTypeScriptWithRegex(file, allDefinedMethods);
     } else {
       result = analyzeWithESTreeInternal(esTree, file, allDefinedMethods);
@@ -315,7 +315,7 @@ function analyzeWithESTreeInternal(esTree: ESTreeParser, file: ParsedFile, allDe
     if (process.env.NODE_ENV === 'development') {
       console.error('AST parsing failed:', errorInfo);
     } else {
-      console.warn(`TypeScript ESTree parsing failed for ${file.path}`);
+      // TypeScript ESTree parsing failed
     }
     
     return analyzeTypeScriptWithRegex(file, allDefinedMethods);

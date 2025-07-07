@@ -574,18 +574,18 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
               }}
             >
               <div 
-                className={`font-semibold text-blue-600 ${
+                className={`font-semibold text-primary ${
                   highlightedMethod && 
                   highlightedMethod.methodName === method.name && 
                   highlightedMethod.filePath === file.path 
-                    ? 'bg-yellow-200 rounded px-1' 
+                    ? 'bg-warning/30 rounded px-1' 
                     : ''
                 }`}
                 style={{ cursor: 'pointer' }}
               >
                 {method.name}
               </div>
-              <div className="text-sm text-gray-600">{method.type}</div>
+              <div className="text-sm text-base-content/60">{method.type}</div>
             </div>
           ))}
         </div>
@@ -597,16 +597,13 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
     return (
       <div 
         ref={contentRef}
-        className="p-4 overflow-auto h-full cursor-default"
-        style={{ 
-          height: 'calc(100% - 64px)'
-        }}
+        className="h-full overflow-auto cursor-default"
         onScroll={handleScroll}
         onClick={handleCodeClick}
         onWheel={handleWheel}
       >
         <pre 
-          className={`language-${prismLanguage} text-sm p-3 rounded`}
+          className={`language-${prismLanguage} text-sm m-0`}
           style={{ 
             whiteSpace: 'pre', 
             tabSize: 2,
@@ -614,7 +611,9 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
             backgroundColor: '#2d2d2d',
             color: '#ccc',
             margin: 0,
-            overflow: 'auto'
+            padding: '1rem',
+            minHeight: '100%',
+            borderRadius: 0
           }}
         >
           <code 
@@ -633,32 +632,38 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
   };
 
   return (
-    <div className="bg-white border border-gray-300 rounded-lg shadow-lg h-full">
+    <div className="card bg-base-100 border border-base-300 shadow-xl h-full">
       {/* ヘッダー（ドラッグハンドル） */}
-      <div className="draggable-header flex items-center justify-between p-3 bg-gray-50 border-b cursor-grab active:cursor-grabbing">
-        <div>
-          <div className="font-semibold text-gray-800">{file.fileName}</div>
-          <div className="text-xs text-gray-500">{file.path} ({file.totalLines} lines)</div>
+      <div className="draggable-header card-title bg-base-200 rounded-t-2xl p-3 border-b border-base-300 cursor-grab active:cursor-grabbing">
+        <div className="flex-1">
+          <div className="font-semibold text-base-content flex items-center gap-2">
+            <span className="text-primary">📄</span>
+            {file.fileName}
+          </div>
+          <div className="text-xs text-base-content/60">{file.path} ({file.totalLines} lines)</div>
         </div>
-        <div className="flex space-x-1">
+        <div className="flex gap-1">
           <button
             onClick={handleToggleMethodsOnly}
             aria-label="メソッドのみ表示"
-            className="p-1 text-gray-600 hover:text-blue-600 text-sm cursor-pointer"
+            className="btn btn-ghost btn-xs btn-circle"
+            title="メソッドのみ表示"
           >
-            M
+            ⚡
           </button>
           <button
             onClick={handleToggleCollapse}
             aria-label="折りたたみ"
-            className="p-1 text-gray-600 hover:text-blue-600 text-sm cursor-pointer"
+            className="btn btn-ghost btn-xs btn-circle"
+            title="折りたたみ"
           >
             {isCollapsed ? '□' : '_'}
           </button>
           <button
             onClick={handleClose}
             aria-label="閉じる"
-            className="p-1 text-gray-600 hover:text-red-600 text-sm cursor-pointer"
+            className="btn btn-ghost btn-xs btn-circle text-error hover:bg-error/20"
+            title="閉じる"
           >
             ×
           </button>
@@ -666,7 +671,11 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       </div>
 
       {/* コンテンツ */}
-      {renderContent()}
+      {!isCollapsed && (
+        <div className="flex-1 overflow-hidden">
+          {renderContent()}
+        </div>
+      )}
     </div>
   );
 };

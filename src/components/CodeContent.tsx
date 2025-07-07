@@ -77,7 +77,7 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
         }
         
         if (!prism) {
-          console.warn('Prism.js not available, using fallback');
+          // Prism.js not available, using fallback
           setHighlightedCode(sanitizeContent(file.content, 'html-content'));
           return;
         }
@@ -335,8 +335,6 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
           whiteSpace: 'pre', 
           tabSize: 2,
           fontFamily: 'Consolas, Monaco, "Andale Mono", "Ubuntu Mono", monospace',
-          backgroundColor: '#2d2d2d',
-          color: '#ccc',
           lineHeight: '18px', // 計算と同じ行の高さに設定
           margin: 0, // preのデフォルトマージンを削除
           overflow: 'auto'

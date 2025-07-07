@@ -90,8 +90,7 @@ export const useAllFilesMonitor = (filePath: string) => {
           if (checkAllFilesLocal() || retryCountRef.current >= maxRetries) {
             if (retryCountRef.current >= maxRetries) {
               if (process.env.NODE_ENV === 'development') {
-                // eslint-disable-next-line no-console
-                console.warn(`⚠️ __allFiles initialization failed after ${maxRetries} retries for ${filePathRef.current}`);
+                // __allFiles initialization failed after max retries
               }
             }
             return;

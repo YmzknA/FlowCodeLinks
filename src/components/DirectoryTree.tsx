@@ -15,6 +15,7 @@ interface DirectoryTreeProps {
   onFileToggle: (filePath: string) => void;
   onDirectoryToggle: (directoryPath: string) => void;
   sidebarWidth: number;
+  showFileDetails?: boolean;
 }
 
 export const DirectoryTree: React.FC<DirectoryTreeProps> = ({
@@ -22,7 +23,8 @@ export const DirectoryTree: React.FC<DirectoryTreeProps> = ({
   visibleFiles,
   onFileToggle,
   onDirectoryToggle,
-  sidebarWidth
+  sidebarWidth,
+  showFileDetails = false
 }) => {
   const [collapsedDirs, setCollapsedDirs] = useState<Set<string>>(new Set());
 
@@ -208,7 +210,7 @@ export const DirectoryTree: React.FC<DirectoryTreeProps> = ({
                   {node.name}
                 </span>
               </div>
-              {node.file && (
+              {node.file && showFileDetails && (
                 <div className="ml-6 text-xs text-gray-500">
                   <span className="mr-2 truncate" title={node.file.language}>
                     {node.file.language}
