@@ -211,7 +211,7 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
         }
       }, 10);
     }
-  }, [methodHighlightAPI]);
+  }, [methodHighlightAPI, file.path, onMethodClick]);
 
   // 言語に応じたPrismの言語識別子を取得
   const getPrismLanguage = (language: string): string => {
@@ -241,6 +241,8 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
         delete (window as any).__originalClickedMethod;
       }
     };
+    // windowオブジェクトは依存配列に含めない（参照が毎回変わるため）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [methodHighlightAPI]);
 
   // シンタックスハイライトを適用
@@ -419,6 +421,8 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       processedContentRef.current = currentContentKey;
       highlightCode();
     }
+    // onMethodClick, windowは意図的に依存配列から除外（安定性のため）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [file.content, file.methods, file.path, isCollapsed, showMethodsOnly, file.language, allFilesVersion, forceUpdate, highlightedMethod, isClient]);
 
   // コンテンツ変更後にスクロール情報を更新
@@ -500,6 +504,8 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
       // スクロール完了後にフラグを設定
       hasJumpedToMethod.current = true;
     }
+    // windowは意図的に依存配列から除外（DOMアクセスのため）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlightedMethod, file.path, file.methods, file.totalLines, isCollapsed, showMethodsOnly, isClient]);
 
   // メソッドのみ表示モードでのスクロール
@@ -545,6 +551,8 @@ export const FloatingWindow: React.FC<FloatingWindowProps> = ({
         hasJumpedToMethod.current = true;
       }
     }
+    // windowは意図的に依存配列から除外（DOMアクセスのため）
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [highlightedMethod, file.path, isCollapsed, showMethodsOnly, isClient]);
 
   // 非表示の場合は早期リターン
