@@ -1,3 +1,5 @@
+import { MethodExclusionService } from '@/services/MethodExclusionService';
+
 /**
  * セキュリティ強化された保護マーカー生成関数
  * crypto.randomUUID() を優先使用し、フォールバックも提供
@@ -53,12 +55,9 @@ export const makeImportMethodsClickable = (
 
   // import文で使用されているメソッド名をクリック可能にする
   importMethods.forEach(methodName => {
-    // Rails controller標準アクションはクリック不可
-    const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
-    const isControllerFile = currentFilePath?.endsWith('_controller.rb');
-    
-    if (isControllerFile && isStandardAction) {
-      return; // 標準アクションはクリック不可
+    // 除外対象メソッドはクリック不可
+    if (currentFilePath && MethodExclusionService.isExcludedMethod(methodName, currentFilePath)) {
+      return; // 除外対象メソッドはクリック不可
     }
     
     // 定義元が見つからない場合はクリック可能にしない
@@ -148,13 +147,10 @@ export const replaceMethodNameInText = (
     // 全パラメータが提供された場合：完全な判定を実行
     const currentFile = files.find(f => f.path === currentFilePath);
     
-    // コントローラーの標準アクションは定義済みとして扱わない
-    const isControllerFile = currentFilePath.endsWith('_controller.rb');
-    const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
-    
+    // 除外対象メソッドは定義済みとして扱わない
     let isDefinedInCurrentFile = false;
-    if (isControllerFile && isStandardAction) {
-      // 標準アクションは定義されていないものとして扱う
+    if (MethodExclusionService.isExcludedMethod(methodName, currentFilePath)) {
+      // 除外対象メソッドは定義されていないものとして扱う
       isDefinedInCurrentFile = false;
     } else {
       isDefinedInCurrentFile = currentFile?.methods?.some((method: any) => method.name === methodName) || false;
@@ -189,12 +185,9 @@ export const replaceMethodNameInText = (
   }
   // その他の場合：従来通り全てクリック可能（後方互換性）
   
-  // Rails controller標準アクションはクリック不可
-  const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
-  const isControllerFile = currentFilePath?.endsWith('_controller.rb');
-  
-  if (isControllerFile && isStandardAction) {
-    return html; // 標準アクションはクリック不可
+  // 除外対象メソッドはクリック不可
+  if (currentFilePath && MethodExclusionService.isExcludedMethod(methodName, currentFilePath)) {
+    return html; // 除外対象メソッドはクリック不可
   }
   
   // クリック可能でない場合はそのまま返す

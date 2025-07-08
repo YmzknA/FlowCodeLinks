@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { ParsedFile, FloatingWindow } from '@/types';
+import { MethodExclusionService } from '@/services/MethodExclusionService';
 
 export interface MethodJumpTarget {
   methodName: string;
@@ -235,13 +236,10 @@ export const useMethodJump = ({
     // 現在のファイルでクリックされたメソッドが定義されているかチェック
     const currentFile = files.find(f => f.path === currentFilePath);
     
-    // コントローラーの標準アクションは定義済みとして扱わない
-    const isControllerFile = currentFilePath.endsWith('_controller.rb');
-    const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
-    
+    // 除外対象メソッドは定義済みとして扱わない
     let isDefinedInCurrentFile = false;
-    if (isControllerFile && isStandardAction) {
-      // 標準アクションは定義されていないものとして扱う
+    if (MethodExclusionService.isExcludedMethod(methodName, currentFilePath)) {
+      // 除外対象メソッドは定義されていないものとして扱う
       isDefinedInCurrentFile = false;
     } else {
       isDefinedInCurrentFile = currentFile?.methods?.some(method => method.name === methodName) || false;

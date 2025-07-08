@@ -3,6 +3,7 @@ import { isRubyKeyword, isRubyBuiltin, isRubyCrudMethod, isRailsStandardMethod }
 import { isJavaScriptKeyword, isJavaScriptBuiltin, isJavaScriptFrameworkMethod, isJavaScriptControlPattern, isValidJavaScriptMethod } from '@/config/javascript-keywords';
 import { COMMON_PATTERNS, MethodPatternBuilder } from '@/utils/regex-patterns';
 import { analyzeTypeScriptWithESTree, extractTypeScriptMethodDefinitionsWithESTree } from '@/utils/typescript-estree-analyzer';
+import { MethodExclusionService } from '@/services/MethodExclusionService';
 
 export function analyzeMethodsInFile(file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
   if (!file.content.trim() || file.language === 'unknown') {
@@ -90,9 +91,10 @@ function extractRubyMethodDefinitionsOnly(file: ParsedFile): Method[] {
       const [, selfPrefix, methodName, params] = methodMatch;
       const isClassMethod = !!selfPrefix;
       
-      // コントローラーの標準アクションを特別扱い（定義として含めるが、フラグ付き）
-      const isControllerFile = file.path.endsWith('_controller.rb');
-      const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
+      // メソッド除外判定（Rails標準アクション等）
+      if (MethodExclusionService.isExcludedMethod(methodName, file.path)) {
+        continue; // 除外対象メソッドはスキップ
+      }
       
       // メソッドの終端を探す
       const methodEndLine = findRubyMethodEnd(lines, i);
@@ -136,7 +138,7 @@ function analyzeRubyMethods(file: ParsedFile, allDefinedMethods?: Set<string>): 
     if (methodMatch) {
       const [, , methodName] = methodMatch;
       
-      // コントローラーの標準アクションも含める（呼び出し関係検出のため）
+      // 全てのメソッド名を含める（除外対象も呼び出し関係検出のため）
       localDefinedMethods.add(methodName);
     }
   }
@@ -171,9 +173,10 @@ function analyzeRubyMethods(file: ParsedFile, allDefinedMethods?: Set<string>): 
       const [, selfPrefix, methodName, params] = methodMatch;
       const isClassMethod = !!selfPrefix;
       
-      // コントローラーの標準アクションも含める（呼び出し関係解析のため）
-      const isControllerFile = file.path.endsWith('_controller.rb');
-      const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
+      // メソッド除外判定（Rails標準アクション等）
+      if (MethodExclusionService.isExcludedMethod(methodName, file.path)) {
+        continue; // 除外対象メソッドはスキップ（ただし呼び出しは検出される）
+      }
       
       // メソッドの終端を探す
       const methodEndLine = findRubyMethodEnd(lines, i);

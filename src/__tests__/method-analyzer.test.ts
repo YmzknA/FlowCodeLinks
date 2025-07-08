@@ -441,21 +441,20 @@ end`,
       };
       
       const methods = analyzeMethodsInFile(file);
-      expect(methods).toHaveLength(3); // show, update, tasks_ransack_from_milestone
+      expect(methods).toHaveLength(1); // tasks_ransack_from_milestone (show, updateは標準アクションで除外)
       
+      // 標準アクション（show, update）は除外される
       const showMethod = methods.find(m => m.name === 'show');
       const updateMethod = methods.find(m => m.name === 'update');
       
-      expect(showMethod).toBeDefined();
-      expect(updateMethod).toBeDefined();
+      expect(showMethod).toBeUndefined(); // 標準アクションは除外
+      expect(updateMethod).toBeUndefined(); // 標準アクションは除外
       
-      // showメソッドでtasks_ransack_from_milestoneが呼び出されているか
-      const showCalls = showMethod!.calls.map(call => call.methodName);
-      expect(showCalls).toContain('tasks_ransack_from_milestone');
+      // カスタムメソッドが正しく検出されているか
+      const taskMethod = methods.find(m => m.name === 'tasks_ransack_from_milestone');
+      expect(taskMethod).toBeDefined();
+      expect(taskMethod!.isPrivate).toBe(true);
       
-      // updateメソッドでtasks_ransack_from_milestoneが呼び出されているか
-      const updateCalls = updateMethod!.calls.map(call => call.methodName);
-      expect(updateCalls).toContain('tasks_ransack_from_milestone');
     });
 
     it('should detect methods with question marks', () => {

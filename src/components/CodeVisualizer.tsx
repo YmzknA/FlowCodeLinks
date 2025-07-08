@@ -14,6 +14,7 @@ import { useOptimizedAnalysis, useOptimizedDependencies } from '@/utils/performa
 import { useScrollAnimation, useStaggeredScrollAnimation } from '@/hooks/useScrollAnimation';
 import { useFiles } from '@/context/FilesContext';
 import { ParsedFile, Method, Dependency, FloatingWindow } from '@/types/codebase';
+import { MethodExclusionService } from '@/services/MethodExclusionService';
 
 export const CodeVisualizer: React.FC = () => {
   const { setAllFiles } = useFiles();
@@ -305,12 +306,9 @@ export const CodeVisualizer: React.FC = () => {
       if (currentFile?.methods) {
         for (const method of currentFile.methods) {
           if (method.name === methodName) {
-            // Rails controller標準アクションはジャンプ対象外
-            const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
-            const isControllerFile = currentFile.path.endsWith('_controller.rb');
-            
-            if (isControllerFile && isStandardAction) {
-              continue; // 標準アクションはスキップ
+            // 除外対象メソッドはジャンプ対象外
+            if (MethodExclusionService.isExcludedMethod(methodName, currentFile.path)) {
+              continue; // 除外対象メソッドはスキップ
             }
             
             return {
@@ -328,12 +326,9 @@ export const CodeVisualizer: React.FC = () => {
       if (file.methods) {
         for (const method of file.methods) {
           if (method.name === methodName) {
-            // Rails controller標準アクションはジャンプ対象外
-            const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
-            const isControllerFile = file.path.endsWith('_controller.rb');
-            
-            if (isControllerFile && isStandardAction) {
-              continue; // 標準アクションはスキップ
+            // 除外対象メソッドはジャンプ対象外
+            if (MethodExclusionService.isExcludedMethod(methodName, file.path)) {
+              continue; // 除外対象メソッドはスキップ
             }
             
             return {
@@ -354,11 +349,8 @@ export const CodeVisualizer: React.FC = () => {
     const currentFile = files.find(f => f.path === currentFilePath);
     if (!currentFile?.methods) return false;
     
-    // コントローラーの標準アクションは定義として扱わない
-    const isControllerFile = currentFilePath.endsWith('_controller.rb');
-    const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
-    
-    if (isControllerFile && isStandardAction) {
+    // 除外対象メソッドは定義として扱わない
+    if (MethodExclusionService.isExcludedMethod(methodName, currentFilePath)) {
       return false;
     }
     
@@ -519,13 +511,10 @@ export const CodeVisualizer: React.FC = () => {
     // フォールバック：従来のロジック（メタデータがない場合）
     const currentFile = files.find(f => f.path === currentFilePath);
     
-    // コントローラーの標準アクションは定義済みとして扱わない
-    const isControllerFile = currentFilePath.endsWith('_controller.rb');
-    const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
-    
+    // 除外対象メソッドは定義済みとして扱わない
     let isDefinedInCurrentFile = false;
-    if (isControllerFile && isStandardAction) {
-      // 標準アクションは定義されていないものとして扱う
+    if (MethodExclusionService.isExcludedMethod(methodName, currentFilePath)) {
+      // 除外対象メソッドは定義されていないものとして扱う
       isDefinedInCurrentFile = false;
     } else {
       isDefinedInCurrentFile = currentFile?.methods?.some(method => method.name === methodName) || false;
