@@ -25,6 +25,14 @@ export class MethodFinder {
       if (file.methods) {
         for (const method of file.methods) {
           if (method.name === methodName) {
+            // Rails controller標準アクションはジャンプ対象外
+            const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
+            const isControllerFile = file.path.endsWith('_controller.rb');
+            
+            if (isControllerFile && isStandardAction) {
+              continue; // 標準アクションはスキップ
+            }
+            
             return {
               methodName: method.name,
               filePath: file.path

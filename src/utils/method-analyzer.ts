@@ -90,6 +90,10 @@ function extractRubyMethodDefinitionsOnly(file: ParsedFile): Method[] {
       const [, selfPrefix, methodName, params] = methodMatch;
       const isClassMethod = !!selfPrefix;
       
+      // コントローラーの標準アクションを特別扱い（定義として含めるが、フラグ付き）
+      const isControllerFile = file.path.endsWith('_controller.rb');
+      const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
+      
       // メソッドの終端を探す
       const methodEndLine = findRubyMethodEnd(lines, i);
       const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
@@ -131,6 +135,8 @@ function analyzeRubyMethods(file: ParsedFile, allDefinedMethods?: Set<string>): 
     const methodMatch = trimmedLine.match(COMMON_PATTERNS.METHOD_DEFINITION);
     if (methodMatch) {
       const [, , methodName] = methodMatch;
+      
+      // コントローラーの標準アクションも含める（呼び出し関係検出のため）
       localDefinedMethods.add(methodName);
     }
   }
@@ -164,6 +170,10 @@ function analyzeRubyMethods(file: ParsedFile, allDefinedMethods?: Set<string>): 
     if (methodMatch) {
       const [, selfPrefix, methodName, params] = methodMatch;
       const isClassMethod = !!selfPrefix;
+      
+      // コントローラーの標準アクションも含める（呼び出し関係解析のため）
+      const isControllerFile = file.path.endsWith('_controller.rb');
+      const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
       
       // メソッドの終端を探す
       const methodEndLine = findRubyMethodEnd(lines, i);

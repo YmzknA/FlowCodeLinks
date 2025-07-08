@@ -56,6 +56,7 @@ export const CodeVisualizer: React.FC = () => {
       const allMethods = filesWithMethods.flatMap(file => file.methods);
       const dependencies = extractDependencies(allMethods);
 
+
       return {
         files: filesWithMethods,
         methods: allMethods,
@@ -86,6 +87,26 @@ export const CodeVisualizer: React.FC = () => {
   const { files, dependencies } = analysisResult as { files: ParsedFile[]; methods: Method[]; dependencies: Dependency[] };
   const optimizedCache = useOptimizedAnalysis(files);
   const visibleDependencies = useOptimizedDependencies(dependencies, visibleFiles);
+  
+  // prepare_meta_tags関連の依存関係を確認
+  useEffect(() => {
+    if (visibleFiles.includes('app/controllers/users_controller.rb')) {
+      const prepareMetaTagsDeps = visibleDependencies.filter(dep => 
+        dep.from.methodName === 'prepare_meta_tags' || dep.to.methodName === 'prepare_meta_tags'
+      );
+      console.log('🔍 prepare_meta_tags dependencies:', prepareMetaTagsDeps);
+      
+      // showメソッドを確認
+      const userControllerFile = files.find(f => f.path === 'app/controllers/users_controller.rb');
+      if (userControllerFile) {
+        const showMethod = userControllerFile.methods.find(m => m.name === 'show');
+        console.log('🔍 show method:', showMethod);
+        if (showMethod) {
+          console.log('🔍 show method calls:', showMethod.calls);
+        }
+      }
+    }
+  }, [visibleDependencies, visibleFiles, files]);
 
   // 全ファイルデータをContext APIで安全に管理（グローバル変数も後方互換性で並行更新）
   useEffect(() => {
@@ -276,13 +297,45 @@ export const CodeVisualizer: React.FC = () => {
     setFloatingWindows(windows);
   }, []);
 
-  // メソッド定義元を見つける関数
-  const findMethodDefinition = useCallback((methodName: string): { methodName: string; filePath: string } | null => {
-    // 全ファイルからメソッド定義を検索
+  // メソッド定義元を見つける関数（同じファイル内を優先）
+  const findMethodDefinition = useCallback((methodName: string, currentFilePath?: string): { methodName: string; filePath: string } | null => {
+    // 1. 同じファイル内に定義があるかチェック（優先）
+    if (currentFilePath) {
+      const currentFile = files.find(f => f.path === currentFilePath);
+      if (currentFile?.methods) {
+        for (const method of currentFile.methods) {
+          if (method.name === methodName) {
+            // Rails controller標準アクションはジャンプ対象外
+            const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
+            const isControllerFile = currentFile.path.endsWith('_controller.rb');
+            
+            if (isControllerFile && isStandardAction) {
+              continue; // 標準アクションはスキップ
+            }
+            
+            return {
+              methodName: method.name,
+              filePath: currentFile.path
+            };
+          }
+        }
+      }
+    }
+    
+    // 2. 他のファイルから検索
     for (const file of files) {
+      if (file.path === currentFilePath) continue; // 同じファイルは既にチェック済み
       if (file.methods) {
         for (const method of file.methods) {
           if (method.name === methodName) {
+            // Rails controller標準アクションはジャンプ対象外
+            const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
+            const isControllerFile = file.path.endsWith('_controller.rb');
+            
+            if (isControllerFile && isStandardAction) {
+              continue; // 標準アクションはスキップ
+            }
+            
             return {
               methodName: method.name,
               filePath: file.path
@@ -292,6 +345,29 @@ export const CodeVisualizer: React.FC = () => {
       }
     }
     return null;
+  }, [files]);
+
+  // クリック時に定義行かどうかを判定する関数
+  const isMethodDefinitionLine = useCallback((methodName: string, currentFilePath: string, lineNumber?: number): boolean => {
+    if (!lineNumber) return false;
+    
+    const currentFile = files.find(f => f.path === currentFilePath);
+    if (!currentFile?.methods) return false;
+    
+    // コントローラーの標準アクションは定義として扱わない
+    const isControllerFile = currentFilePath.endsWith('_controller.rb');
+    const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
+    
+    if (isControllerFile && isStandardAction) {
+      return false;
+    }
+    
+    // メソッド定義を探す
+    const methodDef = currentFile.methods.find(m => m.name === methodName);
+    if (!methodDef) return false;
+    
+    // 定義行±1行以内なら定義とみなす
+    return Math.abs(lineNumber - methodDef.startLine) <= 1;
   }, [files]);
 
   // メソッド呼び出し元を全て検索する関数
@@ -426,24 +502,52 @@ export const CodeVisualizer: React.FC = () => {
   }, []);
 
   // メソッドクリック時の処理
-  const handleMethodClick = useCallback((methodName: string, currentFilePath: string) => {
-    // 現在のファイルでクリックされたメソッドが定義されているかチェック
+  const handleMethodClick = (methodName: string, currentFilePath: string, metadata?: { line?: number; isDefinition?: boolean }) => {
+    // クリック時に定義行かどうかを判定
+    const isDefinitionClick = isMethodDefinitionLine(methodName, currentFilePath, metadata?.line);
+    
+    if (isDefinitionClick) {
+      // 定義行の場合：呼び出し元一覧を表示
+      const callers = findAllMethodCallers(methodName);
+      setCallersList({ methodName, callers });
+      return;
+    } else {
+      // 呼び出し行の場合：定義元にジャンプ（同じファイル内を優先）
+      const definition = findMethodDefinition(methodName, currentFilePath);
+      if (definition) {
+        handleMethodJump(definition);
+      }
+      return;
+    }
+    
+    // フォールバック：従来のロジック（メタデータがない場合）
     const currentFile = files.find(f => f.path === currentFilePath);
-    const isDefinedInCurrentFile = currentFile?.methods?.some(method => method.name === methodName);
+    
+    // コントローラーの標準アクションは定義済みとして扱わない
+    const isControllerFile = currentFilePath.endsWith('_controller.rb');
+    const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
+    
+    let isDefinedInCurrentFile = false;
+    if (isControllerFile && isStandardAction) {
+      // 標準アクションは定義されていないものとして扱う
+      isDefinedInCurrentFile = false;
+    } else {
+      isDefinedInCurrentFile = currentFile?.methods?.some(method => method.name === methodName) || false;
+    }
     
     if (isDefinedInCurrentFile) {
       // 定義元メソッドの場合：呼び出し元一覧を表示
       const callers = findAllMethodCallers(methodName);
       setCallersList({ methodName, callers });
     } else {
-      // 呼び出されているメソッドの場合：定義元にジャンプ
-      const definition = findMethodDefinition(methodName);
+      // 呼び出されているメソッドの場合：定義元にジャンプ（同じファイル内を優先）
+      const definition = findMethodDefinition(methodName, currentFilePath);
       if (definition) {
         handleMethodJump(definition);
       } else {
       }
     }
-  }, [files, findAllMethodCallers, findMethodDefinition, handleMethodJump]);
+  };
 
   // 呼び出し元一覧からのジャンプ機能
   const handleCallerClick = useCallback((caller: { methodName: string; filePath: string; lineNumber?: number }) => {
