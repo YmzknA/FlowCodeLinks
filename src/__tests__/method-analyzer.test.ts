@@ -441,18 +441,21 @@ end`,
       };
       
       const methods = analyzeMethodsInFile(file);
-      expect(methods).toHaveLength(1); // tasks_ransack_from_milestone (show, updateは標準アクションで除外)
+      expect(methods).toHaveLength(3); // show, update (isExcluded=true), tasks_ransack_from_milestone
       
-      // 標準アクション（show, update）は除外される
+      // 標準アクション（show, update）は含まれるがisExcluded=true
       const showMethod = methods.find(m => m.name === 'show');
       const updateMethod = methods.find(m => m.name === 'update');
       
-      expect(showMethod).toBeUndefined(); // 標準アクションは除外
-      expect(updateMethod).toBeUndefined(); // 標準アクションは除外
+      expect(showMethod).toBeDefined();
+      expect(showMethod?.isExcluded).toBe(true);
+      expect(updateMethod).toBeDefined();
+      expect(updateMethod?.isExcluded).toBe(true);
       
       // カスタムメソッドが正しく検出されているか
       const taskMethod = methods.find(m => m.name === 'tasks_ransack_from_milestone');
       expect(taskMethod).toBeDefined();
+      expect(taskMethod?.isExcluded).toBeFalsy();
       expect(taskMethod!.isPrivate).toBe(true);
       
     });
@@ -874,19 +877,33 @@ end`,
 
       const methods = analyzeMethodsInFile(controllerFile);
       
-      // 標準アクション（index, show, new, create, edit, update, destroy）は除外される
+      // 標準アクション（index, show, new, create, edit, update, destroy）は含まれるがisExcluded=trueとなる
       const methodNames = methods.map(m => m.name);
-      expect(methodNames).not.toContain('index');
-      expect(methodNames).not.toContain('show');
-      expect(methodNames).not.toContain('new');
-      expect(methodNames).not.toContain('create');
-      expect(methodNames).not.toContain('edit');
-      expect(methodNames).not.toContain('update');
-      expect(methodNames).not.toContain('destroy');
+      expect(methodNames).toContain('index');
+      expect(methodNames).toContain('show');
+      expect(methodNames).toContain('new');
+      expect(methodNames).toContain('create');
+      expect(methodNames).toContain('edit');
+      expect(methodNames).toContain('update');
+      expect(methodNames).toContain('destroy');
+      
+      // 標準アクションはisExcluded=trueが設定される
+      const standardActions = ['index', 'show', 'new', 'create', 'edit', 'update', 'destroy'];
+      standardActions.forEach(actionName => {
+        const method = methods.find(m => m.name === actionName);
+        expect(method).toBeDefined();
+        expect(method?.isExcluded).toBe(true);
+      });
       
       // カスタムアクションとプライベートメソッドは検出される
       expect(methodNames).toContain('custom_action');
       expect(methodNames).toContain('user_params');
+      
+      // カスタムメソッドはisExcluded=falseまたはundefined
+      const customMethod = methods.find(m => m.name === 'custom_action');
+      const privateMethod = methods.find(m => m.name === 'user_params');
+      expect(customMethod?.isExcluded).toBeFalsy();
+      expect(privateMethod?.isExcluded).toBeFalsy();
     });
 
     test('コントローラー以外のファイルでは標準アクションが検出される', () => {
@@ -981,10 +998,16 @@ end`,
 
       const methods = analyzeMethodsInFile(controllerFile);
       
-      // 標準アクション（index, show）は定義として検出されない
+      // 標準アクション（index, show）は含まれるがisExcluded=trueとなる
       const methodNames = methods.map(m => m.name);
-      expect(methodNames).not.toContain('index');
-      expect(methodNames).not.toContain('show');
+      expect(methodNames).toContain('index');
+      expect(methodNames).toContain('show');
+      
+      // 標準アクションはisExcluded=trueが設定される
+      const indexMethod = methods.find(m => m.name === 'index');
+      const showMethod = methods.find(m => m.name === 'show');
+      expect(indexMethod?.isExcluded).toBe(true);
+      expect(showMethod?.isExcluded).toBe(true);
       
       // カスタムメソッドは検出される
       expect(methodNames).toContain('custom_action');
@@ -992,6 +1015,13 @@ end`,
       expect(methodNames).toContain('show_details');
       expect(methodNames).toContain('index_helper');
       expect(methodNames).toContain('count_users');
+      
+      // カスタムメソッドはisExcluded=falseまたはundefined
+      const customMethods = ['custom_action', 'call_custom_method', 'show_details', 'index_helper', 'count_users'];
+      customMethods.forEach(methodName => {
+        const method = methods.find(m => m.name === methodName);
+        expect(method?.isExcluded).toBeFalsy();
+      });
       
       // 標準アクション内でのメソッド呼び出しは検出される
       const customActionMethod = methods.find(m => m.name === 'custom_action');

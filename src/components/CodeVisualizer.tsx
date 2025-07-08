@@ -298,7 +298,7 @@ export const CodeVisualizer: React.FC = () => {
     setFloatingWindows(windows);
   }, []);
 
-  // メソッド定義元を見つける関数（同じファイル内を優先）
+  // メソッド定義元を見つける関数（UI用・除外メソッドは対象外）
   const findMethodDefinition = useCallback((methodName: string, currentFilePath?: string): { methodName: string; filePath: string } | null => {
     // 1. 同じファイル内に定義があるかチェック（優先）
     if (currentFilePath) {
@@ -331,6 +331,40 @@ export const CodeVisualizer: React.FC = () => {
               continue; // 除外対象メソッドはスキップ
             }
             
+            return {
+              methodName: method.name,
+              filePath: file.path
+            };
+          }
+        }
+      }
+    }
+    return null;
+  }, [files]);
+
+  // メソッド定義元を見つける関数（依存関係追跡用・除外メソッドも含む）
+  const findMethodDefinitionForTracking = useCallback((methodName: string, currentFilePath?: string): { methodName: string; filePath: string } | null => {
+    // 1. 同じファイル内に定義があるかチェック（優先）
+    if (currentFilePath) {
+      const currentFile = files.find(f => f.path === currentFilePath);
+      if (currentFile?.methods) {
+        for (const method of currentFile.methods) {
+          if (method.name === methodName) {
+            return {
+              methodName: method.name,
+              filePath: currentFile.path
+            };
+          }
+        }
+      }
+    }
+    
+    // 2. 他のファイルから検索
+    for (const file of files) {
+      if (file.path === currentFilePath) continue; // 同じファイルは既にチェック済み
+      if (file.methods) {
+        for (const method of file.methods) {
+          if (method.name === methodName) {
             return {
               methodName: method.name,
               filePath: file.path
@@ -416,7 +450,7 @@ export const CodeVisualizer: React.FC = () => {
 
     setHighlightedMethod(method);
 
-    const waitTime = wasHidden ? 300 : 150;
+    const waitTime = wasHidden ? 300 : 200; // 同じファイル内でも若干待機時間を延長
     
     setTimeout(() => {
       setFloatingWindows(currentWindows => {
@@ -448,6 +482,7 @@ export const CodeVisualizer: React.FC = () => {
             x: viewportWidth / 2 - targetCanvasX * currentZoom,
             y: viewportHeight / 2 - targetCanvasY * currentZoom
           };
+          
           
           
           // 外部パンとして設定（ZoomableCanvasに反映される）

@@ -240,7 +240,7 @@ describe('Import Method Click Feature', () => {
       const content = fs.readFileSync(codeContentPath, 'utf-8');
       
       expect(content).toContain('makeImportMethodsClickable');
-      expect(content).toContain('import { replaceMethodNameInText, makeImportMethodsClickable }');
+      expect(content).toContain('import { replaceMethodNameInText, makeImportMethodsClickable, highlightMethodDefinition }');
     });
 
     test('should be integrated in FloatingWindow component', () => {
