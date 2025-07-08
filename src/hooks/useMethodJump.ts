@@ -234,7 +234,18 @@ export const useMethodJump = ({
   const handleMethodClick = useCallback((methodName: string, currentFilePath: string) => {
     // 現在のファイルでクリックされたメソッドが定義されているかチェック
     const currentFile = files.find(f => f.path === currentFilePath);
-    const isDefinedInCurrentFile = currentFile?.methods?.some(method => method.name === methodName);
+    
+    // コントローラーの標準アクションは定義済みとして扱わない
+    const isControllerFile = currentFilePath.endsWith('_controller.rb');
+    const isStandardAction = ['index', 'show', 'new', 'edit', 'create', 'update', 'destroy'].includes(methodName);
+    
+    let isDefinedInCurrentFile = false;
+    if (isControllerFile && isStandardAction) {
+      // 標準アクションは定義されていないものとして扱う
+      isDefinedInCurrentFile = false;
+    } else {
+      isDefinedInCurrentFile = currentFile?.methods?.some(method => method.name === methodName) || false;
+    }
     
     if (isDefinedInCurrentFile) {
       // 定義元メソッドの場合：呼び出し元一覧を返す
