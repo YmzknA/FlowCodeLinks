@@ -441,13 +441,9 @@ export const CodeVisualizer: React.FC = () => {
           const windowWidth = targetWindow.position.width;
           const windowHeight = targetWindow.position.height;
           
-          // ウィンドウ中央にパンを移動（従来通り）
+          // 常にウィンドウ中央にパンを移動（lineNumberに関係なく統一）
           const targetMethodX = windowX + windowWidth / 2;
           const targetMethodY = windowY + windowHeight / 2;
-          
-          // 行番号の有無によってスクロール動作が変わる
-          // lineNumber有り: 呼び出し行を中央表示
-          // lineNumber無し: メソッド定義行を上端表示
           
           const targetCanvasX = targetMethodX + canvasOffset.x;
           const targetCanvasY = targetMethodY + canvasOffset.y;
