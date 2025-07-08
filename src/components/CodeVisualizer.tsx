@@ -299,7 +299,7 @@ export const CodeVisualizer: React.FC = () => {
   }, []);
 
   // メソッド定義元を見つける関数（UI用・除外メソッドは対象外）
-  const findMethodDefinition = useCallback((methodName: string, currentFilePath?: string): { methodName: string; filePath: string } | null => {
+  const findMethodDefinition = useCallback((methodName: string, currentFilePath?: string): { methodName: string; filePath: string; lineNumber?: number } | null => {
     // 1. 同じファイル内に定義があるかチェック（優先）
     if (currentFilePath) {
       const currentFile = files.find(f => f.path === currentFilePath);
@@ -313,7 +313,8 @@ export const CodeVisualizer: React.FC = () => {
             
             return {
               methodName: method.name,
-              filePath: currentFile.path
+              filePath: currentFile.path,
+              lineNumber: method.startLine
             };
           }
         }
@@ -333,7 +334,8 @@ export const CodeVisualizer: React.FC = () => {
             
             return {
               methodName: method.name,
-              filePath: file.path
+              filePath: file.path,
+              lineNumber: method.startLine
             };
           }
         }
@@ -343,7 +345,7 @@ export const CodeVisualizer: React.FC = () => {
   }, [files]);
 
   // メソッド定義元を見つける関数（依存関係追跡用・除外メソッドも含む）
-  const findMethodDefinitionForTracking = useCallback((methodName: string, currentFilePath?: string): { methodName: string; filePath: string } | null => {
+  const findMethodDefinitionForTracking = useCallback((methodName: string, currentFilePath?: string): { methodName: string; filePath: string; lineNumber?: number } | null => {
     // 1. 同じファイル内に定義があるかチェック（優先）
     if (currentFilePath) {
       const currentFile = files.find(f => f.path === currentFilePath);
@@ -352,7 +354,8 @@ export const CodeVisualizer: React.FC = () => {
           if (method.name === methodName) {
             return {
               methodName: method.name,
-              filePath: currentFile.path
+              filePath: currentFile.path,
+              lineNumber: method.startLine
             };
           }
         }
@@ -367,7 +370,8 @@ export const CodeVisualizer: React.FC = () => {
           if (method.name === methodName) {
             return {
               methodName: method.name,
-              filePath: file.path
+              filePath: file.path,
+              lineNumber: method.startLine
             };
           }
         }
