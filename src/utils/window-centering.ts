@@ -3,6 +3,7 @@
  */
 
 import { FloatingWindow } from '@/types/codebase';
+import { CANVAS_CONFIG } from '@/config/canvas';
 
 export interface CenteringConfig {
   currentZoom: number;
@@ -31,8 +32,8 @@ export function calculateCenteringPan(
 ): { x: number; y: number } {
   const { currentZoom, currentPan, sidebarCollapsed, sidebarWidth } = config;
   
-  // キャンバスオフセット(2000px, 1000px)を考慮
-  const canvasOffset = { x: 2000, y: 1000 };
+  // キャンバスオフセットを設定から取得
+  const canvasOffset = CANVAS_CONFIG.OFFSET;
   
   // ウィンドウの基本位置
   const windowX = targetWindow.position.x;

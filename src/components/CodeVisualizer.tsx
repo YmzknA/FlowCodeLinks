@@ -16,6 +16,7 @@ import { useFiles } from '@/context/FilesContext';
 import { ParsedFile, Method, Dependency, FloatingWindow } from '@/types/codebase';
 import { MethodExclusionService } from '@/services/MethodExclusionService';
 import { calculateCenteringPan } from '@/utils/window-centering';
+import { CANVAS_CONFIG } from '@/config/canvas';
 
 export const CodeVisualizer: React.FC = () => {
   const { setAllFiles } = useFiles();
@@ -463,13 +464,13 @@ export const CodeVisualizer: React.FC = () => {
       setExternalPan(null);
       // externalPanリセット時に確実にcurrentPanを更新
       setCurrentPan(newPan);
-    }, 50);
+    }, CANVAS_CONFIG.TIMING.EXTERNAL_PAN_RESET);
   }, [currentZoom, currentPan, sidebarCollapsed, sidebarWidth]);
 
   // ジャンプ中フラグとタイマーIDで重複実行を防ぐ
-  const isJumpingRef = useRef<string | false>(false);
+  const isJumpingRef = useRef<string | null>(null);
   const jumpTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const centeringExecutedRef = useRef<string | false>(false);
+  const centeringExecutedRef = useRef<string | null>(null);
   const visibleFilesRef = useRef(visibleFiles);
   const centerWindowRef = useRef(centerWindowInViewport);
   
@@ -487,7 +488,7 @@ export const CodeVisualizer: React.FC = () => {
     // ジャンプキーをユニークに作成
     const jumpKey = `${method.filePath}-${method.methodName}-${method.lineNumber || 'def'}`;
     
-    if (isJumpingRef.current) {
+    if (isJumpingRef.current !== null) {
       return;
     }
     
@@ -507,7 +508,7 @@ export const CodeVisualizer: React.FC = () => {
 
     setHighlightedMethod(method);
 
-    const waitTime = wasHidden ? 300 : 200;
+    const waitTime = wasHidden ? CANVAS_CONFIG.TIMING.NEW_FILE_WAIT : CANVAS_CONFIG.TIMING.EXISTING_FILE_WAIT;
     
     jumpTimerRef.current = setTimeout(() => {
       // タイマーIDをクリア
@@ -528,7 +529,7 @@ export const CodeVisualizer: React.FC = () => {
           // setFloatingWindowsの外でcenterWindowInViewportを呼ぶ
           setTimeout(() => {
             centerWindowRef.current(targetWindow);
-          }, 50);
+          }, CANVAS_CONFIG.TIMING.CENTERING_DELAY);
         }
         
         return currentWindows; // 状態は変更しない
@@ -536,9 +537,9 @@ export const CodeVisualizer: React.FC = () => {
       
       // ジャンプ完了後にフラグをリセット
       setTimeout(() => {
-        isJumpingRef.current = false;
-        centeringExecutedRef.current = false;
-      }, 200);
+        isJumpingRef.current = null;
+        centeringExecutedRef.current = null;
+      }, CANVAS_CONFIG.TIMING.JUMP_COMPLETION);
     }, waitTime);
   }, []); // 空の依存配列で関数を安定化
 
