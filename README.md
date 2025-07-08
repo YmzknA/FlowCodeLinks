@@ -39,7 +39,7 @@ https://repomix.com/
 ### 2. FlowCodeLinksで可視化
 
 1. **[FlowCodeLinks](https://flow-code-links.vercel.app/)** にアクセス
-2. 生成された `.md` ファイルをドラッグ&ドロップでアップロード
+2. 生成された `.md` ファイルをアップロード
 3. 自動的にコードが解析されます
 4. サイドバーから表示するファイルやメソッドを選択
 
