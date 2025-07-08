@@ -15,6 +15,7 @@ import { useScrollAnimation, useStaggeredScrollAnimation } from '@/hooks/useScro
 import { useFiles } from '@/context/FilesContext';
 import { ParsedFile, Method, Dependency, FloatingWindow } from '@/types/codebase';
 import { MethodExclusionService } from '@/services/MethodExclusionService';
+import { MethodFinder } from '@/utils/method-finder';
 import { calculateCenteringPan } from '@/utils/window-centering';
 import { CANVAS_CONFIG } from '@/config/canvas';
 
@@ -303,87 +304,18 @@ export const CodeVisualizer: React.FC = () => {
     setFloatingWindows(windows);
   }, []);
 
+  // メソッド検索ユーティリティ
+  const methodFinder = useMemo(() => new MethodFinder(files), [files]);
+
   // メソッド定義元を見つける関数（UI用・除外メソッドは対象外）
   const findMethodDefinition = useCallback((methodName: string, currentFilePath?: string): { methodName: string; filePath: string; lineNumber?: number } | null => {
-    // 1. 同じファイル内に定義があるかチェック（優先）
-    if (currentFilePath) {
-      const currentFile = files.find(f => f.path === currentFilePath);
-      if (currentFile?.methods) {
-        for (const method of currentFile.methods) {
-          if (method.name === methodName) {
-            // 除外対象メソッドはジャンプ対象外
-            if (MethodExclusionService.isExcludedMethod(methodName, currentFile.path)) {
-              continue; // 除外対象メソッドはスキップ
-            }
-            
-            return {
-              methodName: method.name,
-              filePath: currentFile.path,
-              lineNumber: method.startLine
-            };
-          }
-        }
-      }
-    }
-    
-    // 2. 他のファイルから検索
-    for (const file of files) {
-      if (file.path === currentFilePath) continue; // 同じファイルは既にチェック済み
-      if (file.methods) {
-        for (const method of file.methods) {
-          if (method.name === methodName) {
-            // 除外対象メソッドはジャンプ対象外
-            if (MethodExclusionService.isExcludedMethod(methodName, file.path)) {
-              continue; // 除外対象メソッドはスキップ
-            }
-            
-            return {
-              methodName: method.name,
-              filePath: file.path,
-              lineNumber: method.startLine
-            };
-          }
-        }
-      }
-    }
-    return null;
-  }, [files]);
+    return methodFinder.findMethodDefinitionForUI(methodName, currentFilePath);
+  }, [methodFinder]);
 
   // メソッド定義元を見つける関数（依存関係追跡用・除外メソッドも含む）
   const findMethodDefinitionForTracking = useCallback((methodName: string, currentFilePath?: string): { methodName: string; filePath: string; lineNumber?: number } | null => {
-    // 1. 同じファイル内に定義があるかチェック（優先）
-    if (currentFilePath) {
-      const currentFile = files.find(f => f.path === currentFilePath);
-      if (currentFile?.methods) {
-        for (const method of currentFile.methods) {
-          if (method.name === methodName) {
-            return {
-              methodName: method.name,
-              filePath: currentFile.path,
-              lineNumber: method.startLine
-            };
-          }
-        }
-      }
-    }
-    
-    // 2. 他のファイルから検索
-    for (const file of files) {
-      if (file.path === currentFilePath) continue; // 同じファイルは既にチェック済み
-      if (file.methods) {
-        for (const method of file.methods) {
-          if (method.name === methodName) {
-            return {
-              methodName: method.name,
-              filePath: file.path,
-              lineNumber: method.startLine
-            };
-          }
-        }
-      }
-    }
-    return null;
-  }, [files]);
+    return methodFinder.findMethodDefinitionForTracking(methodName, currentFilePath);
+  }, [methodFinder]);
 
   // クリック時に定義行かどうかを判定する関数
   const isMethodDefinitionLine = useCallback((methodName: string, currentFilePath: string, lineNumber?: number): boolean => {

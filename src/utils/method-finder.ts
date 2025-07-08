@@ -1,4 +1,5 @@
-import { ParsedFile, Method, MethodJumpTarget } from '@/types';
+import { ParsedFile, Method } from '@/types/codebase';
+import { MethodJumpTarget } from '@/types';
 import { MethodExclusionService } from '@/services/MethodExclusionService';
 
 /**
@@ -27,13 +28,101 @@ export class MethodFinder {
         for (const method of file.methods) {
           if (method.name === methodName) {
             // 除外対象メソッドはジャンプ対象外
-            if (MethodExclusionService.isExcludedMethod(methodName, file.path)) {
+            if (!MethodExclusionService.isJumpTargetMethod(methodName, file.path)) {
               continue; // 除外対象メソッドはスキップ
             }
             
             return {
               methodName: method.name,
               filePath: file.path
+            };
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * メソッド名から定義元を検索（UI用・除外メソッドは対象外）
+   * 同じファイル内を優先して検索
+   */
+  findMethodDefinitionForUI(methodName: string, currentFilePath?: string): { methodName: string; filePath: string; lineNumber?: number } | null {
+    // 1. 同じファイル内に定義があるかチェック（優先）
+    if (currentFilePath) {
+      const currentFile = this.files.find(f => f.path === currentFilePath);
+      if (currentFile?.methods) {
+        for (const method of currentFile.methods) {
+          if (method.name === methodName) {
+            // 除外対象メソッドはジャンプ対象外
+            if (!MethodExclusionService.isJumpTargetMethod(methodName, currentFile.path)) {
+              continue; // 除外対象メソッドはスキップ
+            }
+            
+            return {
+              methodName: method.name,
+              filePath: currentFile.path,
+              lineNumber: method.startLine
+            };
+          }
+        }
+      }
+    }
+    
+    // 2. 他のファイルから検索
+    for (const file of this.files) {
+      if (file.path === currentFilePath) continue; // 同じファイルは既にチェック済み
+      if (file.methods) {
+        for (const method of file.methods) {
+          if (method.name === methodName) {
+            // 除外対象メソッドはジャンプ対象外
+            if (!MethodExclusionService.isJumpTargetMethod(methodName, file.path)) {
+              continue; // 除外対象メソッドはスキップ
+            }
+            
+            return {
+              methodName: method.name,
+              filePath: file.path,
+              lineNumber: method.startLine
+            };
+          }
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * メソッド名から定義元を検索（依存関係追跡用・除外メソッドも含む）
+   * 同じファイル内を優先して検索
+   */
+  findMethodDefinitionForTracking(methodName: string, currentFilePath?: string): { methodName: string; filePath: string; lineNumber?: number } | null {
+    // 1. 同じファイル内に定義があるかチェック（優先）
+    if (currentFilePath) {
+      const currentFile = this.files.find(f => f.path === currentFilePath);
+      if (currentFile?.methods) {
+        for (const method of currentFile.methods) {
+          if (method.name === methodName) {
+            return {
+              methodName: method.name,
+              filePath: currentFile.path,
+              lineNumber: method.startLine
+            };
+          }
+        }
+      }
+    }
+    
+    // 2. 他のファイルから検索
+    for (const file of this.files) {
+      if (file.path === currentFilePath) continue; // 同じファイルは既にチェック済み
+      if (file.methods) {
+        for (const method of file.methods) {
+          if (method.name === methodName) {
+            return {
+              methodName: method.name,
+              filePath: file.path,
+              lineNumber: method.startLine
             };
           }
         }
