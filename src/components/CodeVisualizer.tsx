@@ -586,7 +586,7 @@ export const CodeVisualizer: React.FC = () => {
       // 呼び出し行の場合：定義元にジャンプ（同じファイル内を優先）
       const definition = findMethodDefinition(methodName, currentFilePath);
       if (definition) {
-        handleMethodJump(definition);
+        handleMethodJump(definition!);
       }
       return;
     }
@@ -611,7 +611,7 @@ export const CodeVisualizer: React.FC = () => {
       // 呼び出されているメソッドの場合：定義元にジャンプ（同じファイル内を優先）
       const definition = findMethodDefinition(methodName, currentFilePath);
       if (definition) {
-        handleMethodJump(definition);
+        handleMethodJump(definition!);
       } else {
       }
     }
