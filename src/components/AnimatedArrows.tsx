@@ -37,6 +37,9 @@ export const AnimatedArrows: React.FC<AnimatedArrowsProps> = ({
   useEffect(() => {
     if (!isClient) return; // クライアントサイドでのみ実行
     
+    // refの値を事前にコピー
+    const timeouts = timeoutRefs.current;
+    
     isActiveRef.current = true; // アクティブ状態にリセット
     
     const generateSingleArrow = () => {
@@ -79,16 +82,16 @@ export const AnimatedArrows: React.FC<AnimatedArrowsProps> = ({
       const removeTimeout = setTimeout(() => {
         if (!isActiveRef.current) return;
         setArrows(prev => prev.filter(arrow => arrow.id !== id));
-        timeoutRefs.current.delete(removeTimeout);
+        timeouts.delete(removeTimeout);
       }, duration + 1000);
       
-      timeoutRefs.current.add(removeTimeout);
+      timeouts.add(removeTimeout);
     };
 
     // 初期矢印を生成（タイマーID管理）
     for (let i = 0; i < arrowCount; i++) {
       const initTimeout = setTimeout(generateSingleArrow, Math.random() * 3000);
-      timeoutRefs.current.add(initTimeout);
+      timeouts.add(initTimeout);
     }
     
     // 継続的に新しい矢印を生成（再帰ではなく制御された方式）
@@ -98,22 +101,22 @@ export const AnimatedArrows: React.FC<AnimatedArrowsProps> = ({
       generateSingleArrow();
       
       const nextTimeout = setTimeout(scheduleNext, 2000 + Math.random() * 3000);
-      timeoutRefs.current.add(nextTimeout);
+      timeouts.add(nextTimeout);
     };
     
     // 初回のスケジュール設定
     const initialScheduleTimeout = setTimeout(scheduleNext, 5000);
-    timeoutRefs.current.add(initialScheduleTimeout);
+    timeouts.add(initialScheduleTimeout);
     
     // 完全なクリーンアップ処理
     return () => {
       isActiveRef.current = false; // 実行停止フラグ
       
       // 全てのタイマーをクリア
-      timeoutRefs.current.forEach(timeoutId => {
+      timeouts.forEach(timeoutId => {
         clearTimeout(timeoutId);
       });
-      timeoutRefs.current.clear();
+      timeouts.clear();
     };
   }, [containerWidth, containerHeight, arrowCount, isClient]);
 
