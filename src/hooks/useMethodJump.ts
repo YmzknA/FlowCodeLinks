@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { ParsedFile, FloatingWindow } from '@/types';
 import { MethodExclusionService } from '@/services/MethodExclusionService';
+import { calculateCenteringPan } from '@/utils/window-centering';
 
 export interface MethodJumpTarget {
   methodName: string;

@@ -15,6 +15,7 @@ import { useScrollAnimation, useStaggeredScrollAnimation } from '@/hooks/useScro
 import { useFiles } from '@/context/FilesContext';
 import { ParsedFile, Method, Dependency, FloatingWindow } from '@/types/codebase';
 import { MethodExclusionService } from '@/services/MethodExclusionService';
+import { calculateCenteringPan } from '@/utils/window-centering';
 
 export const CodeVisualizer: React.FC = () => {
   const { setAllFiles } = useFiles();
@@ -443,6 +444,23 @@ export const CodeVisualizer: React.FC = () => {
     return null;
   }, [files]);
 
+  // 統一されたウィンドウ中央配置ロジック
+  const centerWindowInViewport = useCallback((targetWindow: FloatingWindow) => {
+    const newPan = calculateCenteringPan(targetWindow, {
+      currentZoom,
+      currentPan,
+      sidebarCollapsed,
+      sidebarWidth
+    });
+    
+    // 外部パンとして設定（ZoomableCanvasに反映される）
+    setExternalPan(newPan);
+    // 少し遅れてリセット（一度だけ適用）
+    setTimeout(() => {
+      setExternalPan(null);
+    }, 50);
+  }, [currentZoom, currentPan, sidebarCollapsed, sidebarWidth]);
+
   // メソッドジャンプ機能
   const handleMethodJump = useCallback((method: { methodName: string; filePath: string; lineNumber?: number }) => {
 
@@ -454,53 +472,20 @@ export const CodeVisualizer: React.FC = () => {
 
     setHighlightedMethod(method);
 
-    const waitTime = wasHidden ? 300 : 200; // 同じファイル内でも若干待機時間を延長
+    const waitTime = wasHidden ? 300 : 200;
     
     setTimeout(() => {
       setFloatingWindows(currentWindows => {
         const targetWindow = currentWindows.find(w => w.file.path === method.filePath);
         
         if (targetWindow) {
-          
-          // キャンバスオフセット(2000px, 1000px)を考慮
-          const canvasOffset = { x: 2000, y: 1000 };
-          
-          // ウィンドウの基本位置
-          const windowX = targetWindow.position.x;
-          const windowY = targetWindow.position.y;
-          const windowWidth = targetWindow.position.width;
-          const windowHeight = targetWindow.position.height;
-          
-          // 常にウィンドウ中央にパンを移動（lineNumberに関係なく統一）
-          const targetMethodX = windowX + windowWidth / 2;
-          const targetMethodY = windowY + windowHeight / 2;
-          
-          const targetCanvasX = targetMethodX + canvasOffset.x;
-          const targetCanvasY = targetMethodY + canvasOffset.y;
-          
-          // 画面中央に表示するためのパン位置を計算
-          const viewportWidth = window.innerWidth - (sidebarCollapsed ? 48 : sidebarWidth);
-          const viewportHeight = window.innerHeight;
-          
-          const newPan = {
-            x: viewportWidth / 2 - targetCanvasX * currentZoom,
-            y: viewportHeight / 2 - targetCanvasY * currentZoom
-          };
-          
-          
-          
-          // 外部パンとして設定（ZoomableCanvasに反映される）
-          setExternalPan(newPan);
-          // 少し遅れてリセット（一度だけ適用）
-          setTimeout(() => {
-                  setExternalPan(null);
-          }, 50);
-        } else {
+          // 統一されたロジックでウィンドウを画面中央に配置
+          centerWindowInViewport(targetWindow);
         }
         return currentWindows; // 状態は変更しない
       });
     }, waitTime);
-  }, [visibleFiles, currentZoom, sidebarCollapsed, sidebarWidth]);
+  }, [visibleFiles, centerWindowInViewport]);
 
   // import文内のメソッドクリック処理
   const handleImportMethodClick = useCallback((methodName: string) => {
