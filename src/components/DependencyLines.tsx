@@ -465,30 +465,35 @@ export const DependencyLines: React.FC<DependencyLinesProps> = ({
 
   // コンポーネントアンマウント時のメモリクリーンアップ
   useEffect(() => {
+    // refの値を事前にコピー
+    const curveParams = usedCurveParams.current;
+    
     return () => {
       // usedCurveParams.current は既にクリーンアップの影響を受けている可能性があるため、
       // 安全にアクセスする
-      if (usedCurveParams.current) {
-        usedCurveParams.current.clear();
+      if (curveParams) {
+        curveParams.clear();
       }
     };
   }, []);
 
   // 定期的なメモリクリーンアップ（メモリリークを防ぐ）
   useEffect(() => {
-    const currentCurveParams = usedCurveParams.current;
+    // refの値を事前にコピー
+    const curveParams = usedCurveParams.current;
+    
     const interval = setInterval(() => {
-      if (currentCurveParams && currentCurveParams.size > 100) {
+      if (curveParams && curveParams.size > 100) {
         debugWarn('Clearing curve parameters cache to prevent memory leak');
-        currentCurveParams.clear();
+        curveParams.clear();
       }
     }, 30000); // 30秒ごとにチェック
 
     return () => {
       clearInterval(interval);
       // クリーンアップ時にrefの内容をコピーして使用
-      if (usedCurveParams.current) {
-        usedCurveParams.current.clear();
+      if (curveParams) {
+        curveParams.clear();
       }
     };
   }, []);

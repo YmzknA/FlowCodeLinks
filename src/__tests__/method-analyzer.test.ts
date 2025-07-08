@@ -441,21 +441,23 @@ end`,
       };
       
       const methods = analyzeMethodsInFile(file);
-      expect(methods).toHaveLength(3); // show, update, tasks_ransack_from_milestone
+      expect(methods).toHaveLength(3); // show, update (isExcluded=true), tasks_ransack_from_milestone
       
+      // 標準アクション（show, update）は含まれるがisExcluded=true
       const showMethod = methods.find(m => m.name === 'show');
       const updateMethod = methods.find(m => m.name === 'update');
       
       expect(showMethod).toBeDefined();
+      expect(showMethod?.isExcluded).toBe(true);
       expect(updateMethod).toBeDefined();
+      expect(updateMethod?.isExcluded).toBe(true);
       
-      // showメソッドでtasks_ransack_from_milestoneが呼び出されているか
-      const showCalls = showMethod!.calls.map(call => call.methodName);
-      expect(showCalls).toContain('tasks_ransack_from_milestone');
+      // カスタムメソッドが正しく検出されているか
+      const taskMethod = methods.find(m => m.name === 'tasks_ransack_from_milestone');
+      expect(taskMethod).toBeDefined();
+      expect(taskMethod?.isExcluded).toBeFalsy();
+      expect(taskMethod!.isPrivate).toBe(true);
       
-      // updateメソッドでtasks_ransack_from_milestoneが呼び出されているか
-      const updateCalls = updateMethod!.calls.map(call => call.methodName);
-      expect(updateCalls).toContain('tasks_ransack_from_milestone');
     });
 
     it('should detect methods with question marks', () => {
@@ -808,6 +810,225 @@ end
       expect(methods).toHaveLength(0);
     });
 
+  });
+
+  describe('Rails コントローラー標準アクション除外', () => {
+    test('コントローラーの標準アクションは定義元として検知されない', () => {
+      const controllerFile: ParsedFile = {
+        path: 'app/controllers/users_controller.rb',
+        language: 'ruby',
+        content: `
+class UsersController < ApplicationController
+  def index
+    @users = User.all
+  end
+
+  def show
+    @user = User.find(params[:id])
+  end
+
+  def new
+    @user = User.new
+  end
+
+  def create
+    @user = User.new(user_params)
+    if @user.save
+      redirect_to @user
+    else
+      render :new
+    end
+  end
+
+  def edit
+    @user = User.find(params[:id])
+  end
+
+  def update
+    @user = User.find(params[:id])
+    if @user.update(user_params)
+      redirect_to @user
+    else
+      render :edit
+    end
+  end
+
+  def destroy
+    @user = User.find(params[:id])
+    @user.destroy
+    redirect_to users_path
+  end
+
+  def custom_action
+    # カスタムアクション
+  end
+
+  private
+
+  def user_params
+    params.require(:user).permit(:name, :email)
+  end
+end`,
+        directory: 'app/controllers',
+        fileName: 'users_controller.rb',
+        totalLines: 43,
+        methods: []
+      };
+
+      const methods = analyzeMethodsInFile(controllerFile);
+      
+      // 標準アクション（index, show, new, create, edit, update, destroy）は含まれるがisExcluded=trueとなる
+      const methodNames = methods.map(m => m.name);
+      expect(methodNames).toContain('index');
+      expect(methodNames).toContain('show');
+      expect(methodNames).toContain('new');
+      expect(methodNames).toContain('create');
+      expect(methodNames).toContain('edit');
+      expect(methodNames).toContain('update');
+      expect(methodNames).toContain('destroy');
+      
+      // 標準アクションはisExcluded=trueが設定される
+      const standardActions = ['index', 'show', 'new', 'create', 'edit', 'update', 'destroy'];
+      standardActions.forEach(actionName => {
+        const method = methods.find(m => m.name === actionName);
+        expect(method).toBeDefined();
+        expect(method?.isExcluded).toBe(true);
+      });
+      
+      // カスタムアクションとプライベートメソッドは検出される
+      expect(methodNames).toContain('custom_action');
+      expect(methodNames).toContain('user_params');
+      
+      // カスタムメソッドはisExcluded=falseまたはundefined
+      const customMethod = methods.find(m => m.name === 'custom_action');
+      const privateMethod = methods.find(m => m.name === 'user_params');
+      expect(customMethod?.isExcluded).toBeFalsy();
+      expect(privateMethod?.isExcluded).toBeFalsy();
+    });
+
+    test('コントローラー以外のファイルでは標準アクションが検出される', () => {
+      const modelFile: ParsedFile = {
+        path: 'app/models/user.rb',
+        language: 'ruby',
+        content: `
+class User < ApplicationRecord
+  def index
+    # モデルのindexメソッド
+  end
+
+  def show
+    # モデルのshowメソッド
+  end
+
+  def create
+    # モデルのcreateメソッド
+  end
+
+  def update
+    # モデルのupdateメソッド
+  end
+
+  def destroy
+    # モデルのdestroyメソッド
+  end
+end`,
+        directory: 'app/models',
+        fileName: 'user.rb',
+        totalLines: 22,
+        methods: []
+      };
+
+      const methods = analyzeMethodsInFile(modelFile);
+      
+      // モデルファイルでは標準アクション名も通常のメソッドとして検出される
+      const methodNames = methods.map(m => m.name);
+      expect(methodNames).toContain('index');
+      expect(methodNames).toContain('show');
+      expect(methodNames).toContain('create');
+      expect(methodNames).toContain('update');
+      expect(methodNames).toContain('destroy');
+    });
+
+    test('コントローラー内でも標準アクションの呼び出しは検出される', () => {
+      const controllerFile: ParsedFile = {
+        path: 'app/controllers/admin/users_controller.rb',
+        language: 'ruby',
+        content: `
+class Admin::UsersController < ApplicationController
+  def index
+    @users = User.all
+    call_custom_method
+  end
+
+  def show
+    @user = User.find(params[:id])
+    # 他のアクション（メソッド）を呼び出し
+    index_helper if params[:include_all]
+  end
+
+  def custom_action
+    # カスタムアクション内で標準アクションを呼び出し
+    show_details
+    index_count = count_users
+  end
+
+  private
+
+  def call_custom_method
+    # カスタムメソッド
+  end
+
+  def show_details
+    # showに似た名前だが異なるメソッド
+  end
+
+  def index_helper
+    # indexに似た名前だが異なるメソッド
+  end
+
+  def count_users
+    User.count
+  end
+end`,
+        directory: 'app/controllers/admin',
+        fileName: 'users_controller.rb',
+        totalLines: 38,
+        methods: []
+      };
+
+      const methods = analyzeMethodsInFile(controllerFile);
+      
+      // 標準アクション（index, show）は含まれるがisExcluded=trueとなる
+      const methodNames = methods.map(m => m.name);
+      expect(methodNames).toContain('index');
+      expect(methodNames).toContain('show');
+      
+      // 標準アクションはisExcluded=trueが設定される
+      const indexMethod = methods.find(m => m.name === 'index');
+      const showMethod = methods.find(m => m.name === 'show');
+      expect(indexMethod?.isExcluded).toBe(true);
+      expect(showMethod?.isExcluded).toBe(true);
+      
+      // カスタムメソッドは検出される
+      expect(methodNames).toContain('custom_action');
+      expect(methodNames).toContain('call_custom_method');
+      expect(methodNames).toContain('show_details');
+      expect(methodNames).toContain('index_helper');
+      expect(methodNames).toContain('count_users');
+      
+      // カスタムメソッドはisExcluded=falseまたはundefined
+      const customMethods = ['custom_action', 'call_custom_method', 'show_details', 'index_helper', 'count_users'];
+      customMethods.forEach(methodName => {
+        const method = methods.find(m => m.name === methodName);
+        expect(method?.isExcluded).toBeFalsy();
+      });
+      
+      // 標準アクション内でのメソッド呼び出しは検出される
+      const customActionMethod = methods.find(m => m.name === 'custom_action');
+      const callNames = customActionMethod!.calls.map(c => c.methodName);
+      expect(callNames).toContain('show_details');
+      expect(callNames).toContain('count_users');
+    });
   });
 
   describe('変数フィルタリング機能', () => {

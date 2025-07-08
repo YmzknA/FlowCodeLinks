@@ -1,3 +1,5 @@
+import { MethodExclusionService } from '@/services/MethodExclusionService';
+
 /**
  * セキュリティ強化された保護マーカー生成関数
  * crypto.randomUUID() を優先使用し、フォールバックも提供
@@ -53,6 +55,11 @@ export const makeImportMethodsClickable = (
 
   // import文で使用されているメソッド名をクリック可能にする
   importMethods.forEach(methodName => {
+    // 除外対象メソッドはクリック不可
+    if (currentFilePath && MethodExclusionService.isExcludedMethod(methodName, currentFilePath)) {
+      return; // 除外対象メソッドはクリック不可
+    }
+    
     // 定義元が見つからない場合はクリック可能にしない
     const hasDefinition = findMethodDefinition ? findMethodDefinition(methodName) !== null : true;
     if (!hasDefinition) {
@@ -139,7 +146,15 @@ export const replaceMethodNameInText = (
   if (findMethodDefinition && findAllMethodCallers && currentFilePath && files) {
     // 全パラメータが提供された場合：完全な判定を実行
     const currentFile = files.find(f => f.path === currentFilePath);
-    const isDefinedInCurrentFile = currentFile?.methods?.some((method: any) => method.name === methodName);
+    
+    // 除外対象メソッドは定義済みとして扱わない
+    let isDefinedInCurrentFile = false;
+    if (MethodExclusionService.isExcludedMethod(methodName, currentFilePath)) {
+      // 除外対象メソッドは定義されていないものとして扱う
+      isDefinedInCurrentFile = false;
+    } else {
+      isDefinedInCurrentFile = currentFile?.methods?.some((method: any) => method.name === methodName) || false;
+    }
     
     if (isDefinedInCurrentFile) {
       // 定義元メソッドの場合：呼び出し元があるかチェック
@@ -169,6 +184,11 @@ export const replaceMethodNameInText = (
     isClickable = knownProjectMethods.has(methodName) || isRubyMethod || isJavaScriptMethod;
   }
   // その他の場合：従来通り全てクリック可能（後方互換性）
+  
+  // 除外対象メソッドはクリック不可
+  if (currentFilePath && !MethodExclusionService.isClickableMethod(methodName, currentFilePath)) {
+    return html; // 除外対象メソッドはクリック不可
+  }
   
   // クリック可能でない場合はそのまま返す
   if (!isClickable) {
@@ -221,9 +241,16 @@ export const replaceMethodNameInText = (
   const baseClasses = "cursor-pointer hover:bg-blue-900 hover:bg-opacity-40 rounded px-1 relative";
   const highlightClasses = isHighlighted ? " bg-red-200 bg-opacity-60 border-2 border-red-300" : "";
   
-  result = result.replace(methodNameRegex, 
-    `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}">$&<span class="absolute -top-1 -right-1 text-xs text-yellow-400" aria-hidden="true" title="クリック可能なメソッド">*</span></span>`
-  );
+  // メソッド名を置換する際に行番号とメタデータを追加
+  // 元のテキストを保存してオフセット計算の正確性を保つ
+  const originalResult = result;
+  result = result.replace(methodNameRegex, (match, offset) => {
+    // 元のHTMLの先頭からoffset位置までの改行数を数えて行番号を計算
+    const beforeMatch = originalResult.substring(0, offset);
+    const lineNumber = (beforeMatch.match(/\n/g) || []).length + 1;
+    
+    return `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}" data-line="${lineNumber}">${match}<span class="absolute -top-1 -right-1 text-xs text-yellow-400" aria-hidden="true" title="クリック可能なメソッド">*</span></span>`;
+  });
   
   // 保護されたHTMLタグと属性を復元
   protectMap.forEach((originalContent, marker) => {
@@ -281,9 +308,9 @@ export const highlightMethodDefinition = (
     'g'
   );
   
-  // パターン3: 既存のspan要素内のメソッド名をハイライト
+  // パターン3: 既存のspan要素にハイライトクラスを追加
   const existingSpanPattern = new RegExp(
-    `(<span[^>]*data-method-name="${escapedMethodName}"[^>]*>)(${escapedMethodName})(<span[^>]*>[^<]*</span></span>)`,
+    `(<span[^>]*data-method-name="${escapedMethodName}"[^>]*class=")([^"]*)(\"[^>]*>)(${escapedMethodName})(<span[^>]*>[^<]*</span></span>)`,
     'g'
   );
   
@@ -308,10 +335,11 @@ export const highlightMethodDefinition = (
   
   // パターン3: 既存のクリック可能要素をハイライト (まだマッチしていない場合)
   if (!matched) {
-    result = result.replace(existingSpanPattern, (match, beforeSpan, methodName, afterSpan) => {
+    result = result.replace(existingSpanPattern, (match, beforeClass, existingClasses, afterClass, methodName, afterSpan) => {
       matched = true;
       debugLog(`🎨 Pattern3 matched: ${match}`);
-      return `${beforeSpan}<span class="bg-red-200 bg-opacity-60 border-2 border-red-300 rounded px-1">${methodName}</span>${afterSpan}`;
+      // 既存のクラスにハイライトクラスを追加
+      return `${beforeClass}${existingClasses} bg-red-200 bg-opacity-60 border-2 border-red-300${afterClass}${methodName}${afterSpan}`;
     });
   }
 

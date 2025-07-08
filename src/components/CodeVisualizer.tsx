@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Sidebar } from './Sidebar';
@@ -14,6 +14,10 @@ import { useOptimizedAnalysis, useOptimizedDependencies } from '@/utils/performa
 import { useScrollAnimation, useStaggeredScrollAnimation } from '@/hooks/useScrollAnimation';
 import { useFiles } from '@/context/FilesContext';
 import { ParsedFile, Method, Dependency, FloatingWindow } from '@/types/codebase';
+import { MethodExclusionService } from '@/services/MethodExclusionService';
+import { MethodFinder } from '@/utils/method-finder';
+import { calculateCenteringPan } from '@/utils/window-centering';
+import { CANVAS_CONFIG } from '@/config/canvas';
 
 export const CodeVisualizer: React.FC = () => {
   const { setAllFiles } = useFiles();
@@ -56,6 +60,7 @@ export const CodeVisualizer: React.FC = () => {
       const allMethods = filesWithMethods.flatMap(file => file.methods);
       const dependencies = extractDependencies(allMethods);
 
+
       return {
         files: filesWithMethods,
         methods: allMethods,
@@ -86,6 +91,29 @@ export const CodeVisualizer: React.FC = () => {
   const { files, dependencies } = analysisResult as { files: ParsedFile[]; methods: Method[]; dependencies: Dependency[] };
   const optimizedCache = useOptimizedAnalysis(files);
   const visibleDependencies = useOptimizedDependencies(dependencies, visibleFiles);
+  
+  // prepare_meta_tags関連の依存関係を確認（本番では無効化）
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development' && visibleFiles.includes('app/controllers/users_controller.rb')) {
+      const prepareMetaTagsDeps = visibleDependencies.filter(dep => 
+        dep.from.methodName === 'prepare_meta_tags' || dep.to.methodName === 'prepare_meta_tags'
+      );
+      // eslint-disable-next-line no-console
+      console.log('🔍 prepare_meta_tags dependencies:', prepareMetaTagsDeps);
+      
+      // showメソッドを確認
+      const userControllerFile = files.find(f => f.path === 'app/controllers/users_controller.rb');
+      if (userControllerFile) {
+        const showMethod = userControllerFile.methods.find(m => m.name === 'show');
+        // eslint-disable-next-line no-console
+        console.log('🔍 show method:', showMethod);
+        if (showMethod) {
+          // eslint-disable-next-line no-console
+          console.log('🔍 show method calls:', showMethod.calls);
+        }
+      }
+    }
+  }, [visibleDependencies, visibleFiles, files]);
 
   // 全ファイルデータをContext APIで安全に管理（グローバル変数も後方互換性で並行更新）
   useEffect(() => {
@@ -276,22 +304,37 @@ export const CodeVisualizer: React.FC = () => {
     setFloatingWindows(windows);
   }, []);
 
-  // メソッド定義元を見つける関数
-  const findMethodDefinition = useCallback((methodName: string): { methodName: string; filePath: string } | null => {
-    // 全ファイルからメソッド定義を検索
-    for (const file of files) {
-      if (file.methods) {
-        for (const method of file.methods) {
-          if (method.name === methodName) {
-            return {
-              methodName: method.name,
-              filePath: file.path
-            };
-          }
-        }
-      }
+  // メソッド検索ユーティリティ
+  const methodFinder = useMemo(() => new MethodFinder(files), [files]);
+
+  // メソッド定義元を見つける関数（UI用・除外メソッドは対象外）
+  const findMethodDefinition = useCallback((methodName: string, currentFilePath?: string): { methodName: string; filePath: string; lineNumber?: number } | null => {
+    return methodFinder.findMethodDefinitionForUI(methodName, currentFilePath);
+  }, [methodFinder]);
+
+  // メソッド定義元を見つける関数（依存関係追跡用・除外メソッドも含む）
+  const findMethodDefinitionForTracking = useCallback((methodName: string, currentFilePath?: string): { methodName: string; filePath: string; lineNumber?: number } | null => {
+    return methodFinder.findMethodDefinitionForTracking(methodName, currentFilePath);
+  }, [methodFinder]);
+
+  // クリック時に定義行かどうかを判定する関数
+  const isMethodDefinitionLine = useCallback((methodName: string, currentFilePath: string, lineNumber?: number): boolean => {
+    if (!lineNumber) return false;
+    
+    const currentFile = files.find(f => f.path === currentFilePath);
+    if (!currentFile?.methods) return false;
+    
+    // 除外対象メソッドは定義として扱わない
+    if (MethodExclusionService.isExcludedMethod(methodName, currentFilePath)) {
+      return false;
     }
-    return null;
+    
+    // メソッド定義を探す
+    const methodDef = currentFile.methods.find(m => m.name === methodName);
+    if (!methodDef) return false;
+    
+    // 定義行±1行以内なら定義とみなす
+    return Math.abs(lineNumber - methodDef.startLine) <= 1;
   }, [files]);
 
   // メソッド呼び出し元を全て検索する関数
@@ -337,10 +380,62 @@ export const CodeVisualizer: React.FC = () => {
     return null;
   }, [files]);
 
-  // メソッドジャンプ機能
-  const handleMethodJump = useCallback((method: { methodName: string; filePath: string; lineNumber?: number }) => {
+  // 統一されたウィンドウ中央配置ロジック
+  const centerWindowInViewport = useCallback((targetWindow: FloatingWindow, currentPanOverride?: { x: number; y: number }) => {
+    // 最新のパン値を取得（オーバーライドがあればそれを使用）
+    const latestPan = currentPanOverride || currentPan;
+    
+    const newPan = calculateCenteringPan(targetWindow, {
+      currentZoom,
+      currentPan: latestPan,
+      sidebarCollapsed,
+      sidebarWidth
+    });
+    
+    // 外部パンとして設定（ZoomableCanvasに反映される）
+    setExternalPan(newPan);
+    // 少し遅れてリセット（一度だけ適用）
+    setTimeout(() => {
+      setExternalPan(null);
+      // externalPanリセット時に確実にcurrentPanを更新
+      setCurrentPan(newPan);
+    }, CANVAS_CONFIG.TIMING.EXTERNAL_PAN_RESET);
+  }, [currentZoom, currentPan, sidebarCollapsed, sidebarWidth]);
 
-    const wasHidden = !visibleFiles.includes(method.filePath);
+  // ジャンプ中フラグとタイマーIDで重複実行を防ぐ
+  const isJumpingRef = useRef<string | null>(null);
+  const jumpTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const centeringExecutedRef = useRef<string | null>(null);
+  const visibleFilesRef = useRef(visibleFiles);
+  const centerWindowRef = useRef(centerWindowInViewport);
+  
+  // 最新の値をrefに同期
+  useEffect(() => {
+    visibleFilesRef.current = visibleFiles;
+  }, [visibleFiles]);
+  
+  useEffect(() => {
+    centerWindowRef.current = centerWindowInViewport;
+  }, [centerWindowInViewport]);
+
+  // メソッドジャンプ機能（依存配列を空にして関数を安定化）
+  const handleMethodJump = useCallback((method: { methodName: string; filePath: string; lineNumber?: number }) => {
+    // ジャンプキーをユニークに作成
+    const jumpKey = `${method.filePath}-${method.methodName}-${method.lineNumber || 'def'}`;
+    
+    if (isJumpingRef.current !== null) {
+      return;
+    }
+    
+    // 既存のタイマーをクリア
+    if (jumpTimerRef.current) {
+      clearTimeout(jumpTimerRef.current);
+      jumpTimerRef.current = null;
+    }
+    
+    isJumpingRef.current = jumpKey;
+
+    const wasHidden = !visibleFilesRef.current.includes(method.filePath);
     
     if (wasHidden) {
       setVisibleFiles(prev => [...prev, method.filePath]);
@@ -348,56 +443,40 @@ export const CodeVisualizer: React.FC = () => {
 
     setHighlightedMethod(method);
 
-    const waitTime = wasHidden ? 300 : 150;
+    const waitTime = wasHidden ? CANVAS_CONFIG.TIMING.NEW_FILE_WAIT : CANVAS_CONFIG.TIMING.EXISTING_FILE_WAIT;
     
-    setTimeout(() => {
+    jumpTimerRef.current = setTimeout(() => {
+      // タイマーIDをクリア
+      jumpTimerRef.current = null;
+      
+      // ウィンドウを検索してセンタリング処理を実行
       setFloatingWindows(currentWindows => {
         const targetWindow = currentWindows.find(w => w.file.path === method.filePath);
         
         if (targetWindow) {
+          // 重複実行を防ぐ
+          if (centeringExecutedRef.current === jumpKey) {
+            return currentWindows;
+          }
           
-          // キャンバスオフセット(2000px, 1000px)を考慮
-          const canvasOffset = { x: 2000, y: 1000 };
+          centeringExecutedRef.current = jumpKey;
           
-          // ウィンドウの基本位置
-          const windowX = targetWindow.position.x;
-          const windowY = targetWindow.position.y;
-          const windowWidth = targetWindow.position.width;
-          const windowHeight = targetWindow.position.height;
-          
-          // ウィンドウ中央にパンを移動（従来通り）
-          const targetMethodX = windowX + windowWidth / 2;
-          const targetMethodY = windowY + windowHeight / 2;
-          
-          // 行番号の有無によってスクロール動作が変わる
-          // lineNumber有り: 呼び出し行を中央表示
-          // lineNumber無し: メソッド定義行を上端表示
-          
-          const targetCanvasX = targetMethodX + canvasOffset.x;
-          const targetCanvasY = targetMethodY + canvasOffset.y;
-          
-          // 画面中央に表示するためのパン位置を計算
-          const viewportWidth = window.innerWidth - (sidebarCollapsed ? 48 : sidebarWidth);
-          const viewportHeight = window.innerHeight;
-          
-          const newPan = {
-            x: viewportWidth / 2 - targetCanvasX * currentZoom,
-            y: viewportHeight / 2 - targetCanvasY * currentZoom
-          };
-          
-          
-          // 外部パンとして設定（ZoomableCanvasに反映される）
-          setExternalPan(newPan);
-          // 少し遅れてリセット（一度だけ適用）
+          // setFloatingWindowsの外でcenterWindowInViewportを呼ぶ
           setTimeout(() => {
-                  setExternalPan(null);
-          }, 50);
-        } else {
+            centerWindowRef.current(targetWindow);
+          }, CANVAS_CONFIG.TIMING.CENTERING_DELAY);
         }
+        
         return currentWindows; // 状態は変更しない
       });
+      
+      // ジャンプ完了後にフラグをリセット
+      setTimeout(() => {
+        isJumpingRef.current = null;
+        centeringExecutedRef.current = null;
+      }, CANVAS_CONFIG.TIMING.JUMP_COMPLETION);
     }, waitTime);
-  }, [visibleFiles, currentZoom, sidebarCollapsed, sidebarWidth]);
+  }, []); // 空の依存配列で関数を安定化
 
   // import文内のメソッドクリック処理
   const handleImportMethodClick = useCallback((methodName: string) => {
@@ -426,24 +505,49 @@ export const CodeVisualizer: React.FC = () => {
   }, []);
 
   // メソッドクリック時の処理
-  const handleMethodClick = useCallback((methodName: string, currentFilePath: string) => {
-    // 現在のファイルでクリックされたメソッドが定義されているかチェック
+  const handleMethodClick = (methodName: string, currentFilePath: string, metadata?: { line?: number; isDefinition?: boolean }) => {
+    // クリック時に定義行かどうかを判定
+    const isDefinitionClick = isMethodDefinitionLine(methodName, currentFilePath, metadata?.line);
+    
+    if (isDefinitionClick) {
+      // 定義行の場合：呼び出し元一覧を表示
+      const callers = findAllMethodCallers(methodName);
+      setCallersList({ methodName, callers });
+      return;
+    } else {
+      // 呼び出し行の場合：定義元にジャンプ（同じファイル内を優先）
+      const definition = findMethodDefinition(methodName, currentFilePath);
+      if (definition) {
+        handleMethodJump(definition!);
+      }
+      return;
+    }
+    
+    // フォールバック：従来のロジック（メタデータがない場合）
     const currentFile = files.find(f => f.path === currentFilePath);
-    const isDefinedInCurrentFile = currentFile?.methods?.some(method => method.name === methodName);
+    
+    // 除外対象メソッドは定義済みとして扱わない
+    let isDefinedInCurrentFile = false;
+    if (MethodExclusionService.isExcludedMethod(methodName, currentFilePath)) {
+      // 除外対象メソッドは定義されていないものとして扱う
+      isDefinedInCurrentFile = false;
+    } else {
+      isDefinedInCurrentFile = currentFile?.methods?.some(method => method.name === methodName) || false;
+    }
     
     if (isDefinedInCurrentFile) {
       // 定義元メソッドの場合：呼び出し元一覧を表示
       const callers = findAllMethodCallers(methodName);
       setCallersList({ methodName, callers });
     } else {
-      // 呼び出されているメソッドの場合：定義元にジャンプ
-      const definition = findMethodDefinition(methodName);
+      // 呼び出されているメソッドの場合：定義元にジャンプ（同じファイル内を優先）
+      const definition = findMethodDefinition(methodName, currentFilePath);
       if (definition) {
-        handleMethodJump(definition);
+        handleMethodJump(definition!);
       } else {
       }
     }
-  }, [files, findAllMethodCallers, findMethodDefinition, handleMethodJump]);
+  };
 
   // 呼び出し元一覧からのジャンプ機能
   const handleCallerClick = useCallback((caller: { methodName: string; filePath: string; lineNumber?: number }) => {

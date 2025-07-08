@@ -3,6 +3,7 @@ import { isRubyKeyword, isRubyBuiltin, isRubyCrudMethod, isRailsStandardMethod }
 import { isJavaScriptKeyword, isJavaScriptBuiltin, isJavaScriptFrameworkMethod, isJavaScriptControlPattern, isValidJavaScriptMethod } from '@/config/javascript-keywords';
 import { COMMON_PATTERNS, MethodPatternBuilder } from '@/utils/regex-patterns';
 import { analyzeTypeScriptWithESTree, extractTypeScriptMethodDefinitionsWithESTree } from '@/utils/typescript-estree-analyzer';
+import { MethodExclusionService } from '@/services/MethodExclusionService';
 
 export function analyzeMethodsInFile(file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
   if (!file.content.trim() || file.language === 'unknown') {
@@ -90,6 +91,9 @@ function extractRubyMethodDefinitionsOnly(file: ParsedFile): Method[] {
       const [, selfPrefix, methodName, params] = methodMatch;
       const isClassMethod = !!selfPrefix;
       
+      // 除外対象メソッドも定義として含める（依存関係検出のため）
+      const isExcluded = MethodExclusionService.isExcludedMethod(methodName, file.path);
+      
       // メソッドの終端を探す
       const methodEndLine = findRubyMethodEnd(lines, i);
       const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
@@ -103,7 +107,8 @@ function extractRubyMethodDefinitionsOnly(file: ParsedFile): Method[] {
         code: methodCode,
         calls: [], // 定義抽出段階では呼び出しは空
         isPrivate,
-        parameters: parseRubyParameters(params || '()')
+        parameters: parseRubyParameters(params || '()'),
+        isExcluded // 除外フラグを追加
       });
     }
   }
@@ -131,6 +136,8 @@ function analyzeRubyMethods(file: ParsedFile, allDefinedMethods?: Set<string>): 
     const methodMatch = trimmedLine.match(COMMON_PATTERNS.METHOD_DEFINITION);
     if (methodMatch) {
       const [, , methodName] = methodMatch;
+      
+      // 全てのメソッド名を含める（除外対象も呼び出し関係検出のため）
       localDefinedMethods.add(methodName);
     }
   }
@@ -165,6 +172,9 @@ function analyzeRubyMethods(file: ParsedFile, allDefinedMethods?: Set<string>): 
       const [, selfPrefix, methodName, params] = methodMatch;
       const isClassMethod = !!selfPrefix;
       
+      // メソッド除外判定（Rails標準アクション等）
+      const isExcluded = MethodExclusionService.isExcludedMethod(methodName, file.path);
+      
       // メソッドの終端を探す
       const methodEndLine = findRubyMethodEnd(lines, i);
       const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
@@ -179,7 +189,8 @@ function analyzeRubyMethods(file: ParsedFile, allDefinedMethods?: Set<string>): 
         code: methodCode,
         calls: methodCalls,
         isPrivate,
-        parameters: parseRubyParameters(params || '()')
+        parameters: parseRubyParameters(params || '()'),
+        isExcluded
       });
     }
   }

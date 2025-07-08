@@ -25,6 +25,7 @@ export interface Method {
   parameters: string[];
   returnType?: string;
   importSource?: string; // インポート使用箇所の場合、元のインポート文の行番号
+  isExcluded?: boolean; // 除外対象メソッド（UI非表示だが依存関係検出用）
 }
 
 export interface MethodCall {

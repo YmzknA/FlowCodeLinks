@@ -1,5 +1,7 @@
 import { useState, useCallback } from 'react';
 import { ParsedFile, FloatingWindow } from '@/types';
+import { MethodExclusionService } from '@/services/MethodExclusionService';
+import { calculateCenteringPan } from '@/utils/window-centering';
 
 export interface MethodJumpTarget {
   methodName: string;
@@ -234,7 +236,15 @@ export const useMethodJump = ({
   const handleMethodClick = useCallback((methodName: string, currentFilePath: string) => {
     // 現在のファイルでクリックされたメソッドが定義されているかチェック
     const currentFile = files.find(f => f.path === currentFilePath);
-    const isDefinedInCurrentFile = currentFile?.methods?.some(method => method.name === methodName);
+    
+    // 除外対象メソッドは定義済みとして扱わない
+    let isDefinedInCurrentFile = false;
+    if (MethodExclusionService.isExcludedMethod(methodName, currentFilePath)) {
+      // 除外対象メソッドは定義されていないものとして扱う
+      isDefinedInCurrentFile = false;
+    } else {
+      isDefinedInCurrentFile = currentFile?.methods?.some(method => method.name === methodName) || false;
+    }
     
     if (isDefinedInCurrentFile) {
       // 定義元メソッドの場合：呼び出し元一覧を返す
