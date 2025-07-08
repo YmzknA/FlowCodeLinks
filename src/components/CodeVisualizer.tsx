@@ -91,20 +91,23 @@ export const CodeVisualizer: React.FC = () => {
   const optimizedCache = useOptimizedAnalysis(files);
   const visibleDependencies = useOptimizedDependencies(dependencies, visibleFiles);
   
-  // prepare_meta_tags関連の依存関係を確認
+  // prepare_meta_tags関連の依存関係を確認（本番では無効化）
   useEffect(() => {
-    if (visibleFiles.includes('app/controllers/users_controller.rb')) {
+    if (process.env.NODE_ENV === 'development' && visibleFiles.includes('app/controllers/users_controller.rb')) {
       const prepareMetaTagsDeps = visibleDependencies.filter(dep => 
         dep.from.methodName === 'prepare_meta_tags' || dep.to.methodName === 'prepare_meta_tags'
       );
+      // eslint-disable-next-line no-console
       console.log('🔍 prepare_meta_tags dependencies:', prepareMetaTagsDeps);
       
       // showメソッドを確認
       const userControllerFile = files.find(f => f.path === 'app/controllers/users_controller.rb');
       if (userControllerFile) {
         const showMethod = userControllerFile.methods.find(m => m.name === 'show');
+        // eslint-disable-next-line no-console
         console.log('🔍 show method:', showMethod);
         if (showMethod) {
+          // eslint-disable-next-line no-console
           console.log('🔍 show method calls:', showMethod.calls);
         }
       }
