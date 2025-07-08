@@ -186,7 +186,7 @@ export const replaceMethodNameInText = (
   // その他の場合：従来通り全てクリック可能（後方互換性）
   
   // 除外対象メソッドはクリック不可
-  if (currentFilePath && MethodExclusionService.isExcludedMethod(methodName, currentFilePath)) {
+  if (currentFilePath && !MethodExclusionService.isClickableMethod(methodName, currentFilePath)) {
     return html; // 除外対象メソッドはクリック不可
   }
   
@@ -242,9 +242,11 @@ export const replaceMethodNameInText = (
   const highlightClasses = isHighlighted ? " bg-red-200 bg-opacity-60 border-2 border-red-300" : "";
   
   // メソッド名を置換する際に行番号とメタデータを追加
+  // 元のテキストを保存してオフセット計算の正確性を保つ
+  const originalResult = result;
   result = result.replace(methodNameRegex, (match, offset) => {
-    // HTMLの先頭からoffset位置までの改行数を数えて行番号を計算
-    const beforeMatch = result.substring(0, offset);
+    // 元のHTMLの先頭からoffset位置までの改行数を数えて行番号を計算
+    const beforeMatch = originalResult.substring(0, offset);
     const lineNumber = (beforeMatch.match(/\n/g) || []).length + 1;
     
     return `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}" data-line="${lineNumber}">${match}<span class="absolute -top-1 -right-1 text-xs text-yellow-400" aria-hidden="true" title="クリック可能なメソッド">*</span></span>`;
