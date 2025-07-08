@@ -55,7 +55,7 @@ interface LayoutManagerProps {
   onWindowsUpdate?: (windows: FloatingWindow[]) => void;
   zoom?: number;
   highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null;
-  onMethodClick?: (methodName: string, currentFilePath: string) => void;
+  onMethodClick?: (methodName: string, currentFilePath: string, metadata?: { line?: number; isDefinition?: boolean }) => void;
   onImportMethodClick?: (methodName: string) => void;
 }
 

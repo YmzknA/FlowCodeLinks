@@ -140,7 +140,7 @@ export const DraggableWindow: React.FC<DraggableWindowProps> = ({
         onClose={onClose}
         onScrollChange={onScrollChange}
         highlightedMethod={highlightedMethod}
-        onMethodClick={onMethodClick ? (methodName: string) => onMethodClick(methodName, window.file.path) : undefined}
+        onMethodClick={onMethodClick ? (methodName: string, currentFilePath: string, metadata?: { line?: number; isDefinition?: boolean }) => onMethodClick(methodName, currentFilePath, metadata) : undefined}
         onImportMethodClick={onImportMethodClick}
       />
     </div>
