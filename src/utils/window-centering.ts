@@ -40,31 +40,20 @@ export function calculateCenteringPan(
   const windowWidth = targetWindow.position.width;
   const windowHeight = targetWindow.position.height;
   
-  // 現在のメインエリア中心位置を計算
+  // 現在のビューポートサイズを計算
   const viewportWidth = viewportDimensions?.width ?? 
     (window.innerWidth - (sidebarCollapsed ? 48 : sidebarWidth));
   const viewportHeight = viewportDimensions?.height ?? window.innerHeight;
   
-  const mainAreaCenter = {
-    x: viewportWidth / 2,
-    y: viewportHeight / 2
+  // 対象ウィンドウのキャンバス座標（canvasOffset込み）
+  const targetCanvasX = windowX + windowWidth / 2 + canvasOffset.x;
+  const targetCanvasY = windowY + windowHeight / 2 + canvasOffset.y;
+  
+  // 計算結果
+  const result = {
+    x: viewportWidth / 2 - targetCanvasX * currentZoom,
+    y: viewportHeight / 2 - targetCanvasY * currentZoom
   };
   
-  // 対象ウィンドウの現在位置（スクリーン座標系での中心）
-  const targetWindowCenter = {
-    x: (windowX + windowWidth / 2 + canvasOffset.x) * currentZoom + currentPan.x,
-    y: (windowY + windowHeight / 2 + canvasOffset.y) * currentZoom + currentPan.y
-  };
-  
-  // メインエリア中心と対象ウィンドウ中心の差分を計算
-  const panDelta = {
-    x: mainAreaCenter.x - targetWindowCenter.x,
-    y: mainAreaCenter.y - targetWindowCenter.y
-  };
-  
-  // 現在のパン位置に差分を加算して新しいパン位置を計算
-  return {
-    x: currentPan.x + panDelta.x,
-    y: currentPan.y + panDelta.y
-  };
+  return result;
 }

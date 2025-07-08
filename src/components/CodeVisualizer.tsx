@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Sidebar } from './Sidebar';
@@ -445,10 +445,13 @@ export const CodeVisualizer: React.FC = () => {
   }, [files]);
 
   // 統一されたウィンドウ中央配置ロジック
-  const centerWindowInViewport = useCallback((targetWindow: FloatingWindow) => {
+  const centerWindowInViewport = useCallback((targetWindow: FloatingWindow, currentPanOverride?: { x: number; y: number }) => {
+    // 最新のパン値を取得（オーバーライドがあればそれを使用）
+    const latestPan = currentPanOverride || currentPan;
+    
     const newPan = calculateCenteringPan(targetWindow, {
       currentZoom,
-      currentPan,
+      currentPan: latestPan,
       sidebarCollapsed,
       sidebarWidth
     });
@@ -458,13 +461,45 @@ export const CodeVisualizer: React.FC = () => {
     // 少し遅れてリセット（一度だけ適用）
     setTimeout(() => {
       setExternalPan(null);
+      // externalPanリセット時に確実にcurrentPanを更新
+      setCurrentPan(newPan);
     }, 50);
   }, [currentZoom, currentPan, sidebarCollapsed, sidebarWidth]);
 
-  // メソッドジャンプ機能
-  const handleMethodJump = useCallback((method: { methodName: string; filePath: string; lineNumber?: number }) => {
+  // ジャンプ中フラグとタイマーIDで重複実行を防ぐ
+  const isJumpingRef = useRef<string | false>(false);
+  const jumpTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const centeringExecutedRef = useRef<string | false>(false);
+  const visibleFilesRef = useRef(visibleFiles);
+  const centerWindowRef = useRef(centerWindowInViewport);
+  
+  // 最新の値をrefに同期
+  useEffect(() => {
+    visibleFilesRef.current = visibleFiles;
+  }, [visibleFiles]);
+  
+  useEffect(() => {
+    centerWindowRef.current = centerWindowInViewport;
+  }, [centerWindowInViewport]);
 
-    const wasHidden = !visibleFiles.includes(method.filePath);
+  // メソッドジャンプ機能（依存配列を空にして関数を安定化）
+  const handleMethodJump = useCallback((method: { methodName: string; filePath: string; lineNumber?: number }) => {
+    // ジャンプキーをユニークに作成
+    const jumpKey = `${method.filePath}-${method.methodName}-${method.lineNumber || 'def'}`;
+    
+    if (isJumpingRef.current) {
+      return;
+    }
+    
+    // 既存のタイマーをクリア
+    if (jumpTimerRef.current) {
+      clearTimeout(jumpTimerRef.current);
+      jumpTimerRef.current = null;
+    }
+    
+    isJumpingRef.current = jumpKey;
+
+    const wasHidden = !visibleFilesRef.current.includes(method.filePath);
     
     if (wasHidden) {
       setVisibleFiles(prev => [...prev, method.filePath]);
@@ -474,18 +509,38 @@ export const CodeVisualizer: React.FC = () => {
 
     const waitTime = wasHidden ? 300 : 200;
     
-    setTimeout(() => {
+    jumpTimerRef.current = setTimeout(() => {
+      // タイマーIDをクリア
+      jumpTimerRef.current = null;
+      
+      // ウィンドウを検索してセンタリング処理を実行
       setFloatingWindows(currentWindows => {
         const targetWindow = currentWindows.find(w => w.file.path === method.filePath);
         
         if (targetWindow) {
-          // 統一されたロジックでウィンドウを画面中央に配置
-          centerWindowInViewport(targetWindow);
+          // 重複実行を防ぐ
+          if (centeringExecutedRef.current === jumpKey) {
+            return currentWindows;
+          }
+          
+          centeringExecutedRef.current = jumpKey;
+          
+          // setFloatingWindowsの外でcenterWindowInViewportを呼ぶ
+          setTimeout(() => {
+            centerWindowRef.current(targetWindow);
+          }, 50);
         }
+        
         return currentWindows; // 状態は変更しない
       });
+      
+      // ジャンプ完了後にフラグをリセット
+      setTimeout(() => {
+        isJumpingRef.current = false;
+        centeringExecutedRef.current = false;
+      }, 200);
     }, waitTime);
-  }, [visibleFiles, centerWindowInViewport]);
+  }, []); // 空の依存配列で関数を安定化
 
   // import文内のメソッドクリック処理
   const handleImportMethodClick = useCallback((methodName: string) => {
