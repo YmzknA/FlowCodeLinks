@@ -107,7 +107,7 @@ function extractRubyMethodDefinitionsOnly(file: ParsedFile): Method[] {
         code: methodCode,
         calls: [], // 定義抽出段階では呼び出しは空
         isPrivate,
-        parameters: parseRubyParameters(params || '()'),
+        parameters: parseRubyParameters(params || '()').map(p => ({ name: p })),
         isExcluded // 除外フラグを追加
       });
     }
@@ -189,7 +189,7 @@ function analyzeRubyMethods(file: ParsedFile, allDefinedMethods?: Set<string>): 
         code: methodCode,
         calls: methodCalls,
         isPrivate,
-        parameters: parseRubyParameters(params || '()'),
+        parameters: parseRubyParameters(params || '()').map(p => ({ name: p })),
         isExcluded
       });
     }
@@ -215,7 +215,7 @@ function analyzeErbMethods(file: ParsedFile, allDefinedMethods?: Set<string>): M
       }
       const callInfo = methodCallMap.get(call.methodName)!;
       callInfo.lines.push(call.line);
-      callInfo.contexts.push(call.context);
+      callInfo.contexts.push(call.context || '');
     }
   }
   
@@ -487,7 +487,7 @@ function analyzeJavaScriptMethodsWithFiltering(file: ParsedFile, allDefinedMetho
           code: methodCode,
           calls: methodCalls,
           isPrivate: false,
-          parameters: parseJavaScriptParameters(params)
+          parameters: parseJavaScriptParameters(params).map(p => ({ name: p }))
         });
       }
       continue;
@@ -511,7 +511,7 @@ function analyzeJavaScriptMethodsWithFiltering(file: ParsedFile, allDefinedMetho
           code: methodCode,
           calls: methodCalls,
           isPrivate: false,
-          parameters: parseJavaScriptParameters(params || '')
+          parameters: parseJavaScriptParameters(params || '').map(p => ({ name: p }))
         });
       }
       continue;
@@ -535,7 +535,7 @@ function analyzeJavaScriptMethodsWithFiltering(file: ParsedFile, allDefinedMetho
           code: methodCode,
           calls: methodCalls,
           isPrivate: trimmedLine.includes('private'),
-          parameters: parseJavaScriptParameters(params)
+          parameters: parseJavaScriptParameters(params).map(p => ({ name: p }))
         });
       }
       continue;
@@ -559,7 +559,7 @@ function analyzeJavaScriptMethodsWithFiltering(file: ParsedFile, allDefinedMetho
           code: methodCode,
           calls: methodCalls,
           isPrivate: false,
-          parameters: parseJavaScriptParameters(params || '')
+          parameters: parseJavaScriptParameters(params || '').map(p => ({ name: p }))
         });
       }
     }
@@ -593,7 +593,7 @@ function analyzeJavaScriptMethods(file: ParsedFile): Method[] {
         code: methodCode,
         calls: methodCalls,
         isPrivate: false,
-        parameters: parseJavaScriptParameters(params)
+        parameters: parseJavaScriptParameters(params).map(p => ({ name: p }))
       });
       continue;
     }
@@ -638,7 +638,7 @@ function analyzeJavaScriptMethods(file: ParsedFile): Method[] {
         code: methodCode,
         calls: methodCalls,
         isPrivate: false,
-        parameters: parseJavaScriptParameters(params || '')
+        parameters: parseJavaScriptParameters(params || '').map(p => ({ name: p }))
       });
     }
   }
@@ -679,7 +679,7 @@ function analyzeTypeScriptMethodsWithFiltering(file: ParsedFile, allDefinedMetho
           code: trimmedLine,
           calls: [],
           isPrivate: false,
-          parameters: parseTypeScriptParameters(params)
+          parameters: parseTypeScriptParameters(params).map(p => ({ name: p }))
         });
       }
     }
@@ -701,7 +701,7 @@ function analyzeTypeScriptMethodsWithFiltering(file: ParsedFile, allDefinedMetho
         code: methodCode,
         calls: methodCalls,
         isPrivate: false,
-        parameters: parseTypeScriptParameters(params)
+        parameters: parseTypeScriptParameters(params).map(p => ({ name: p }))
       });
       i = methodEndLine; // 重複を避ける
     }
@@ -735,7 +735,7 @@ function analyzeTypeScriptMethods(file: ParsedFile): Method[] {
         code: methodCode,
         calls: methodCalls,
         isPrivate: false,
-        parameters: parseTypeScriptParameters(params)
+        parameters: parseTypeScriptParameters(params).map(p => ({ name: p }))
       });
       continue;
     }
@@ -757,7 +757,7 @@ function analyzeTypeScriptMethods(file: ParsedFile): Method[] {
         code: methodCode,
         calls: methodCalls,
         isPrivate: false,
-        parameters: parseTypeScriptParameters(params)
+        parameters: parseTypeScriptParameters(params).map(p => ({ name: p }))
       });
       i = methodEndLine; // 次のループで重複を避ける
       continue;
@@ -780,7 +780,7 @@ function analyzeTypeScriptMethods(file: ParsedFile): Method[] {
         code: methodCode,
         calls: methodCalls,
         isPrivate: false,
-        parameters: parseTypeScriptParameters(params || '')
+        parameters: parseTypeScriptParameters(params || '').map(p => ({ name: p }))
       });
       continue;
     }
@@ -802,7 +802,7 @@ function analyzeTypeScriptMethods(file: ParsedFile): Method[] {
         code: methodCode,
         calls: methodCalls,
         isPrivate: false,
-        parameters: parseTypeScriptParameters(params || '')
+        parameters: parseTypeScriptParameters(params || '').map(p => ({ name: p }))
       });
       continue;
     }
@@ -825,7 +825,7 @@ function analyzeTypeScriptMethods(file: ParsedFile): Method[] {
         code: methodCode,
         calls: methodCalls,
         isPrivate,
-        parameters: parseTypeScriptParameters(params)
+        parameters: parseTypeScriptParameters(params).map(p => ({ name: p }))
       });
       continue;
     }
@@ -844,7 +844,7 @@ function analyzeTypeScriptMethods(file: ParsedFile): Method[] {
         code: trimmedLine,
         calls: [],
         isPrivate: false,
-        parameters: parseTypeScriptParameters(params)
+        parameters: parseTypeScriptParameters(params).map(p => ({ name: p }))
       });
       continue;
     }
@@ -868,7 +868,7 @@ function analyzeTypeScriptMethods(file: ParsedFile): Method[] {
         code: methodCode,
         calls: methodCalls,
         isPrivate: false,
-        parameters: parseTypeScriptParameters(params || '')
+        parameters: parseTypeScriptParameters(params || '').map(p => ({ name: p }))
       });
     }
   }
