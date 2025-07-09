@@ -170,7 +170,7 @@ export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
    */
   private findRubyMethodCalls(line: string): Array<{ name: string; column: number }> {
     const calls = CommonParsingUtils.findMethodCallsInLine(line, 0, 'ruby');
-    return calls.map(call => ({ name: call.methodName, column: call.column }));
+    return calls.map(call => ({ name: call.methodName, column: call.column || 0 }));
   }
 
   /**

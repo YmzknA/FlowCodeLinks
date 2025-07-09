@@ -35,7 +35,7 @@ export class ErbMethodParser extends BaseLanguageParser {
           }
           const callInfo = methodCallMap.get(call.methodName)!;
           callInfo.lines.push(call.line);
-          callInfo.contexts.push(call.context);
+          callInfo.contexts.push(call.context || '');
         }
       }
       

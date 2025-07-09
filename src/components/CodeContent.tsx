@@ -190,7 +190,8 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
               file.methods.forEach(method => {
                 if (method.type === 'import' && method.parameters) {
                   // import文のparametersにはimportされたメソッド名が含まれている
-                  importMethods.push(...method.parameters);
+                  // Parameter型から名前だけを取り出す
+                  importMethods.push(...method.parameters.map(p => typeof p === 'string' ? p : p.name));
                 }
               });
               

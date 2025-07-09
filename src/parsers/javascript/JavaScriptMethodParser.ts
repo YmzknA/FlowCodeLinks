@@ -81,7 +81,7 @@ export class JavaScriptMethodParser extends BaseLanguageParser {
             code: methodCode,
             calls: methodCalls,
             isPrivate: false,
-            parameters: this.parseJavaScriptParameters(params)
+            parameters: this.parseJavaScriptParameters(params).map(p => ({ name: p }))
           });
         }
         continue;
@@ -105,7 +105,7 @@ export class JavaScriptMethodParser extends BaseLanguageParser {
             code: methodCode,
             calls: methodCalls,
             isPrivate: false,
-            parameters: this.parseJavaScriptParameters(params || '')
+            parameters: this.parseJavaScriptParameters(params || '').map(p => ({ name: p }))
           });
         }
         continue;
@@ -129,7 +129,7 @@ export class JavaScriptMethodParser extends BaseLanguageParser {
             code: methodCode,
             calls: methodCalls,
             isPrivate: trimmedLine.includes('private'),
-            parameters: this.parseJavaScriptParameters(params)
+            parameters: this.parseJavaScriptParameters(params).map(p => ({ name: p }))
           });
         }
         continue;
@@ -153,7 +153,7 @@ export class JavaScriptMethodParser extends BaseLanguageParser {
             code: methodCode,
             calls: methodCalls,
             isPrivate: false,
-            parameters: this.parseJavaScriptParameters(params || '')
+            parameters: this.parseJavaScriptParameters(params || '').map(p => ({ name: p }))
           });
         }
       }

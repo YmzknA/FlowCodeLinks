@@ -10,7 +10,7 @@ import { ParsedFile, Method, MethodCall } from '@/types/codebase';
 import { analyzeTypeScriptWithESTree } from '@/utils/typescript-estree-analyzer';
 
 export class TypeScriptMethodParser extends JavaScriptMethodParser {
-  readonly language = 'typescript';
+  readonly language = 'javascript'; // 基底クラスと一致させる
 
   // TypeScript/TSXの両方をサポート
   supports(language: string): boolean {
@@ -87,7 +87,7 @@ export class TypeScriptMethodParser extends JavaScriptMethodParser {
       const line = lines[i];
       const trimmedLine = line.trim();
 
-      if (!trimmedLine || this.isCommentLine(trimmedLine)) {
+      if (!trimmedLine || this.isTypeScriptCommentLine(trimmedLine)) {
         continue;
       }
 
@@ -105,7 +105,7 @@ export class TypeScriptMethodParser extends JavaScriptMethodParser {
             code: trimmedLine,
             calls: [],
             isPrivate: false,
-            parameters: this.parseTypeScriptParameters(params)
+            parameters: this.parseTypeScriptParameters(params).map(p => ({ name: p }))
           });
         }
       }
@@ -114,7 +114,7 @@ export class TypeScriptMethodParser extends JavaScriptMethodParser {
       const reactComponentMatch = trimmedLine.match(/^(?:export\s+)?const\s+(\w+)\s*:\s*React\.FC<([^>]*)>\s*=\s*\(([^)]*)\)\s*=>/);
       if (reactComponentMatch) {
         const [, componentName, propsType, params] = reactComponentMatch;
-        const methodEndLine = this.findJavaScriptArrowFunctionEnd(lines, i);
+        const methodEndLine = this.findTypeScriptArrowFunctionEnd(lines, i);
         const methodCode = lines.slice(i, methodEndLine + 1).join('\n');
         const methodCalls = this.extractTypeScriptMethodCallsWithFiltering(methodCode, i + 1, allDefinedMethods);
 
@@ -127,7 +127,7 @@ export class TypeScriptMethodParser extends JavaScriptMethodParser {
           code: methodCode,
           calls: methodCalls,
           isPrivate: false,
-          parameters: this.parseTypeScriptParameters(params)
+          parameters: this.parseTypeScriptParameters(params).map(p => ({ name: p }))
         });
         i = methodEndLine; // 重複を避ける
       }
@@ -147,7 +147,7 @@ export class TypeScriptMethodParser extends JavaScriptMethodParser {
       const line = lines[i];
       const trimmedLine = line.trim();
 
-      if (!trimmedLine || this.isCommentLine(trimmedLine)) {
+      if (!trimmedLine || this.isTypeScriptCommentLine(trimmedLine)) {
         continue;
       }
 
@@ -165,7 +165,7 @@ export class TypeScriptMethodParser extends JavaScriptMethodParser {
             code: trimmedLine,
             calls: [],
             isPrivate: false,
-            parameters: this.parseTypeScriptParameters(params)
+            parameters: this.parseTypeScriptParameters(params).map(p => ({ name: p }))
           });
         }
       }
@@ -224,5 +224,44 @@ export class TypeScriptMethodParser extends JavaScriptMethodParser {
     }
 
     return merged;
+  }
+
+  private isTypeScriptCommentLine(line: string): boolean {
+    const trimmed = line.trim();
+    return trimmed.startsWith('//') || trimmed.startsWith('/*') || trimmed.startsWith('*');
+  }
+
+  private findTypeScriptArrowFunctionEnd(lines: string[], startIndex: number): number {
+    let braceCount = 0;
+    let inString = false;
+    let stringChar = '';
+    
+    for (let i = startIndex; i < lines.length; i++) {
+      const line = lines[i];
+      
+      for (let j = 0; j < line.length; j++) {
+        const char = line[j];
+        const prevChar = j > 0 ? line[j - 1] : '';
+        
+        if (!inString) {
+          if (char === '"' || char === "'" || char === '`') {
+            inString = true;
+            stringChar = char;
+          } else if (char === '{') {
+            braceCount++;
+          } else if (char === '}') {
+            braceCount--;
+            if (braceCount === 0 && i > startIndex) {
+              return i;
+            }
+          }
+        } else if (char === stringChar && prevChar !== '\\') {
+          inString = false;
+          stringChar = '';
+        }
+      }
+    }
+    
+    return Math.min(startIndex + 20, lines.length - 1);
   }
 }

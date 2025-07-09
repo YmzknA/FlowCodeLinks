@@ -615,7 +615,7 @@ function analyzeTypeScriptWithRegex(file: ParsedFile, allDefinedMethods?: Set<st
         code: importStatement,
         calls: usageCalls,
         isPrivate: false,
-        parameters: importedMethods
+        parameters: importedMethods.map(p => ({ name: p }))
       };
       
       methods.push(importMethod);
@@ -723,7 +723,7 @@ function createInterfaceMethods(node: any, file: ParsedFile): Method[] {
         code: getCodeSlice(file.content, member.loc!.start.line, member.loc!.end.line),
         calls: [],
         isPrivate: false,
-        parameters: extractParametersFromSignature(member)
+        parameters: extractParametersFromSignature(member).map(p => ({ name: p }))
       });
     }
   });
@@ -773,7 +773,7 @@ function createClassMethods(node: any, file: ParsedFile, allDefinedMethods?: Set
         code: getCodeSlice(file.content, member.loc!.start.line, member.loc!.end.line),
         calls: methodCalls,
         isPrivate,
-        parameters: extractParametersFromFunction(member.value)
+        parameters: extractParametersFromFunction(member.value).map(p => ({ name: p }))
       });
     }
   });
@@ -799,7 +799,7 @@ function createFunctionMethod(node: any, file: ParsedFile, allDefinedMethods?: S
     code: getCodeSlice(file.content, node.loc!.start.line, node.loc!.end.line),
     calls: methodCalls,
     isPrivate: false,
-    parameters: extractParametersFromFunction(node)
+    parameters: extractParametersFromFunction(node).map(p => ({ name: p }))
   };
 }
 
@@ -826,7 +826,7 @@ function createVariableDeclarationMethods(node: any, file: ParsedFile, allDefine
           code: getCodeSlice(file.content, node.loc!.start.line, node.loc!.end.line),
           calls: methodCalls,
           isPrivate: false,
-          parameters: extractParametersFromFunction(declarator.init)
+          parameters: extractParametersFromFunction(declarator.init).map(p => ({ name: p }))
         });
       }
     }
@@ -878,7 +878,7 @@ function createImportMethod(node: any, file: ParsedFile): Method {
     code: getCodeSlice(file.content, node.loc!.start.line, node.loc!.end.line),
     calls: usageCalls,
     isPrivate: false,
-    parameters: localNames
+    parameters: localNames.map(p => ({ name: p }))
   };
 }
 
@@ -1113,7 +1113,7 @@ function extractArrowFunctionsFromCallExpression(node: any, file: ParsedFile, al
             code: getCodeSlice(file.content, arg.loc!.start.line, arg.loc!.end.line),
             calls: methodCalls,
             isPrivate: false,
-            parameters: extractParametersFromFunction(arg)
+            parameters: extractParametersFromFunction(arg).map(p => ({ name: p }))
           });
         }
       }
@@ -1187,7 +1187,7 @@ function createInterfaceMethodsDefinitionOnly(node: any, file: ParsedFile): Meth
         code: getCodeSlice(file.content, member.loc!.start.line, member.loc!.end.line),
         calls: [], // 定義抽出段階では空
         isPrivate: false,
-        parameters: extractParametersFromSignature(member)
+        parameters: extractParametersFromSignature(member).map(p => ({ name: p }))
       });
     }
   });
@@ -1217,7 +1217,7 @@ function createClassMethodsDefinitionOnly(node: any, file: ParsedFile): Method[]
         code: getCodeSlice(file.content, member.loc!.start.line, member.loc!.end.line),
         calls: [], // 定義抽出段階では空
         isPrivate: member.accessibility === 'private',
-        parameters: extractParametersFromFunction(member.value)
+        parameters: extractParametersFromFunction(member.value).map(p => ({ name: p }))
       });
     }
   });
@@ -1238,7 +1238,7 @@ function createFunctionMethodDefinitionOnly(node: any, file: ParsedFile): Method
     code: getCodeSlice(file.content, node.loc!.start.line, node.loc!.end.line),
     calls: [], // 定義抽出段階では空
     isPrivate: false,
-    parameters: extractParametersFromFunction(node)
+    parameters: extractParametersFromFunction(node).map(p => ({ name: p }))
   };
 }
 
@@ -1260,7 +1260,7 @@ function createVariableDeclarationMethodsDefinitionOnly(node: any, file: ParsedF
           code: getCodeSlice(file.content, node.loc!.start.line, node.loc!.end.line),
           calls: [], // 定義抽出段階では空
           isPrivate: false,
-          parameters: extractParametersFromFunction(declarator.init)
+          parameters: extractParametersFromFunction(declarator.init).map(p => ({ name: p }))
         });
       }
     }
@@ -1288,7 +1288,7 @@ function extractCustomHooks(ast: any, file: ParsedFile, allDefinedMethods?: Set<
           code: getCodeSlice(file.content, node.loc!.start.line, node.loc!.end.line),
           calls: methodCalls,
           isPrivate: false,
-          parameters: extractParametersFromFunction(node)
+          parameters: extractParametersFromFunction(node).map(p => ({ name: p }))
         });
       }
     },
@@ -1309,7 +1309,7 @@ function extractCustomHooks(ast: any, file: ParsedFile, allDefinedMethods?: Set<
             code: getCodeSlice(file.content, node.loc!.start.line, node.loc!.end.line),
             calls: methodCalls,
             isPrivate: false,
-            parameters: extractParametersFromFunction(declarator.init)
+            parameters: extractParametersFromFunction(declarator.init).map(p => ({ name: p }))
           });
         }
       });
@@ -1463,7 +1463,7 @@ function createImportUsageEntries(file: ParsedFile, importMethod: Method): Metho
       startLine: call.line,
       endLine: call.line,
       filePath: file.path,
-      code: call.context,
+      code: call.context || '',
       calls: [], // import_usageは自分自身のimport文を参照すべきではない
       isPrivate: false,
       parameters: [],

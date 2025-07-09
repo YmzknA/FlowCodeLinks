@@ -117,7 +117,7 @@ export class RubyMethodParser extends BaseLanguageParser {
       code: rawDef.code,
       calls: calls,
       isPrivate: rawDef.isPrivate || false,
-      parameters: this.parseParameters(rawDef.parameters || '()'),
+      parameters: this.parseParameters(rawDef.parameters || '()').map(p => ({ name: p })),
       isExcluded: rawDef.isExcluded || false
     };
   }

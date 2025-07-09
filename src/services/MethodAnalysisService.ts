@@ -222,7 +222,7 @@ export class MethodAnalysisService {
       const { analyzeMethodsInFile } = require('@/utils/method-analyzer');
       // 呼び出し検出なしでメソッド定義のみ抽出
       const allMethods = analyzeMethodsInFile(file);
-      return allMethods.map(method => ({
+      return allMethods.map((method: any) => ({
         ...method,
         calls: [] // 定義抽出時は呼び出し情報は不要
       }));
