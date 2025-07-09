@@ -88,8 +88,7 @@ export class ErbAnalysisPlugin implements MethodAnalysisPlugin {
         code: info.contexts.join('\n'),
         calls: [],
         isPrivate: false,
-        parameters: [],
-        context: `Called ${info.lines.length} times in ERB template`
+        parameters: []
       });
     }
 
@@ -118,8 +117,7 @@ export class ErbAnalysisPlugin implements MethodAnalysisPlugin {
         code: file.content,
         calls: allCalls,
         isPrivate: false,
-        parameters: [],
-        context: `ERB template with ${methodCallMap.size} unique method calls`
+        parameters: []
       });
     }
 
@@ -205,7 +203,6 @@ export class ErbAnalysisPlugin implements MethodAnalysisPlugin {
             methodName,
             line: lineNumber,
             column: line.indexOf(match[0]),
-            filePath: '',
             context: line.trim()
           });
         }
@@ -231,7 +228,6 @@ export class ErbAnalysisPlugin implements MethodAnalysisPlugin {
           methodName,
           line: lineNumber,
           column: match.index || 0,
-          filePath: '',
           context: line.trim()
         });
       }
@@ -261,7 +257,6 @@ export class ErbAnalysisPlugin implements MethodAnalysisPlugin {
           methodName,
           line: lineNumber,
           column: match.index || 0,
-          filePath: '',
           context: line.trim()
         });
       }
