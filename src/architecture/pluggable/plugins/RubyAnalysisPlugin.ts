@@ -9,6 +9,7 @@ import { MethodAnalysisPlugin, AnalysisResult, AnalysisError } from '../interfac
 import { isRubyKeyword, isRubyBuiltin, isRubyCrudMethod, isRailsStandardMethod } from '@/config/ruby-keywords';
 import { COMMON_PATTERNS, MethodPatternBuilder } from '@/utils/regex-patterns';
 import { MethodExclusionService } from '@/services/MethodExclusionService';
+import { CommonParsingUtils } from '../utils/CommonParsingUtils';
 
 export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
   readonly name = 'ruby';
@@ -21,30 +22,27 @@ export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
 
   analyze(file: ParsedFile): AnalysisResult {
     const startTime = performance.now();
-    const methods: Method[] = [];
-    const errors: AnalysisError[] = [];
-
-    try {
-      const analyzedMethods = this.analyzeRubyMethods(file);
-      methods.push(...analyzedMethods);
-    } catch (error) {
-      errors.push({
-        message: `Ruby analysis failed: ${error instanceof Error ? error.message : String(error)}`,
-        type: 'extraction',
-        severity: 'error'
-      });
-    }
+    
+    const { result, error } = CommonParsingUtils.safeAnalyze(
+      () => this.analyzeRubyMethods(file),
+      'Ruby analysis'
+    );
 
     const endTime = performance.now();
+    const metadata = CommonParsingUtils.createAnalysisMetadata(file, endTime - startTime, 'ruby-regex');
+
+    if (error) {
+      return {
+        methods: [],
+        errors: [error],
+        metadata
+      };
+    }
 
     return {
-      methods,
-      errors,
-      metadata: {
-        processingTime: endTime - startTime,
-        linesProcessed: file.totalLines,
-        engine: 'ruby-regex'
-      }
+      methods: result || [],
+      errors: [],
+      metadata
     };
   }
 
@@ -154,110 +152,25 @@ export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
    * Rubyメソッドの終端を検索（無限ループ対策付き）
    */
   private findRubyMethodEnd(lines: string[], startIndex: number): number {
-    let depth = 1;
-    let i = startIndex + 1;
-    const MAX_ITERATIONS = 10000; // 最大反復回数
-    let iterations = 0;
-
-    while (i < lines.length && depth > 0 && iterations < MAX_ITERATIONS) {
-      iterations++;
-      const line = lines[i].trim();
-
-      // コメント行をスキップ
-      if (line.startsWith('#') || line === '') {
-        i++;
-        continue;
-      }
-
-      // Ruby特有のブロック開始キーワード
-      if (/^(def|class|module|if|unless|case|begin|while|until|for)\b/.test(line)) {
-        depth++;
-      }
-
-      // end キーワード
-      if (line === 'end' || /^end\s/.test(line)) {
-        depth--;
-      }
-
-      i++;
-    }
-
-    // 無限ループ検出時の処理
-    if (iterations >= MAX_ITERATIONS) {
-      console.warn(`[RubyAnalysisPlugin] Method end detection reached maximum iterations (${MAX_ITERATIONS}) at line ${startIndex}`);
-      // 安全な推定終端位置を返す（開始位置から100行後、またはファイル終端）
-      return Math.min(startIndex + 100, lines.length - 1);
-    }
-
-    return depth === 0 ? i - 1 : lines.length - 1;
+    return CommonParsingUtils.findMethodEnd(lines, startIndex, 'ruby');
   }
 
   /**
    * Rubyメソッド呼び出しの抽出
    */
   private extractRubyMethodCalls(methodCode: string, startLineNumber: number, definedMethods: Set<string>): MethodCall[] {
-    const calls: MethodCall[] = [];
-    const lines = methodCode.split('\n');
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const lineNumber = startLineNumber + i;
-
-      // コメント行をスキップ
-      if (line.trim().startsWith('#')) {
-        continue;
-      }
-
-      // メソッド呼び出しパターンを検索
-      const callMatches = this.findRubyMethodCalls(line);
-
-      for (const callMatch of callMatches) {
-        const methodName = callMatch.name;
-
-        // フィルタリング条件
-        if (this.shouldIncludeMethodCall(methodName, definedMethods)) {
-          calls.push({
-            methodName,
-            line: lineNumber,
-            column: callMatch.column,
-            filePath: '' // 呼び出し先のファイルパスは後で解決
-          });
-        }
-      }
-    }
-
-    return calls;
+    const calls = CommonParsingUtils.extractMethodCallsFromCode(methodCode, startLineNumber, 'ruby');
+    
+    // 定義済みメソッドでフィルタリング
+    return calls.filter(call => this.shouldIncludeMethodCall(call.methodName, definedMethods));
   }
 
   /**
    * 行からRubyメソッド呼び出しを検索
    */
   private findRubyMethodCalls(line: string): Array<{ name: string; column: number }> {
-    const calls: Array<{ name: string; column: number }> = [];
-    
-    // Ruby用のメソッド呼び出しパターン
-    const patterns = [
-      /(\w+)(?:\s*\(|\s+[^=\s])/g,  // method_name( or method_name arg
-      /\.(\w+)/g,                    // .method_name
-      /(\w+)!/g,                     // method_name!
-      /(\w+)\?/g                     // method_name?
-    ];
-
-    for (const pattern of patterns) {
-      let match;
-      pattern.lastIndex = 0; // Reset regex
-      
-      while ((match = pattern.exec(line)) !== null) {
-        const methodName = match[1];
-        const column = match.index;
-        
-        if (methodName && /^[a-zA-Z_]\w*$/.test(methodName)) {
-          calls.push({ name: methodName, column });
-        }
-      }
-    }
-
-    return calls;
+    const calls = CommonParsingUtils.findMethodCallsInLine(line, 0, 'ruby');
+    return calls.map(call => ({ name: call.methodName, column: call.column }));
   }
 
   /**
@@ -276,37 +189,6 @@ export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
    * Rubyメソッドパラメータの解析
    */
   private parseRubyParameters(paramString: string): Array<{ name: string; type?: string; defaultValue?: string }> {
-    const params: Array<{ name: string; type?: string; defaultValue?: string }> = [];
-    
-    // パラメータ文字列をクリーンアップ
-    const cleanParams = paramString.replace(/[()]/g, '').trim();
-    
-    if (!cleanParams) {
-      return params;
-    }
-
-    // パラメータを分割
-    const paramList = cleanParams.split(',').map(p => p.trim());
-
-    for (const param of paramList) {
-      if (!param) continue;
-
-      // デフォルト値付きパラメータ
-      if (param.includes('=')) {
-        const [name, defaultValue] = param.split('=').map(p => p.trim());
-        params.push({ name, defaultValue });
-      }
-      // キーワード引数
-      else if (param.includes(':')) {
-        const name = param.replace(':', '').trim();
-        params.push({ name, type: 'keyword' });
-      }
-      // 通常のパラメータ
-      else {
-        params.push({ name: param });
-      }
-    }
-
-    return params;
+    return CommonParsingUtils.parseMethodParameters(paramString, 'ruby');
   }
 }

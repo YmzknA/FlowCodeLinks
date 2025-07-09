@@ -193,8 +193,9 @@ export function validateFilePath(filePath: string): FileValidationResult {
 
   // 危険なパスパターンのチェック
   const dangerousPatterns = [
-    { pattern: /\.\.\//, message: 'Path contains ".." (directory traversal)' },
-    { pattern: /^~/, message: 'Path starts with "~" (home directory reference)' },
+    { pattern: /\.\.[\\/]|\.\.%2[fF]/i, message: 'Path traversal detected' },
+    { pattern: /^~[\\/]/, message: 'Home directory access' },
+    { pattern: /\x00/, message: 'Null byte injection' },
     { pattern: /^\/etc/, message: 'Path accesses system configuration directory' },
     { pattern: /^\/proc/, message: 'Path accesses system process directory' },
     { pattern: /^\/sys/, message: 'Path accesses system directory' },

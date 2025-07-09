@@ -7,6 +7,7 @@
 import { ParsedFile, Method, MethodCall } from '@/types/codebase';
 import { MethodAnalysisPlugin, AnalysisResult, AnalysisError } from '../interfaces';
 import { isJavaScriptKeyword, isJavaScriptBuiltin, isJavaScriptFrameworkMethod, isJavaScriptControlPattern, isValidJavaScriptMethod } from '@/config/javascript-keywords';
+import { CommonParsingUtils } from '../utils/CommonParsingUtils';
 
 export class JavaScriptAnalysisPlugin implements MethodAnalysisPlugin {
   readonly name = 'javascript';
@@ -19,30 +20,27 @@ export class JavaScriptAnalysisPlugin implements MethodAnalysisPlugin {
 
   analyze(file: ParsedFile): AnalysisResult {
     const startTime = performance.now();
-    const methods: Method[] = [];
-    const errors: AnalysisError[] = [];
-
-    try {
-      const analyzedMethods = this.analyzeJavaScriptMethods(file);
-      methods.push(...analyzedMethods);
-    } catch (error) {
-      errors.push({
-        message: `JavaScript analysis failed: ${error instanceof Error ? error.message : String(error)}`,
-        type: 'extraction',
-        severity: 'error'
-      });
-    }
+    
+    const { result, error } = CommonParsingUtils.safeAnalyze(
+      () => this.analyzeJavaScriptMethods(file),
+      'JavaScript analysis'
+    );
 
     const endTime = performance.now();
+    const metadata = CommonParsingUtils.createAnalysisMetadata(file, endTime - startTime, 'javascript-regex');
+
+    if (error) {
+      return {
+        methods: [],
+        errors: [error],
+        metadata
+      };
+    }
 
     return {
-      methods,
-      errors,
-      metadata: {
-        processingTime: endTime - startTime,
-        linesProcessed: file.totalLines,
-        engine: 'javascript-regex'
-      }
+      methods: result || [],
+      errors: [],
+      metadata
     };
   }
 
@@ -59,10 +57,10 @@ export class JavaScriptAnalysisPlugin implements MethodAnalysisPlugin {
     // メソッド定義を解析
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
-      const cleanedLine = this.cleanJavaScriptLine(line);
+      const cleanedLine = CommonParsingUtils.cleanSourceLine(line, 'javascript');
 
       // コメント行をスキップ
-      if (this.isCommentLine(cleanedLine)) {
+      if (CommonParsingUtils.isCommentLine(cleanedLine, 'javascript')) {
         continue;
       }
 
@@ -88,7 +86,7 @@ export class JavaScriptAnalysisPlugin implements MethodAnalysisPlugin {
     const localMethods = new Set<string>();
 
     for (const line of lines) {
-      const cleanedLine = this.cleanJavaScriptLine(line);
+      const cleanedLine = CommonParsingUtils.cleanSourceLine(line, 'javascript');
       
       // 各種関数定義パターンを検索
       const patterns = [
@@ -104,7 +102,7 @@ export class JavaScriptAnalysisPlugin implements MethodAnalysisPlugin {
           const methodName = match[1] === 'public' || match[1] === 'private' || match[1] === 'protected' || match[1] === 'static' 
             ? match[2] 
             : match[1];
-          if (methodName && isValidJavaScriptMethod(methodName)) {
+          if (methodName && CommonParsingUtils.isValidMethodName(methodName, 'javascript')) {
             localMethods.add(methodName);
           }
         }

@@ -8,6 +8,7 @@ import { ParsedFile, Method, MethodCall } from '@/types/codebase';
 import { MethodAnalysisPlugin, AnalysisResult, AnalysisError } from '../interfaces';
 import { isRubyKeyword, isRubyBuiltin, isRubyCrudMethod, isRailsStandardMethod } from '@/config/ruby-keywords';
 import { COMMON_PATTERNS } from '@/utils/regex-patterns';
+import { CommonParsingUtils } from '../utils/CommonParsingUtils';
 
 export class ErbAnalysisPlugin implements MethodAnalysisPlugin {
   readonly name = 'erb';
@@ -20,34 +21,27 @@ export class ErbAnalysisPlugin implements MethodAnalysisPlugin {
 
   analyze(file: ParsedFile): AnalysisResult {
     const startTime = performance.now();
-    const methods: Method[] = [];
-    const errors: AnalysisError[] = [];
-
-    try {
-      const analyzedMethods = this.analyzeErbMethods(file);
-      methods.push(...analyzedMethods);
-    } catch (error) {
-      errors.push({
-        message: `ERB analysis failed: ${error instanceof Error ? error.message : String(error)}`,
-        type: 'extraction',
-        severity: 'error'
-      });
-    }
+    
+    const { result, error } = CommonParsingUtils.safeAnalyze(
+      () => this.analyzeErbMethods(file),
+      'ERB analysis'
+    );
 
     const endTime = performance.now();
+    const metadata = CommonParsingUtils.createAnalysisMetadata(file, endTime - startTime, 'erb-regex');
+
+    if (error) {
+      return {
+        methods: [],
+        errors: [error],
+        metadata
+      };
+    }
 
     return {
-      methods,
-      errors,
-      metadata: {
-        processingTime: endTime - startTime,
-        linesProcessed: file.totalLines,
-        engine: 'erb-regex',
-        additionalInfo: {
-          erbTagsProcessed: this.countErbTags(file.content),
-          virtualMethodsCreated: methods.length
-        }
-      }
+      methods: result || [],
+      errors: [],
+      metadata
     };
   }
 

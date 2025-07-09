@@ -8,6 +8,7 @@
 import { ParsedFile, Method, MethodCall } from '@/types/codebase';
 import { MethodAnalysisPlugin, AnalysisResult, AnalysisError } from '../interfaces';
 import { analyzeTypeScriptWithESTree } from '@/utils/typescript-estree-analyzer';
+import { CommonParsingUtils } from '../utils/CommonParsingUtils';
 
 export class TypeScriptAnalysisPlugin implements MethodAnalysisPlugin {
   readonly name = 'typescript';
@@ -20,53 +21,35 @@ export class TypeScriptAnalysisPlugin implements MethodAnalysisPlugin {
 
   analyze(file: ParsedFile): AnalysisResult {
     const startTime = performance.now();
-    const methods: Method[] = [];
-    const errors: AnalysisError[] = [];
-
-    try {
-      // 既存のESTree解析ロジックを使用
-      const analyzedMethods = analyzeTypeScriptWithESTree(file);
-      methods.push(...analyzedMethods);
-    } catch (error) {
-      errors.push({
-        message: `TypeScript analysis failed: ${error instanceof Error ? error.message : String(error)}`,
-        type: 'extraction',
-        severity: 'error'
-      });
-
-      // フォールバック: JavaScriptとして解析
-      try {
-        const fallbackMethods = this.analyzeAsJavaScript(file);
-        methods.push(...fallbackMethods);
-        
-        errors.push({
-          message: 'Fallback to JavaScript analysis due to TypeScript parsing failure',
-          type: 'validation',
-          severity: 'warning'
-        });
-      } catch (fallbackError) {
-        errors.push({
-          message: `Fallback analysis also failed: ${fallbackError instanceof Error ? fallbackError.message : String(fallbackError)}`,
-          type: 'runtime',
-          severity: 'error'
-        });
-      }
-    }
+    
+    const { result, error } = CommonParsingUtils.safeAnalyze(
+      () => {
+        try {
+          // 既存のESTree解析ロジックを使用
+          return analyzeTypeScriptWithESTree(file);
+        } catch (error) {
+          // フォールバック: JavaScriptとして解析
+          return this.analyzeAsJavaScript(file);
+        }
+      },
+      'TypeScript analysis'
+    );
 
     const endTime = performance.now();
+    const metadata = CommonParsingUtils.createAnalysisMetadata(file, endTime - startTime, 'typescript-estree');
+
+    if (error) {
+      return {
+        methods: [],
+        errors: [error],
+        metadata
+      };
+    }
 
     return {
-      methods,
-      errors,
-      metadata: {
-        processingTime: endTime - startTime,
-        linesProcessed: file.totalLines,
-        engine: 'typescript-estree',
-        additionalInfo: {
-          usedFallback: errors.some(e => e.message.includes('Fallback')),
-          astParsingSuccess: !errors.some(e => e.type === 'extraction')
-        }
-      }
+      methods: result || [],
+      errors: [],
+      metadata
     };
   }
 

@@ -87,9 +87,7 @@ end
       
       const validation = validateFile(largeFile);
       expect(validation.isValid).toBe(false);
-      expect(validation.errors).toContain(
-        expect.stringContaining('exceeds maximum allowed size')
-      );
+      expect(validation.errors[0]).toContain('exceeds maximum allowed size');
     });
 
     test('ファイルパス検証: 危険なパスがリジェクトされる', () => {

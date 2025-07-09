@@ -166,7 +166,12 @@ export function assessRegexSafety(pattern: string): {
     { pattern: /\(\w\+\)\+/, issue: 'Nested quantifiers with word characters', risk: 'medium' },
     { pattern: /\(\[\w\s\]\+\)\+/, issue: 'Nested quantifiers with character class', risk: 'medium' },
     { pattern: /\.\*\.\*/, issue: 'Multiple .* patterns', risk: 'medium' },
-    { pattern: /\|\|\|/, issue: 'Multiple alternation patterns', risk: 'medium' }
+    { pattern: /\|\|\|/, issue: 'Multiple alternation patterns', risk: 'medium' },
+    { pattern: /\(.*\+.*\)\+/, issue: 'Nested quantifiers', risk: 'high' },
+    { pattern: /\(.*\|.*\)\*/, issue: 'Alternation with star', risk: 'high' },
+    { pattern: /\(a\+\)\+/, issue: 'Catastrophic backtracking pattern', risk: 'high' },
+    { pattern: /\(a\|a\)\*/, issue: 'Ambiguous alternation', risk: 'high' },
+    { pattern: /\(\w\*\)\*/, issue: 'Nested star quantifiers', risk: 'high' }
   ];
 
   for (const check of dangerousPatterns) {
