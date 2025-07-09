@@ -26,10 +26,6 @@ class LegacyAnalysisEngine {
       });
       
       this.instance = new MethodAnalysisEngine(registry);
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('🔌 Pluggable architecture initialized with legacy compatibility');
-      }
     }
     
     return this.instance;

@@ -51,7 +51,6 @@ export class MigrationController {
       this.initializeNewEngine();
     }
     
-    console.log(`🔄 Migration phase set to: ${phase}`);
   }
 
   /**
@@ -66,7 +65,6 @@ export class MigrationController {
     });
     
     this.engine = new MethodAnalysisEngine(registry);
-    console.log('✅ New analysis engine initialized');
   }
 
   /**
@@ -144,16 +142,13 @@ export class MigrationController {
       
       if (comparison.isCompatible) {
         this.migrationStats.successfulMigrations++;
-        console.log(`✅ Parallel test successful for ${file.path} (${improvement.toFixed(1)}% improvement)`);
       } else {
         this.migrationStats.failedMigrations++;
-        console.warn(`⚠️  Parallel test differences found for ${file.path}:`, comparison.differences);
       }
 
       // 既存システムの結果を返す（並行テスト段階では既存システムを使用）
       return legacyResults;
     } catch (error) {
-      console.error(`Parallel testing failed for ${file.path}:`, error);
       return this.analyzeLegacyOnly(file);
     }
   }
@@ -163,7 +158,6 @@ export class MigrationController {
    */
   private analyzeNewMainLegacyFallback(file: ParsedFile): Method[] {
     if (!this.engine) {
-      console.error('New engine not initialized');
       return this.analyzeLegacyOnly(file);
     }
 
@@ -172,7 +166,6 @@ export class MigrationController {
       this.migrationStats.successfulMigrations++;
       return results;
     } catch (error) {
-      console.warn(`New system failed for ${file.path}, falling back to legacy:`, error);
       this.migrationStats.failedMigrations++;
       return this.analyzeLegacyOnly(file);
     }

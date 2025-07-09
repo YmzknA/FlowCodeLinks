@@ -28,7 +28,6 @@ export class PluginRegistry {
     
     // 既存プラグインの重複チェック
     if (this.plugins.has(plugin.name)) {
-      console.warn(`Plugin ${plugin.name} is already registered. Overwriting...`);
       // 既存の言語マッピングをクリア
       this.clearLanguageMappingForPlugin(plugin.name);
     }
@@ -37,8 +36,6 @@ export class PluginRegistry {
     
     // 言語マッピングを事前構築（O(1)検索用）
     this.buildLanguageMapping(plugin);
-    
-    console.log(`✅ Plugin registered: ${plugin.name} v${plugin.version}`);
   }
   
   /**
