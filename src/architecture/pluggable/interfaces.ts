@@ -83,3 +83,154 @@ export interface AnalysisMetadata {
   /** 追加情報 */
   additionalInfo?: Record<string, unknown>;
 }
+
+/**
+ * ファイル検証設定
+ */
+export interface FileValidationConfig {
+  /** 最大ファイルサイズ（バイト）デフォルト: 10MB */
+  maxFileSize?: number;
+  
+  /** 最大行数 デフォルト: 100,000行 */
+  maxLines?: number;
+  
+  /** 許可されるファイル拡張子 */
+  allowedExtensions?: string[];
+  
+  /** パス検証を有効にするか */
+  enablePathValidation?: boolean;
+}
+
+/**
+ * ファイル検証結果
+ */
+export interface FileValidationResult {
+  /** 検証が成功したか */
+  isValid: boolean;
+  
+  /** 検証エラー一覧 */
+  errors: string[];
+  
+  /** 警告一覧 */
+  warnings: string[];
+}
+
+/**
+ * ファイルサイズとパス検証関数
+ */
+export function validateFile(
+  file: ParsedFile,
+  config: FileValidationConfig = {}
+): FileValidationResult {
+  const {
+    maxFileSize = 10 * 1024 * 1024, // 10MB
+    maxLines = 100000,
+    allowedExtensions = ['.rb', '.js', '.ts', '.tsx', '.erb', '.html.erb'],
+    enablePathValidation = true
+  } = config;
+
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  // ファイルサイズチェック
+  if (file.content.length > maxFileSize) {
+    errors.push(
+      `File size ${file.content.length} bytes exceeds maximum allowed size ${maxFileSize} bytes (${(maxFileSize / 1024 / 1024).toFixed(1)}MB)`
+    );
+  }
+
+  // 行数チェック
+  const lineCount = file.content.split('\n').length;
+  if (lineCount > maxLines) {
+    errors.push(
+      `File has ${lineCount} lines, exceeding maximum allowed ${maxLines} lines`
+    );
+  }
+
+  // ファイル拡張子チェック
+  const fileExtension = getFileExtension(file.path);
+  if (allowedExtensions.length > 0 && !allowedExtensions.includes(fileExtension)) {
+    warnings.push(
+      `File extension '${fileExtension}' is not in allowed list: ${allowedExtensions.join(', ')}`
+    );
+  }
+
+  // パス検証
+  if (enablePathValidation) {
+    const pathValidation = validateFilePath(file.path);
+    if (!pathValidation.isValid) {
+      errors.push(...pathValidation.errors);
+    }
+  }
+
+  // メモリ使用量警告
+  const estimatedMemoryMB = file.content.length / 1024 / 1024;
+  if (estimatedMemoryMB > 5) {
+    warnings.push(
+      `Large file (${estimatedMemoryMB.toFixed(1)}MB) may impact performance`
+    );
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings
+  };
+}
+
+/**
+ * ファイルパス検証関数
+ */
+export function validateFilePath(filePath: string): FileValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  // null/undefined チェック
+  if (!filePath || typeof filePath !== 'string') {
+    errors.push('File path is null, undefined, or not a string');
+    return { isValid: false, errors, warnings };
+  }
+
+  // 危険なパスパターンのチェック
+  const dangerousPatterns = [
+    { pattern: /\.\.\//, message: 'Path contains ".." (directory traversal)' },
+    { pattern: /^~/, message: 'Path starts with "~" (home directory reference)' },
+    { pattern: /^\/etc/, message: 'Path accesses system configuration directory' },
+    { pattern: /^\/proc/, message: 'Path accesses system process directory' },
+    { pattern: /^\/sys/, message: 'Path accesses system directory' },
+    { pattern: /[\x00-\x1f]/, message: 'Path contains control characters' },
+    { pattern: /[<>:"|?*]/, message: 'Path contains invalid characters' }
+  ];
+
+  for (const { pattern, message } of dangerousPatterns) {
+    if (pattern.test(filePath)) {
+      errors.push(message);
+    }
+  }
+
+  // パス長制限
+  if (filePath.length > 260) {
+    warnings.push(`Path length ${filePath.length} exceeds recommended maximum of 260 characters`);
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings
+  };
+}
+
+/**
+ * ファイル拡張子を取得
+ */
+function getFileExtension(filePath: string): string {
+  if (!filePath) return '';
+  
+  // .html.erb のような複合拡張子を考慮
+  if (filePath.endsWith('.html.erb')) {
+    return '.html.erb';
+  }
+  
+  const lastDotIndex = filePath.lastIndexOf('.');
+  return lastDotIndex === -1 ? '' : filePath.substring(lastDotIndex);
+}

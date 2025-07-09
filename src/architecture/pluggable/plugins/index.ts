@@ -4,6 +4,12 @@
  * 全ての言語解析プラグインを一箇所から利用可能にする
  */
 
+import { RubyAnalysisPlugin } from './RubyAnalysisPlugin';
+import { JavaScriptAnalysisPlugin } from './JavaScriptAnalysisPlugin';
+import { TypeScriptAnalysisPlugin } from './TypeScriptAnalysisPlugin';
+import { ErbAnalysisPlugin } from './ErbAnalysisPlugin';
+
+export { BaseAnalysisPlugin } from './BaseAnalysisPlugin';
 export { RubyAnalysisPlugin } from './RubyAnalysisPlugin';
 export { JavaScriptAnalysisPlugin } from './JavaScriptAnalysisPlugin';
 export { TypeScriptAnalysisPlugin } from './TypeScriptAnalysisPlugin';

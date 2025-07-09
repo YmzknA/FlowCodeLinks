@@ -9,6 +9,13 @@ import { MethodAnalysisPlugin, AnalysisResult, AnalysisError } from './interface
 
 export class PluginRegistry {
   private plugins: Map<string, MethodAnalysisPlugin> = new Map();
+  /** 言語から対応プラグインへの高速マッピング（O(1)検索用） */
+  private languageMap: Map<string, MethodAnalysisPlugin> = new Map();
+  /** サポートする全言語リスト */
+  private static readonly SUPPORTED_LANGUAGES = [
+    'ruby', 'javascript', 'typescript', 'tsx', 'erb', 
+    'js', 'ts', 'rb', 'html.erb'
+  ];
   
   /**
    * プラグインを登録
@@ -22,24 +29,63 @@ export class PluginRegistry {
     // 既存プラグインの重複チェック
     if (this.plugins.has(plugin.name)) {
       console.warn(`Plugin ${plugin.name} is already registered. Overwriting...`);
+      // 既存の言語マッピングをクリア
+      this.clearLanguageMappingForPlugin(plugin.name);
     }
     
     this.plugins.set(plugin.name, plugin);
+    
+    // 言語マッピングを事前構築（O(1)検索用）
+    this.buildLanguageMapping(plugin);
+    
     console.log(`✅ Plugin registered: ${plugin.name} v${plugin.version}`);
   }
   
   /**
-   * 指定言語に対応するプラグインを検索
+   * 指定言語に対応するプラグインを検索（O(1)高速検索）
    * @param language 言語名
    * @returns 対応するプラグイン、見つからない場合はnull
    */
   findPlugin(language: string): MethodAnalysisPlugin | null {
+    // 高速マップから直接検索
+    const plugin = this.languageMap.get(language);
+    if (plugin) {
+      return plugin;
+    }
+    
+    // フォールバック: 線形検索（新しい言語や動的登録対応）
     for (const plugin of this.plugins.values()) {
       if (plugin.supports(language)) {
+        // 見つかった場合はマッピングに追加
+        this.languageMap.set(language, plugin);
         return plugin;
       }
     }
+    
     return null;
+  }
+  
+  /**
+   * プラグインの言語マッピングを構築
+   */
+  private buildLanguageMapping(plugin: MethodAnalysisPlugin): void {
+    for (const language of PluginRegistry.SUPPORTED_LANGUAGES) {
+      if (plugin.supports(language)) {
+        this.languageMap.set(language, plugin);
+      }
+    }
+  }
+  
+  /**
+   * 指定プラグインの言語マッピングをクリア
+   */
+  private clearLanguageMappingForPlugin(pluginName: string): void {
+    const entries = Array.from(this.languageMap.entries());
+    for (const [language, plugin] of entries) {
+      if (plugin.name === pluginName) {
+        this.languageMap.delete(language);
+      }
+    }
   }
   
   /**

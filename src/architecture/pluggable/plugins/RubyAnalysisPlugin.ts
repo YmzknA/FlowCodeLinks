@@ -151,13 +151,16 @@ export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
   }
 
   /**
-   * Rubyメソッドの終端を検索
+   * Rubyメソッドの終端を検索（無限ループ対策付き）
    */
   private findRubyMethodEnd(lines: string[], startIndex: number): number {
     let depth = 1;
     let i = startIndex + 1;
+    const MAX_ITERATIONS = 10000; // 最大反復回数
+    let iterations = 0;
 
-    while (i < lines.length && depth > 0) {
+    while (i < lines.length && depth > 0 && iterations < MAX_ITERATIONS) {
+      iterations++;
       const line = lines[i].trim();
 
       // コメント行をスキップ
@@ -177,6 +180,13 @@ export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
       }
 
       i++;
+    }
+
+    // 無限ループ検出時の処理
+    if (iterations >= MAX_ITERATIONS) {
+      console.warn(`[RubyAnalysisPlugin] Method end detection reached maximum iterations (${MAX_ITERATIONS}) at line ${startIndex}`);
+      // 安全な推定終端位置を返す（開始位置から100行後、またはファイル終端）
+      return Math.min(startIndex + 100, lines.length - 1);
     }
 
     return depth === 0 ? i - 1 : lines.length - 1;

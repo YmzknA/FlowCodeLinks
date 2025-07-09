@@ -442,7 +442,7 @@ export class TypeScriptAnalysisPlugin implements MethodAnalysisPlugin {
   }
 
   /**
-   * TypeScriptパラメータの分割（ネストした型を考慮）
+   * TypeScriptパラメータの分割（ネストした型を考慮、無限ループ対策付き）
    */
   private splitTypeScriptParameters(paramString: string): string[] {
     const params: string[] = [];
@@ -450,6 +450,13 @@ export class TypeScriptAnalysisPlugin implements MethodAnalysisPlugin {
     let depth = 0;
     let inString = false;
     let stringChar = '';
+    const MAX_ITERATIONS = 100000; // 最大反復回数（文字数ベース）
+
+    // 入力長制限
+    if (paramString.length > MAX_ITERATIONS) {
+      console.warn(`[TypeScriptAnalysisPlugin] Parameter string too long (${paramString.length} chars), truncating to ${MAX_ITERATIONS}`);
+      paramString = paramString.substring(0, MAX_ITERATIONS);
+    }
 
     for (let i = 0; i < paramString.length; i++) {
       const char = paramString[i];
@@ -469,8 +476,18 @@ export class TypeScriptAnalysisPlugin implements MethodAnalysisPlugin {
       if (!inString) {
         if (char === '<' || char === '{' || char === '[' || char === '(') {
           depth++;
+          // 異常な深いネスト検出
+          if (depth > 100) {
+            console.warn(`[TypeScriptAnalysisPlugin] Excessive nesting depth (${depth}) detected in parameters, aborting`);
+            break;
+          }
         } else if (char === '>' || char === '}' || char === ']' || char === ')') {
           depth--;
+          // 負の深度検出（不正な構文）
+          if (depth < 0) {
+            console.warn(`[TypeScriptAnalysisPlugin] Negative depth detected in parameters, resetting to 0`);
+            depth = 0;
+          }
         } else if (char === ',' && depth === 0) {
           params.push(current.trim());
           current = '';
@@ -479,6 +496,18 @@ export class TypeScriptAnalysisPlugin implements MethodAnalysisPlugin {
       }
 
       current += char;
+      
+      // 個別パラメータ長制限
+      if (current.length > 10000) {
+        console.warn(`[TypeScriptAnalysisPlugin] Single parameter too long (${current.length} chars), truncating`);
+        current = current.substring(0, 10000) + '...';
+        params.push(current.trim());
+        current = '';
+        // カンマを探して次のパラメータへ
+        while (i < paramString.length && paramString[i] !== ',' && depth === 0) {
+          i++;
+        }
+      }
     }
 
     if (current.trim()) {
