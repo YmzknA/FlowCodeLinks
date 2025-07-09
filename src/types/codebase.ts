@@ -22,7 +22,7 @@ export interface Method {
   code: string;
   calls: MethodCall[];
   isPrivate: boolean;
-  parameters: string[];
+  parameters: Parameter[];
   returnType?: string;
   importSource?: string; // インポート使用箇所の場合、元のインポート文の行番号
   isExcluded?: boolean; // 除外対象メソッド（UI非表示だが依存関係検出用）
@@ -31,7 +31,15 @@ export interface Method {
 export interface MethodCall {
   methodName: string;
   line: number;
-  context: string; // 呼び出し周辺のコード
+  column?: number; // 呼び出し位置のカラム番号
+  context?: string; // 呼び出し周辺のコード
+  filePath?: string; // 呼び出し先のファイルパス
+}
+
+export interface Parameter {
+  name: string;
+  type?: string;
+  defaultValue?: string;
 }
 
 export interface Dependency {

@@ -208,7 +208,7 @@ export class JavaScriptAnalysisPlugin implements MethodAnalysisPlugin {
       code: methodCode,
       calls: methodCalls,
       isPrivate,
-      parameters: this.parseJavaScriptParameters(params)
+      parameters: this.parseJavaScriptParameters(params).map(p => ({ name: p }))
     };
   }
 

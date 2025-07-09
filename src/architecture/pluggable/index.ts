@@ -17,6 +17,11 @@ export { PluginRegistry } from './PluginRegistry';
 export { MethodAnalysisEngine } from './MethodAnalysisEngine';
 export type { AnalysisStatistics, LanguageStatistics } from './MethodAnalysisEngine';
 
+// 型のインポート
+import { MethodAnalysisPlugin } from './interfaces';
+import { PluginRegistry } from './PluginRegistry';
+import { MethodAnalysisEngine } from './MethodAnalysisEngine';
+
 // 利便性のためのファクトリ関数
 export function createAnalysisEngine(): MethodAnalysisEngine {
   const registry = new PluginRegistry();

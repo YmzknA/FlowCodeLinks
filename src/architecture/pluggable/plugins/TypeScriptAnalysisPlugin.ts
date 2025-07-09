@@ -218,7 +218,7 @@ export class TypeScriptAnalysisPlugin implements MethodAnalysisPlugin {
       code: methodCode,
       calls: methodCalls,
       isPrivate,
-      parameters: this.parseTypeScriptParameters(params),
+      parameters: this.parseTypeScriptParameters(params).map(p => ({ name: p })),
       returnType
     };
   }
