@@ -149,3 +149,8 @@ repomix-output-YmzknA-hoshi_ni_task_wo.md
 requirements.md
 work_log/
 docs/
+
+# ⚠️  CRITICAL WARNING: DO NOT EDIT THIS .gitignore FILE WITHOUT EXPLICIT PERMISSION
+# This file contains carefully configured ignore patterns for project security and workflow.
+# Unauthorized modifications may compromise project integrity and development processes.
+# If changes are needed, consult with project maintainers first.
