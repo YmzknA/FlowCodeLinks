@@ -1,69 +1,31 @@
-import { ParsedFile, Method, MethodCall } from '@/types/codebase';
-import { isRubyKeyword, isRubyBuiltin, isRubyCrudMethod, isRailsStandardMethod } from '@/config/ruby-keywords';
-import { isJavaScriptKeyword, isJavaScriptBuiltin, isJavaScriptFrameworkMethod, isJavaScriptControlPattern, isValidJavaScriptMethod } from '@/config/javascript-keywords';
-import { COMMON_PATTERNS, MethodPatternBuilder } from '@/utils/regex-patterns';
-import { analyzeTypeScriptWithESTree, extractTypeScriptMethodDefinitionsWithESTree } from '@/utils/typescript-estree-analyzer';
-import { MethodExclusionService } from '@/services/MethodExclusionService';
+// このファイルは互換性のためのリダイレクト層として機能します
+// 実際の実装は新しいプラガブルアーキテクチャに移行されました
 
-export function analyzeMethodsInFile(file: ParsedFile, allDefinedMethods?: Set<string>): Method[] {
-  if (!file.content.trim() || file.language === 'unknown') {
-    return [];
-  }
+// 既存のインポートをLegacyApiAdapterからの再エクスポートに置き換え
+export {
+  analyzeMethodsInFile,
+  extractAllMethodDefinitions,
+  analyzeRubyMethods,
+  analyzeErbMethods,
+  analyzeJavaScriptMethodsWithFiltering,
+  extractRubyMethodDefinitionsOnly,
+  extractJavaScriptMethodDefinitionsOnly,
+  getAnalysisStatistics,
+  getPluginInfo
+} from '@/architecture/pluggable/compat/LegacyApiAdapter';
 
-  let methods: Method[] = [];
-  
-  switch (file.language) {
-    case 'ruby':
-      methods = analyzeRubyMethods(file, allDefinedMethods);
-      break;
-    case 'erb':
-      methods = analyzeErbMethods(file, allDefinedMethods);
-      break;
-    case 'javascript':
-      methods = analyzeJavaScriptMethodsWithFiltering(file, allDefinedMethods);
-      break;
-    case 'typescript':
-    case 'tsx':
-      methods = analyzeTypeScriptWithESTree(file, allDefinedMethods);
-      break;
-    default:
-      return [];
-  }
-  
-  
-  return methods;
-}
+// 型の再エクスポート（互換性維持）
+export type { ParsedFile, Method, MethodCall } from '@/types/codebase';
 
-/**
- * 全ファイルからメソッド定義名の一覧を抽出
- * 変数フィルタリングのために使用
- */
-export function extractAllMethodDefinitions(files: ParsedFile[]): Set<string> {
-  const methodNames = new Set<string>();
-  
-  for (const file of files) {
-    if (file.language === 'ruby') {
-      // メソッド定義のみを抽出（呼び出し検出はしない）
-      const methods = extractRubyMethodDefinitionsOnly(file);
-      methods.forEach(method => methodNames.add(method.name));
-    } else if (file.language === 'javascript') {
-      // JavaScriptのメソッド定義を抽出
-      const methods = extractJavaScriptMethodDefinitionsOnly(file);
-      methods.forEach(method => methodNames.add(method.name));
-    } else if (file.language === 'typescript' || file.language === 'tsx') {
-      // TypeScript/TSXのメソッド定義をESTreeで抽出
-      const methods = extractTypeScriptMethodDefinitionsWithESTree(file);
-      methods.forEach(method => methodNames.add(method.name));
-    }
-    // ERBファイルはメソッド定義を持たないのでスキップ
-  }
-  
-  return methodNames;
-}
+// 実装はLegacyApiAdapterに移行されました
+// 上記のexport文により、既存のコードは変更なしで動作します
 
-/**
- * Rubyファイルからメソッド定義のみを抽出（呼び出し検出なし）
- */
+// 実装はLegacyApiAdapterに移行されました
+
+// 以下の関数は互換性のためだけに残されています
+// 実際の実装はプラガブルアーキテクチャに移行されました
+
+// ダミー実装 - LegacyApiAdapterから実際の実装が呼ばれます
 function extractRubyMethodDefinitionsOnly(file: ParsedFile): Method[] {
   const methods: Method[] = [];
   const lines = file.content.split('\n');
