@@ -8,6 +8,8 @@
 import { ParsedFile, Method } from '@/types/codebase';
 import { MethodAnalysisEngine, PluginRegistry } from '../index';
 import { createAllPlugins } from '../plugins';
+import { isRubyBuiltin, isRubyCrudMethod } from '@/config/ruby-keywords';
+import { isJavaScriptBuiltin, isJavaScriptFrameworkMethod } from '@/config/javascript-keywords';
 
 /**
  * シングルトンのメソッド解析エンジン
@@ -188,10 +190,6 @@ export function resetAnalysisEngine(): void {
 
 // TypeScript型の再エクスポート（既存コードとの互換性）
 export type { ParsedFile, Method, MethodCall } from '@/types/codebase';
-
-// ビルトインメソッドの判定（互換性のためのヘルパー関数）
-import { isRubyBuiltin, isRubyCrudMethod } from '@/config/ruby-keywords';
-import { isJavaScriptBuiltin, isJavaScriptFrameworkMethod } from '@/config/javascript-keywords';
 
 function isBuiltinMethod(methodName: string, language: string): boolean {
   switch (language) {
