@@ -8,6 +8,8 @@
 import { ParsedFile, Method } from '@/types/codebase';
 import { MethodAnalysisEngine, PluginRegistry } from '../index';
 import { createAllPlugins } from '../plugins';
+import { isRubyBuiltin, isRubyCrudMethod } from '@/config/ruby-keywords';
+import { isJavaScriptBuiltin, isJavaScriptFrameworkMethod } from '@/config/javascript-keywords';
 
 /**
  * シングルトンのメソッド解析エンジン
@@ -47,9 +49,23 @@ export function analyzeMethodsInFile(file: ParsedFile, allDefinedMethods?: Set<s
   const engine = LegacyAnalysisEngine.getInstance();
   
   try {
-    // 新システムでは allDefinedMethods の処理が内部で行われるため
-    // 互換性のために一旦既存の動作を再現
-    return engine.analyzeFile(file);
+    // 既存のAPIではallDefinedMethodsを使用して変数フィルタリングを行っていた
+    // 新システムでは各プラグインが内部でこの処理を行うが、
+    // 互換性のために、結果をフィルタリングする
+    const methods = engine.analyzeFile(file);
+    
+    // allDefinedMethodsが指定されている場合、メソッド呼び出しをフィルタリング
+    if (allDefinedMethods && allDefinedMethods.size > 0) {
+      return methods.map(method => ({
+        ...method,
+        calls: method.calls.filter(call => 
+          allDefinedMethods.has(call.methodName) || 
+          isBuiltinMethod(call.methodName, file.language)
+        )
+      }));
+    }
+    
+    return methods;
   } catch (error) {
     console.error(`Legacy API compatibility error for ${file.path}:`, error);
     return [];
@@ -174,3 +190,17 @@ export function resetAnalysisEngine(): void {
 
 // TypeScript型の再エクスポート（既存コードとの互換性）
 export type { ParsedFile, Method, MethodCall } from '@/types/codebase';
+
+function isBuiltinMethod(methodName: string, language: string): boolean {
+  switch (language) {
+    case 'ruby':
+    case 'erb':
+      return isRubyBuiltin(methodName) || isRubyCrudMethod(methodName);
+    case 'javascript':
+    case 'typescript':
+    case 'tsx':
+      return isJavaScriptBuiltin(methodName) || isJavaScriptFrameworkMethod(methodName);
+    default:
+      return false;
+  }
+}
