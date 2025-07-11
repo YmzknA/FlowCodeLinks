@@ -20,9 +20,10 @@ export class MethodAnalysisEngine {
     const result = this.registry.analyze(file);
     
     // エラーがある場合は警告を出力（開発時のみ）
-    if (result.errors.length > 0 && process.env.NODE_ENV === 'development') {
-      console.warn(`Analysis warnings for ${file.path}:`, result.errors);
-    }
+    // 無効化: 大量のログ出力を防ぐため
+    // if (result.errors.length > 0 && process.env.NODE_ENV === 'development') {
+    //   console.warn(`Analysis warnings for ${file.path}:`, result.errors);
+    // }
     
     return result.methods;
   }
@@ -50,10 +51,14 @@ export class MethodAnalysisEngine {
     
     files.forEach(file => {
       const methods = this.analyzeFile(file);
+      
+      
       methods.forEach(method => {
         // 定義タイプのメソッドのみを抽出（呼び出しは除外）
         if (this.isMethodDefinition(method)) {
           definitions.add(method.name);
+          
+          // prepare_meta_tagsの場合のみデバッグ
         }
       });
     });

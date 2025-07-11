@@ -43,10 +43,6 @@ export const useAllFilesMonitor = (filePath: string) => {
       const allFiles = (window as any).__allFiles;
       const currentLength = allFiles?.length || 0;
 
-      if (process.env.NODE_ENV === 'development' && filePathRef.current.includes('page.tsx')) {
-        // eslint-disable-next-line no-console
-        console.log(`Checking __allFiles for ${filePathRef.current}: ${currentLength} files`);
-      }
 
       // 無限レンダリング防止: 実際に内容が変更された場合のみバージョンを更新
       if (currentLength > 0 && currentLength !== lastLengthRef.current && !isUpdatingRef.current) {
@@ -61,10 +57,6 @@ export const useAllFilesMonitor = (filePath: string) => {
         isUpdatingRef.current = true;
         (window as any).__allFilesLastUpdate = now;
 
-        if (process.env.NODE_ENV === 'development') {
-          // eslint-disable-next-line no-console
-          console.log(`🔄 __allFiles detected change: ${lastLengthRef.current} → ${currentLength} for ${filePathRef.current}`);
-        }
         lastLengthRef.current = currentLength;
         
         // 状態更新を非同期で実行し、フラグをリセット

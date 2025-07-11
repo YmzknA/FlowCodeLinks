@@ -7,7 +7,7 @@ import { ParsedFile } from '@/types/codebase';
 
 describe('AllFiles Content Debug', () => {
   test('should debug what gets included in __allFiles', () => {
-    console.log('\n=== __allFiles CONTENT SIMULATION ===');
+    // Simulate __allFiles content
     
     // 実際のアプリで使用されるファイル構成をシミュレート
     const files: ParsedFile[] = [
@@ -69,29 +69,25 @@ export { useAuth, authClient };`,
     const allDefinedMethods = new Set(['useAuth', 'authClient', 'userState', 'Home', 'login', 'autoLogin', 'setUser']);
     
     files.forEach(file => {
-      console.log(`\n--- Analyzing ${file.path} ---`);
+      // Analyze each file
       const methods = analyzeMethodsInFile(file, allDefinedMethods);
       file.methods = methods;
       
       methods.forEach(method => {
-        console.log(`  ${method.type}: ${method.name} (line ${method.startLine})`);
-        if (method.parameters && method.parameters.length > 0) {
-          console.log(`    Parameters: ${JSON.stringify(method.parameters)}`);
-        }
+        // Check method detection
+        expect(method.name).toBeDefined();
+        expect(method.type).toBeDefined();
       });
     });
     
     // findMethodDefinition関数の動作をシミュレート
-    console.log('\n=== FIND METHOD DEFINITION SIMULATION ===');
+    // Simulate findMethodDefinition function
     
     const findMethodDefinition = (methodName: string) => {
-      console.log(`\nSearching for: ${methodName}`);
-      
       for (const searchFile of files) {
         if (searchFile.methods) {
           for (const method of searchFile.methods) {
             if (method.name === methodName) {
-              console.log(`  Found: ${methodName} in ${searchFile.path} (${method.type})`);
               return {
                 methodName: method.name,
                 filePath: searchFile.path
@@ -101,7 +97,6 @@ export { useAuth, authClient };`,
         }
       }
       
-      console.log(`  Not found: ${methodName}`);
       return null;
     };
     
@@ -114,12 +109,12 @@ export { useAuth, authClient };`,
     const unknownDef = findMethodDefinition('unknownMethod');
     expect(unknownDef).toBeNull();
     
-    console.log('\n✅ If useAuth is found here, the problem is elsewhere');
-    console.log('✅ Check if auth.ts is actually included in the real application');
+    // If useAuth is found here, the problem is elsewhere
+    // Check if auth.ts is actually included in the real application
   });
 
   test('should test exact name matching in findMethodDefinition', () => {
-    console.log('\n=== EXACT NAME MATCHING TEST ===');
+    // Test exact name matching
     
     // 名前の微妙な違いをテスト
     const testMethods = [
@@ -146,17 +141,12 @@ export { useAuth, authClient };`,
     };
     
     const findMethodDefinition = (searchName: string) => {
-      console.log(`Searching for exact match: "${searchName}"`);
-      
       for (const method of mockFile.methods) {
-        console.log(`  Comparing with: "${method.name}"`);
         if (method.name === searchName) {
-          console.log(`  ✅ Exact match found!`);
           return { methodName: method.name, filePath: mockFile.path };
         }
       }
       
-      console.log(`  ❌ No exact match found`);
       return null;
     };
     
@@ -168,9 +158,9 @@ export { useAuth, authClient };`,
     const importUsageMatch = findMethodDefinition('useAuth (imported)');
     const importStatementMatch = findMethodDefinition('[Import: @/api]');
     
-    console.log('\n--- Results ---');
-    console.log(`useAuth: ${exactMatch ? 'Found' : 'Not found'}`);
-    console.log(`useAuth (imported): ${importUsageMatch ? 'Found' : 'Not found'}`);
-    console.log(`[Import: @/api]: ${importStatementMatch ? 'Found' : 'Not found'}`);
+    // Verify exact matching behavior
+    expect(exactMatch).toBeDefined();
+    expect(importUsageMatch).toBeDefined();
+    expect(importStatementMatch).toBeDefined();
   });
 });

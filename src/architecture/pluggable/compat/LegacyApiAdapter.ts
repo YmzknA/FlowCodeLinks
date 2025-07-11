@@ -10,6 +10,7 @@ import { MethodAnalysisEngine, PluginRegistry } from '../index';
 import { createAllPlugins } from '../plugins';
 import { isRubyBuiltin, isRubyCrudMethod } from '@/config/ruby-keywords';
 import { isJavaScriptBuiltin, isJavaScriptFrameworkMethod } from '@/config/javascript-keywords';
+import { RepomixContentService } from '@/services/RepomixContentService';
 
 /**
  * シングルトンのメソッド解析エンジン
@@ -39,6 +40,16 @@ class LegacyAnalysisEngine {
 }
 
 /**
+ * 新機能: Repomix全体コンテンツの設定
+ * 
+ * @param repomixContent repomix全体のコンテンツ
+ */
+export function setRepomixContent(repomixContent: string): void {
+  const repomixService = RepomixContentService.getInstance();
+  repomixService.setFullContent(repomixContent);
+}
+
+/**
  * 既存API: ファイル内のメソッドを解析
  * 
  * @param file 解析対象ファイル
@@ -54,15 +65,29 @@ export function analyzeMethodsInFile(file: ParsedFile, allDefinedMethods?: Set<s
     // 互換性のために、結果をフィルタリングする
     const methods = engine.analyzeFile(file);
     
+    
+    // 🔄 FIX: 新しいプラガブルアーキテクチャでは、プラグインが既にフィルタリングを実行している
+    // そのため、LegacyApiAdapterでの二重フィルタリングは不要
+    // ただし、既存コードとの互換性のため、条件付きで無効化する
+    
+    
     // allDefinedMethodsが指定されている場合、メソッド呼び出しをフィルタリング
-    if (allDefinedMethods && allDefinedMethods.size > 0) {
-      return methods.map(method => ({
+    // 🔄 FIX: 新アーキテクチャでは、プラグインが既にフィルタリングを実行しているため、
+    // ここでの追加フィルタリングは原則不要。ただし、prepare_meta_tagsの問題を解決するため、
+    // 一時的に無効化してテストする
+    const ENABLE_LEGACY_FILTERING = false; // デバッグ用フラグ
+    
+    if (ENABLE_LEGACY_FILTERING && allDefinedMethods && allDefinedMethods.size > 0) {
+      const filteredMethods = methods.map(method => ({
         ...method,
         calls: method.calls.filter(call => 
           allDefinedMethods.has(call.methodName) || 
           isBuiltinMethod(call.methodName, file.language)
         )
       }));
+      
+      
+      return filteredMethods;
     }
     
     return methods;
@@ -82,7 +107,8 @@ export function extractAllMethodDefinitions(files: ParsedFile[]): Set<string> {
   const engine = LegacyAnalysisEngine.getInstance();
   
   try {
-    return engine.extractDefinitions(files);
+    const definitions = engine.extractDefinitions(files);
+    return definitions;
   } catch (error) {
     console.error('Legacy API compatibility error for method definitions extraction:', error);
     return new Set<string>();

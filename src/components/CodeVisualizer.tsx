@@ -8,8 +8,9 @@ import { ZoomableCanvas } from './ZoomableCanvas';
 import { CallersModal } from './CallersModal';
 import { AnimatedArrows } from './AnimatedArrows';
 import { parseRepomixFile } from '@/utils/parser';
-import { analyzeMethodsInFile, extractAllMethodDefinitions } from '@/utils/method-analyzer';
+import { analyzeMethodsInFile, extractAllMethodDefinitions, setRepomixContent } from '@/utils/method-analyzer';
 import { extractDependencies } from '@/utils/dependency-extractor';
+import { RepomixContentService } from '@/services/RepomixContentService';
 import { useOptimizedAnalysis, useOptimizedDependencies } from '@/utils/performance';
 import { useScrollAnimation, useStaggeredScrollAnimation } from '@/hooks/useScrollAnimation';
 import { useFiles } from '@/context/FilesContext';
@@ -46,16 +47,24 @@ export const CodeVisualizer: React.FC = () => {
     }
 
     try {
+      // RepomixContentServiceに全体コンテンツを設定
+      setRepomixContent(repomixContent);
+      
       const parseResult = parseRepomixFile(repomixContent);
       
       // 第1段階: 全ファイルからメソッド定義名を抽出
       const allDefinedMethods = extractAllMethodDefinitions(parseResult.files);
+      
+      // RepomixContentServiceに全定義メソッドを設定
+      const repomixService = RepomixContentService.getInstance();
+      repomixService.setAllDefinedMethods(allDefinedMethods);
       
       // 第2段階: 定義済みメソッド一覧を使ってメソッド解析（変数フィルタリング）
       const filesWithMethods = parseResult.files.map(file => ({
         ...file,
         methods: analyzeMethodsInFile(file, allDefinedMethods)
       }));
+
 
       const allMethods = filesWithMethods.flatMap(file => file.methods);
       const dependencies = extractDependencies(allMethods);
@@ -93,27 +102,6 @@ export const CodeVisualizer: React.FC = () => {
   const visibleDependencies = useOptimizedDependencies(dependencies, visibleFiles);
   
   // prepare_meta_tags関連の依存関係を確認（本番では無効化）
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development' && visibleFiles.includes('app/controllers/users_controller.rb')) {
-      const prepareMetaTagsDeps = visibleDependencies.filter(dep => 
-        dep.from.methodName === 'prepare_meta_tags' || dep.to.methodName === 'prepare_meta_tags'
-      );
-      // eslint-disable-next-line no-console
-      console.log('🔍 prepare_meta_tags dependencies:', prepareMetaTagsDeps);
-      
-      // showメソッドを確認
-      const userControllerFile = files.find(f => f.path === 'app/controllers/users_controller.rb');
-      if (userControllerFile) {
-        const showMethod = userControllerFile.methods.find(m => m.name === 'show');
-        // eslint-disable-next-line no-console
-        console.log('🔍 show method:', showMethod);
-        if (showMethod) {
-          // eslint-disable-next-line no-console
-          console.log('🔍 show method calls:', showMethod.calls);
-        }
-      }
-    }
-  }, [visibleDependencies, visibleFiles, files]);
 
   // 全ファイルデータをContext APIで安全に管理（グローバル変数も後方互換性で並行更新）
   useEffect(() => {
@@ -324,8 +312,8 @@ export const CodeVisualizer: React.FC = () => {
     const currentFile = files.find(f => f.path === currentFilePath);
     if (!currentFile?.methods) return false;
     
-    // 除外対象メソッドは定義として扱わない
-    if (MethodExclusionService.isExcludedMethod(methodName, currentFilePath)) {
+    // 🎯 新API: 定義のクリック可否判定（粒度細分化）
+    if (!MethodExclusionService.isDefinitionClickable(methodName, currentFilePath)) {
       return false;
     }
     
@@ -341,10 +329,12 @@ export const CodeVisualizer: React.FC = () => {
   const findAllMethodCallers = useCallback((methodName: string): Array<{ methodName: string; filePath: string; lineNumber?: number }> => {
     const callers: Array<{ methodName: string; filePath: string; lineNumber?: number }> = [];
     
+    
     // 全ファイルからメソッドを呼び出しているメソッドを検索
     for (const file of files) {
       if (file.methods) {
         for (const method of file.methods) {
+          
           // メソッドの calls 配列からmethodNameを呼び出しているかチェック
           const call = method.calls?.find(call => call.methodName === methodName);
           if (call) {
@@ -357,6 +347,7 @@ export const CodeVisualizer: React.FC = () => {
         }
       }
     }
+    
     
     return callers;
   }, [files]);
@@ -526,9 +517,9 @@ export const CodeVisualizer: React.FC = () => {
     // フォールバック：従来のロジック（メタデータがない場合）
     const currentFile = files.find(f => f.path === currentFilePath);
     
-    // 除外対象メソッドは定義済みとして扱わない
+    // 🎯 新API: 定義のクリック可否判定（粒度細分化）
     let isDefinedInCurrentFile = false;
-    if (MethodExclusionService.isExcludedMethod(methodName, currentFilePath)) {
+    if (!MethodExclusionService.isDefinitionClickable(methodName, currentFilePath)) {
       // 除外対象メソッドは定義されていないものとして扱う
       isDefinedInCurrentFile = false;
     } else {

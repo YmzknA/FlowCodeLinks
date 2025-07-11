@@ -6,10 +6,7 @@ describe('Numeric Prefix Bug Prevention', () => {
     const html = `def uid_required?`;
     const result = replaceMethodNameInText(html, 'uid', 'uid');
     
-    console.log('=== Numeric Prefix Test ===');
-    console.log('Input:', html);
-    console.log('Output:', result);
-    console.log('=== End Test ===');
+    // Test numeric prefix handling
     
     // 数字プレフィックスが追加されていないことを確認
     expect(result).not.toContain('0uid_required');
@@ -29,10 +26,7 @@ describe('Numeric Prefix Bug Prevention', () => {
     let result = replaceMethodNameInText(html, 'uid', 'uid');
     result = replaceMethodNameInText(result, 'email', 'email');
     
-    console.log('=== Multiple Markers Test ===');
-    console.log('Input:', html);
-    console.log('Output:', result);
-    console.log('=== End Test ===');
+    // Test multiple markers handling
     
     // 各メソッド名の前に数字が追加されていないことを確認
     expect(result).not.toMatch(/\d+uid_required/);
@@ -57,8 +51,7 @@ describe('Numeric Prefix Bug Prevention', () => {
     
     let testString = `some text ${marker1} and ${marker2} more text`;
     
-    console.log('=== Marker Restoration Test ===');
-    console.log('Before restoration:', testString);
+    // Test marker restoration
     
     // 復元処理をテスト
     protectMap.forEach((originalContent, marker) => {
@@ -66,8 +59,7 @@ describe('Numeric Prefix Bug Prevention', () => {
       testString = testString.replace(new RegExp(escapedMarker, 'g'), originalContent);
     });
     
-    console.log('After restoration:', testString);
-    console.log('=== End Test ===');
+    // Verify restoration worked correctly
     
     // マーカーが完全に復元されていることを確認
     expect(testString).toBe('some text original_content_1 and original_content_2 more text');
@@ -90,15 +82,12 @@ describe('Numeric Prefix Bug Prevention', () => {
       const baseMethodName = methodName.replace(/[?!]$/, '');
       const result = replaceMethodNameInText(html, baseMethodName, baseMethodName);
       
-      console.log(`=== Test Case ${index + 1}: ${methodName} ===`);
-      console.log('Input:', html);
-      console.log('Output:', result);
+      // Test case for method name
       
       // 数字プレフィックスがないことを確認
       expect(result).not.toMatch(new RegExp(`\\d+${methodName.replace(/[?!]/, '\\$&')}`));
       
-      console.log('✅ No numeric prefix found');
-      console.log('=== End Test Case ===');
+      // No numeric prefix found - expected behavior
     });
   });
 });

@@ -237,9 +237,9 @@ export const useMethodJump = ({
     // 現在のファイルでクリックされたメソッドが定義されているかチェック
     const currentFile = files.find(f => f.path === currentFilePath);
     
-    // 除外対象メソッドは定義済みとして扱わない
+    // 🎯 新API: 定義のクリック可否判定（粒度細分化）
     let isDefinedInCurrentFile = false;
-    if (MethodExclusionService.isExcludedMethod(methodName, currentFilePath)) {
+    if (!MethodExclusionService.isDefinitionClickable(methodName, currentFilePath)) {
       // 除外対象メソッドは定義されていないものとして扱う
       isDefinedInCurrentFile = false;
     } else {

@@ -1,4 +1,5 @@
 import { Method, Dependency } from '@/types/codebase';
+import { MethodExclusionService } from '@/services/MethodExclusionService';
 
 export function extractDependencies(methods: Method[]): Dependency[] {
   if (methods.length === 0) {
@@ -53,6 +54,11 @@ function extractMethodDependencies(method: Method, methodMap: Map<string, Method
       // 同じファイル内のメソッドを優先して選択
       const sameFileMethod = targetMethods.find(m => m.filePath === method.filePath);
       const targetMethod = sameFileMethod || targetMethods[0]; // 見つからない場合は最初のメソッドを選択
+      
+      // Rails標準アクション等の除外対象メソッドは依存関係に含めない
+      if (!MethodExclusionService.isCallDetectionEnabled(targetMethod.name, targetMethod.filePath)) {
+        continue;
+      }
       
       const dependencyType = method.filePath === targetMethod.filePath ? 'internal' : 'external';
       

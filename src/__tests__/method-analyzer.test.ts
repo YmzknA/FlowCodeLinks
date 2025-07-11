@@ -460,6 +460,62 @@ end`,
       
     });
 
+    test('prepare_meta_tagsの呼び出し検出問題を再現', () => {
+      const file: ParsedFile = {
+        path: 'app/controllers/milestones_controller.rb',
+        language: 'ruby',
+        totalLines: 15,
+        content: `class MilestonesController < ApplicationController
+  def show
+    prepare_meta_tags(@milestone)
+    @milestone_tasks = tasks_ransack_from_milestone(@milestone)
+    @from_milestone_show = true
+    @task = Task.new
+  end
+  
+  def update
+    if @milestone.update(milestone_params)
+      redirect_to @milestone, notice: "星座を更新しました"
+    else
+      @milestone_tasks = tasks_ransack_from_milestone(@milestone)
+      @task = Task.new
+      @from_milestone_show = true
+    end
+  end
+  
+  private
+  
+  def tasks_ransack_from_milestone(milestone)
+    # method implementation
+  end
+  
+  def prepare_meta_tags(milestone)
+    # OGP画像生成処理
+  end
+end`,
+        directory: 'app/controllers',
+        fileName: 'milestones_controller.rb',
+        methods: []
+      };
+      
+      const methods = analyzeMethodsInFile(file);
+      expect(methods).toHaveLength(4); // show, update, tasks_ransack_from_milestone, prepare_meta_tags
+      
+      // showメソッドが正しく検出されているか
+      const showMethod = methods.find(m => m.name === 'show');
+      expect(showMethod).toBeDefined();
+      expect(showMethod?.isExcluded).toBe(true); // 標準アクション
+      
+      // 🎯 重要: showメソッドがprepare_meta_tagsを呼び出していることを確認
+      const showCalls = showMethod?.calls || [];
+      const callNames = showCalls.map(c => c.methodName);
+      console.log('🔍 [TEST] Show method calls:', callNames);
+      
+      expect(callNames).toContain('prepare_meta_tags');
+      expect(callNames).toContain('tasks_ransack_from_milestone');
+      
+    });
+
     it('should detect methods with question marks', () => {
       const file: ParsedFile = {
         path: 'test.rb',

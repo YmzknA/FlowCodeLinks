@@ -103,6 +103,7 @@ export class PluginRegistry {
       const result = plugin.analyze(file);
       const endTime = performance.now();
       
+      
       // 処理時間をメタデータに追加
       return {
         ...result,
