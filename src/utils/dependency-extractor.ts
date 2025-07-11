@@ -54,6 +54,11 @@ function extractMethodDependencies(method: Method, methodMap: Map<string, Method
       const sameFileMethod = targetMethods.find(m => m.filePath === method.filePath);
       const targetMethod = sameFileMethod || targetMethods[0]; // 見つからない場合は最初のメソッドを選択
       
+      // Rails標準アクション等の除外対象メソッドは依存関係に含めない
+      if (targetMethod.isExcluded) {
+        continue;
+      }
+      
       const dependencyType = method.filePath === targetMethod.filePath ? 'internal' : 'external';
       
       // import関連の場合は、使用箇所ではなくimport文の行番号を使用

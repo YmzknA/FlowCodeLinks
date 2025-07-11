@@ -148,41 +148,18 @@ export const CodeContent: React.FC<CodeContentProps> = ({ file, highlightedMetho
                 const baseClasses = "cursor-pointer hover:bg-blue-900 hover:bg-opacity-40 rounded px-1 relative";
                 const highlightClasses = isHighlighted ? " bg-red-200 bg-opacity-60 border-2 border-red-300" : "";
                 
-                if (methodName.endsWith('?') || methodName.endsWith('!')) {
-                  // 特殊文字（?や!）を含むメソッド名の処理
-                  // Prism.jsは?や!を別のトークンとして分離するため、特別な処理が必要
-                  const baseMethodName = methodName.slice(0, -1);
-                  const suffix = methodName.slice(-1);
-                  const escapedBase = baseMethodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                  const escapedSuffix = suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                  
-                  // パターン1: メソッド定義 - <span class="token method-definition"><span class="token function">method_name</span></span><span class="token operator">?</span>
-                  const definitionPattern = new RegExp(
-                    `(<span class="token method-definition"><span class="token function">${escapedBase}</span></span>)(<span class="token operator">${escapedSuffix}</span>)`,
-                    'g'
-                  );
-                  
-                  highlighted = highlighted.replace(definitionPattern, 
-                    `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}">$1$2<span class="absolute -top-1 -right-1 text-xs text-yellow-400" aria-hidden="true" title="クリック可能なメソッド">*</span></span>`
-                  );
-                  
-                  // パターン2: メソッド呼び出し - method_name<span class="token operator">?</span>
-                  const callPattern = new RegExp(
-                    `(?<![\\w])(${escapedBase})(<span class="token operator">${escapedSuffix}</span>)`,
-                    'g'
-                  );
-                  
-                  highlighted = highlighted.replace(callPattern, 
-                    `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}">$1$2<span class="absolute -top-1 -right-1 text-xs text-yellow-400" aria-hidden="true" title="クリック可能なメソッド">*</span></span>`
-                  );
-                } else {
-                  // 通常のメソッド名の処理（従来通り）
-                  const escapedMethodName = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                  const methodNameRegex = new RegExp(`(?<![\\w])${escapedMethodName}(?![\\w])`, 'g');
-                  highlighted = highlighted.replace(methodNameRegex, 
-                    `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}">$&<span class="absolute -top-1 -right-1 text-xs text-yellow-400" aria-hidden="true" title="クリック可能なメソッド">*</span></span>`
-                  );
-                }
+                // 統一的なメソッド名処理（method-highlighting.ts に委譲）
+                const escapedMethodName = methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                highlighted = replaceMethodNameInText(
+                  highlighted,
+                  methodName,
+                  escapedMethodName,
+                  undefined, // findMethodDefinition
+                  undefined, // findAllMethodCallers
+                  file.path,
+                  undefined, // files
+                  highlightedMethod
+                );
               });
 
               // import文内のメソッド名もクリック可能にする

@@ -195,6 +195,11 @@ export const replaceMethodNameInText = (
     return html;
   }
   
+  // Predicate methods (? や ! で終わるメソッド) の特別処理
+  if (methodName.endsWith('?') || methodName.endsWith('!')) {
+    return handlePredicateMethod(html, methodName, escapedMethodName, highlightedMethod, currentFilePath);
+  }
+  
   // 特定のケースのみ保護する、より安全なアプローチ
   let result = html;
   
@@ -263,6 +268,69 @@ export const replaceMethodNameInText = (
 };
 
 /**
+ * Predicate methods (? や ! で終わるメソッド) の特別処理
+ * work_log/250711-1506_pr.md で実装された処理をmethod-highlighting.tsに統一
+ */
+const handlePredicateMethod = (
+  html: string,
+  methodName: string,
+  escapedMethodName: string,
+  highlightedMethod?: { methodName: string; filePath: string; lineNumber?: number } | null,
+  currentFilePath?: string
+): string => {
+  const baseMethodName = methodName.slice(0, -1);
+  const suffix = methodName.slice(-1);
+  const escapedBase = baseMethodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedSuffix = suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  
+  // ハイライト対象かどうかを判定
+  const storedOriginalMethod = methodHighlightStorage.getOriginalMethod();
+  const isHighlighted = storedOriginalMethod && 
+                       storedOriginalMethod === methodName && 
+                       highlightedMethod && 
+                       highlightedMethod.filePath === currentFilePath;
+  
+  const baseClasses = "cursor-pointer hover:bg-blue-900 hover:bg-opacity-40 rounded px-1 relative";
+  const highlightClasses = isHighlighted ? " bg-red-200 bg-opacity-60 border-2 border-red-300" : "";
+  
+  let result = html;
+  
+  // パターン1: 定義元パターン - ネストされた構造に対応
+  // <span class="token method-definition"><span class="token function">method_name</span></span><span class="token operator">?</span>
+  const definitionPattern = new RegExp(
+    `(<span[^>]*class="[^"]*token[^"]*method-definition[^"]*"[^>]*>\\s*<span[^>]*class="[^"]*token[^"]*function[^"]*"[^>]*>)(${escapedBase})(</span>\\s*</span>)\\s*(<span[^>]*class="[^"]*token[^"]*operator[^"]*"[^>]*>)(${escapedSuffix})(</span>)`,
+    'gs'
+  );
+  
+  // パターン2: 呼び出し元パターン - 生テキスト+演算子span
+  // method_name<span class="token operator">?</span>
+  const callPattern = new RegExp(
+    `(?<![\\w])(${escapedBase})\\s*(<span[^>]*class="[^"]*token[^"]*operator[^"]*"[^>]*>)(${escapedSuffix})(</span>)`,
+    'gs'
+  );
+  
+  // 定義元パターンの処理
+  result = result.replace(definitionPattern, (match, beforeMethod, methodNamePart, afterMethod, beforeOperator, operatorPart, afterOperator) => {
+    // 行番号を計算
+    const beforeMatch = html.substring(0, html.indexOf(match));
+    const lineNumber = (beforeMatch.match(/\n/g) || []).length + 1;
+    
+    return `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}" data-line="${lineNumber}">${beforeMethod}${methodNamePart}${afterMethod}${beforeOperator}${operatorPart}${afterOperator}<span class="absolute -top-1 -right-1 text-xs text-yellow-400" aria-hidden="true" title="クリック可能なメソッド">*</span></span>`;
+  });
+  
+  // 呼び出し元パターンの処理
+  result = result.replace(callPattern, (match, methodNamePart, beforeOperator, operatorPart, afterOperator) => {
+    // 行番号を計算
+    const beforeMatch = html.substring(0, html.indexOf(match));
+    const lineNumber = (beforeMatch.match(/\n/g) || []).length + 1;
+    
+    return `<span class="${baseClasses}${highlightClasses}" data-method-name="${methodName}" data-line="${lineNumber}">${methodNamePart}${beforeOperator}${operatorPart}${afterOperator}<span class="absolute -top-1 -right-1 text-xs text-yellow-400" aria-hidden="true" title="クリック可能なメソッド">*</span></span>`;
+  });
+  
+  return result;
+};
+
+/**
  * メソッド定義をハイライトする関数
  * @param html ハイライト済みのHTML
  * @param highlightedMethod ハイライト対象のメソッド情報
@@ -292,6 +360,11 @@ export const highlightMethodDefinition = (
 
   debugLog(`✅ Target method found:`, targetMethod);
 
+  // Predicate methods (? や ! で終わるメソッド) の特別処理
+  if (highlightedMethod.methodName.endsWith('?') || highlightedMethod.methodName.endsWith('!')) {
+    return highlightPredicateMethodDefinition(html, highlightedMethod, currentFilePath, methods);
+  }
+  
   // Rubyのメソッド定義パターンをハイライト
   // def method_name や private def method_name など
   const escapedMethodName = highlightedMethod.methodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -345,5 +418,60 @@ export const highlightMethodDefinition = (
 
   debugLog(`🎯 Method definition highlight result: ${matched ? 'SUCCESS' : 'NO_MATCH'}`);
 
+  return result;
+};
+
+/**
+ * Predicate methods (? や ! で終わるメソッド) の定義ハイライト処理
+ * work_log/250711-1506_pr.md で実装された処理をmethod-highlighting.tsに統一
+ */
+const highlightPredicateMethodDefinition = (
+  html: string,
+  highlightedMethod: { methodName: string; filePath: string; lineNumber?: number },
+  currentFilePath: string,
+  methods: Array<{ name: string; startLine: number; endLine: number; type: string }> = []
+): string => {
+  debugLog(`🎯 Highlighting predicate method definition: ${highlightedMethod.methodName} in ${currentFilePath}`);
+  
+  const baseMethodName = highlightedMethod.methodName.slice(0, -1);
+  const suffix = highlightedMethod.methodName.slice(-1);
+  const escapedBase = baseMethodName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const escapedSuffix = suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  
+  let result = html;
+  let matched = false;
+  
+  // パターン1: def method_name? (Prismハイライト後の定義)
+  // <span class="token keyword">def</span> <span class="token method-definition"><span class="token function">method_name</span></span><span class="token operator">?</span>
+  const defPredicatePattern = new RegExp(
+    `(<span[^>]*class="[^"]*token[^"]*keyword[^"]*"[^>]*>def</span>\\s*<span[^>]*class="[^"]*token[^"]*method-definition[^"]*"[^>]*><span[^>]*class="[^"]*token[^"]*function[^"]*"[^>]*>)(${escapedBase})(</span></span>)\\s*(<span[^>]*class="[^"]*token[^"]*operator[^"]*"[^>]*>)(${escapedSuffix})(</span>)`,
+    'g'
+  );
+  
+  // パターン2: 既存のクリック可能要素をハイライト
+  const existingSpanPattern = new RegExp(
+    `(<span[^>]*data-method-name="${escapedBase}${escapedSuffix}"[^>]*class=")([^"]*)(\"[^>]*>)`,
+    'g'
+  );
+  
+  // パターン1: Prismハイライト済み定義
+  result = result.replace(defPredicatePattern, (match, beforeMethod, methodNamePart, afterMethod, beforeOperator, operatorPart, afterOperator) => {
+    matched = true;
+    debugLog(`🎨 Predicate Pattern1 matched: ${match}`);
+    return `${beforeMethod}<span class="bg-red-200 bg-opacity-60 border-2 border-red-300 rounded px-1">${methodNamePart}</span>${afterMethod}${beforeOperator}<span class="bg-red-200 bg-opacity-60 border-2 border-red-300 rounded px-1">${operatorPart}</span>${afterOperator}`;
+  });
+  
+  // パターン2: 既存のクリック可能要素をハイライト
+  if (!matched) {
+    result = result.replace(existingSpanPattern, (match, beforeClass, existingClasses, afterClass) => {
+      matched = true;
+      debugLog(`🎨 Predicate Pattern2 matched: ${match}`);
+      // 既存のクラスにハイライトクラスを追加
+      return `${beforeClass}${existingClasses} bg-red-200 bg-opacity-60 border-2 border-red-300${afterClass}`;
+    });
+  }
+  
+  debugLog(`🎯 Predicate method definition highlight result: ${matched ? 'SUCCESS' : 'NO_MATCH'}`);
+  
   return result;
 };
