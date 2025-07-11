@@ -55,9 +55,9 @@ function extractMethodDependencies(method: Method, methodMap: Map<string, Method
       const sameFileMethod = targetMethods.find(m => m.filePath === method.filePath);
       const targetMethod = sameFileMethod || targetMethods[0]; // 見つからない場合は最初のメソッドを選択
       
-      // Rails標準アクション等の除外対象メソッドは依存関係に含めない
-      if (!MethodExclusionService.isCallDetectionEnabled(targetMethod.name, targetMethod.filePath)) {
-        continue;
+      // 🎯 Rails標準アクション等の矢印ターゲット除外チェック（問題修正）
+      if (!MethodExclusionService.isValidArrowTarget(targetMethod.name, targetMethod.filePath)) {
+        continue; // Rails標準アクション（new, show等）は矢印の終点にしない
       }
       
       const dependencyType = method.filePath === targetMethod.filePath ? 'internal' : 'external';

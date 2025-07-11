@@ -147,6 +147,26 @@ export class MethodExclusionService {
     return !excludedByOtherRules;
   }
 
+  /**
+   * 🎯 メソッドが矢印ターゲットとして有効かどうかを判定（新API）
+   * 
+   * Rails標準アクション（new, show等）は矢印の終点になることを防ぐ
+   * 
+   * @param methodName - メソッド名
+   * @param filePath - ファイルパス
+   * @returns 矢印ターゲットとして有効な場合true
+   */
+  static isValidArrowTarget(methodName: string, filePath: string): boolean {
+    // Rails標準アクションの特別処理：矢印ターゲット不可
+    if (this.isRailsControllerStandardAction(methodName, filePath)) {
+      return false;
+    }
+    
+    // その他のフレームワークルール（将来拡張用）
+    const excludedByOtherRules = this.isExcludedByNonRailsRules(methodName, filePath);
+    return !excludedByOtherRules;
+  }
+
   // =============================================================================
   // 🔄 既存API（後方互換性）
   // =============================================================================

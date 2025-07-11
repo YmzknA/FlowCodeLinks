@@ -54,8 +54,8 @@ export class MethodFinder {
       if (currentFile?.methods) {
         for (const method of currentFile.methods) {
           if (method.name === methodName) {
-            // 除外対象メソッドはジャンプ対象外
-            if (!MethodExclusionService.isJumpTargetMethod(methodName, currentFile.path)) {
+            // 🎯 新API: 定義のジャンプ対象可否判定（API統一）
+            if (!MethodExclusionService.isDefinitionJumpTarget(methodName, currentFile.path)) {
               continue; // 除外対象メソッドはスキップ
             }
             
