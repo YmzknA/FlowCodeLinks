@@ -51,10 +51,25 @@ export class MethodAnalysisEngine {
     
     files.forEach(file => {
       const methods = this.analyzeFile(file);
+      
+      // prepare_meta_tagsが関連するファイルのみデバッグ
+      if (file.path.includes('prepare_meta_tags') || file.path.includes('application_controller')) {
+        console.log(`🔍 [ENGINE] extractDefinitions for ${file.path}:`);
+        console.log(`  - Found methods:`, methods.map(m => m.name));
+        console.log(`  - Contains prepare_meta_tags method:`, methods.some(m => m.name === 'prepare_meta_tags'));
+      }
+      
       methods.forEach(method => {
         // 定義タイプのメソッドのみを抽出（呼び出しは除外）
         if (this.isMethodDefinition(method)) {
           definitions.add(method.name);
+          
+          // prepare_meta_tagsの場合のみデバッグ
+          if (method.name === 'prepare_meta_tags') {
+            console.log(`🔍 [ENGINE] Adding prepare_meta_tags to definitions from ${file.path}`);
+            console.log(`  - Method type: ${method.type}`);
+            console.log(`  - Is definition: ${this.isMethodDefinition(method)}`);
+          }
         }
       });
     });
