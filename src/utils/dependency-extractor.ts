@@ -1,4 +1,5 @@
 import { Method, Dependency } from '@/types/codebase';
+import { MethodExclusionService } from '@/services/MethodExclusionService';
 
 export function extractDependencies(methods: Method[]): Dependency[] {
   if (methods.length === 0) {
@@ -55,7 +56,7 @@ function extractMethodDependencies(method: Method, methodMap: Map<string, Method
       const targetMethod = sameFileMethod || targetMethods[0]; // 見つからない場合は最初のメソッドを選択
       
       // Rails標準アクション等の除外対象メソッドは依存関係に含めない
-      if (targetMethod.isExcluded) {
+      if (!MethodExclusionService.isCallDetectionEnabled(targetMethod.name, targetMethod.filePath)) {
         continue;
       }
       

@@ -66,7 +66,7 @@ export function analyzeMethodsInFile(file: ParsedFile, allDefinedMethods?: Set<s
     const methods = engine.analyzeFile(file);
     
     // milestones_controller.rbのshowメソッドのみデバッグ
-    if (file.path.includes('milestones_controller.rb')) {
+    if (process.env.DEBUG_MILESTONES_CONTROLLER && file.path.includes('milestones_controller.rb')) {
       console.log(`🔍 [LEGACY ADAPTER] Processing milestones_controller.rb`);
       const showMethod = methods.find(m => m.name === 'show');
       if (showMethod) {
@@ -81,7 +81,7 @@ export function analyzeMethodsInFile(file: ParsedFile, allDefinedMethods?: Set<s
     // ただし、既存コードとの互換性のため、条件付きで無効化する
     
     // DEBUG: プラグインがフィルタリング済みかを確認
-    if (file.path.includes('milestones_controller.rb')) {
+    if (process.env.DEBUG_MILESTONES_CONTROLLER && file.path.includes('milestones_controller.rb')) {
       const showMethod = methods.find(m => m.name === 'show');
       if (showMethod) {
         console.log(`🔍 [LEGACY ADAPTER] Checking if plugin already filtered:`);
@@ -106,7 +106,7 @@ export function analyzeMethodsInFile(file: ParsedFile, allDefinedMethods?: Set<s
       }));
       
       // milestones_controller.rbのshowメソッドのみデバッグ
-      if (file.path.includes('milestones_controller.rb')) {
+      if (process.env.DEBUG_MILESTONES_CONTROLLER && file.path.includes('milestones_controller.rb')) {
         const showMethod = filteredMethods.find(m => m.name === 'show');
         if (showMethod) {
           console.log(`🔍 [LEGACY ADAPTER] Show method after filtering:`);
