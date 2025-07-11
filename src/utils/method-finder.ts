@@ -27,8 +27,8 @@ export class MethodFinder {
       if (file.methods) {
         for (const method of file.methods) {
           if (method.name === methodName) {
-            // 除外対象メソッドはジャンプ対象外
-            if (!MethodExclusionService.isJumpTargetMethod(methodName, file.path)) {
+            // 🎯 新API: 定義のジャンプ対象可否判定（粒度細分化）
+            if (!MethodExclusionService.isDefinitionJumpTarget(methodName, file.path)) {
               continue; // 除外対象メソッドはスキップ
             }
             
@@ -75,8 +75,8 @@ export class MethodFinder {
       if (file.methods) {
         for (const method of file.methods) {
           if (method.name === methodName) {
-            // 除外対象メソッドはジャンプ対象外
-            if (!MethodExclusionService.isJumpTargetMethod(methodName, file.path)) {
+            // 🎯 新API: 定義のジャンプ対象可否判定（粒度細分化）
+            if (!MethodExclusionService.isDefinitionJumpTarget(methodName, file.path)) {
               continue; // 除外対象メソッドはスキップ
             }
             

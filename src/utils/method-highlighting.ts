@@ -55,8 +55,8 @@ export const makeImportMethodsClickable = (
 
   // import文で使用されているメソッド名をクリック可能にする
   importMethods.forEach(methodName => {
-    // 除外対象メソッドはクリック不可
-    if (currentFilePath && MethodExclusionService.isExcludedMethod(methodName, currentFilePath)) {
+    // 🎯 新API: 定義のクリック可否判定（粒度細分化）
+    if (currentFilePath && !MethodExclusionService.isDefinitionClickable(methodName, currentFilePath)) {
       return; // 除外対象メソッドはクリック不可
     }
     
@@ -147,9 +147,9 @@ export const replaceMethodNameInText = (
     // 全パラメータが提供された場合：完全な判定を実行
     const currentFile = files.find(f => f.path === currentFilePath);
     
-    // 除外対象メソッドは定義済みとして扱わない
+    // 🎯 新API: 定義のクリック可否による判定（粒度細分化）
     let isDefinedInCurrentFile = false;
-    if (MethodExclusionService.isExcludedMethod(methodName, currentFilePath)) {
+    if (!MethodExclusionService.isDefinitionClickable(methodName, currentFilePath)) {
       // 除外対象メソッドは定義されていないものとして扱う
       isDefinedInCurrentFile = false;
     } else {
@@ -185,8 +185,8 @@ export const replaceMethodNameInText = (
   }
   // その他の場合：従来通り全てクリック可能（後方互換性）
   
-  // 除外対象メソッドはクリック不可
-  if (currentFilePath && !MethodExclusionService.isClickableMethod(methodName, currentFilePath)) {
+  // 🎯 新API: 定義のクリック可否判定（粒度細分化）
+  if (currentFilePath && !MethodExclusionService.isDefinitionClickable(methodName, currentFilePath)) {
     return html; // 除外対象メソッドはクリック不可
   }
   

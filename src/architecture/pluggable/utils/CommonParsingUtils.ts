@@ -540,6 +540,14 @@ export class CommonParsingUtils {
     const startLine = lines[startIndex];
     const cleanStartLine = startLine.replace(/^\s*\d+:\s*/, '').trim();
     
+    // デバッグログ追加
+    const methodMatch = cleanStartLine.match(/def\s+(\w+)/);
+    const methodName = methodMatch ? methodMatch[1] : 'unknown';
+    if (methodName === 'show') {
+      console.log(`🔍 [findRubyMethodEnd] Detecting end for method '${methodName}' starting at line ${startIndex + 1}`);
+      console.log(`  - Total lines available: ${lines.length}`);
+    }
+    
     // 1行メソッド（def method_name; end）の検出
     if (cleanStartLine.includes(';') && cleanStartLine.includes('end')) {
       return startIndex; // 同じ行で終了
@@ -561,21 +569,36 @@ export class CommonParsingUtils {
         depth++;
       } else if (trimmedLine === 'end' || trimmedLine.startsWith('end ') || trimmedLine.endsWith(' end')) {
         depth--;
+        if (methodName === 'show' && i <= startIndex + 15) {
+          console.log(`  - Line ${i + 1}: '${trimmedLine}' -> depth decreased to ${depth}`);
+        }
         
         // depth変化の追跡（ログなし、処理のみ）
         
-      } else if (trimmedLine.match(/^(class|module|begin|if|unless|case|while|until|for)\b/)) {
-        // endが必要なブロック構造はすべてdepthを増やす
+      } else if (trimmedLine.match(/^(class|module|begin|if|unless|case|while|until|for)\b/) || 
+                 trimmedLine.match(/=\s*(if|unless|case)\b/)) {
+        // endが必要なブロック構造はすべてdepthを増やす（インライン構文も含む）
         depth++;
+        if (methodName === 'show' && i <= startIndex + 15) {
+          console.log(`  - Line ${i + 1}: '${trimmedLine}' -> depth increased to ${depth} (block structure)`);
+        }
       }
       // elsif/elseは既存ブロックの一部なのでdepthは変更しない
       
       if (depth === 0) {
+        if (methodName === 'show') {
+          console.log(`  - Method end found at line ${i + 1} (depth reached 0)`);
+        }
         return i;
       }
     }
     
-    return Math.min(startIndex + 10, lines.length - 1);
+    // メソッドが見つからない場合は、最大で100行まで検索（無限ループ防止）
+    if (methodName === 'show') {
+      console.log(`  - Method end NOT found, defaulting to line ${Math.min(startIndex + 100, lines.length - 1) + 1}`);
+      console.log(`  - Final depth: ${depth}, iterations: ${iterations}`);
+    }
+    return Math.min(startIndex + 100, lines.length - 1);
   }
   
   /**
@@ -598,7 +621,8 @@ export class CommonParsingUtils {
       }
     }
     
-    return Math.min(startIndex + 10, lines.length - 1);
+    // メソッドが見つからない場合は、最大で100行まで検索（無限ループ防止）
+    return Math.min(startIndex + 100, lines.length - 1);
   }
   
   /**

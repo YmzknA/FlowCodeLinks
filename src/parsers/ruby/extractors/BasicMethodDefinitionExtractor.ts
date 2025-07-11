@@ -69,8 +69,8 @@ export class BasicMethodDefinitionExtractor extends BaseMethodDefinitionExtracto
     const [, selfPrefix, methodName, params] = methodMatch;
     const isClassMethod = !!selfPrefix;
     
-    // 除外対象メソッドの判定
-    const isExcluded = MethodExclusionService.isExcludedMethod(methodName, filePath);
+    // 🎯 新API: 除外対象メソッドの判定（粒度細分化）
+    const isExcluded = !MethodExclusionService.isDefinitionClickable(methodName, filePath);
     
     // メソッドの終端を探す
     const methodEndLine = this.findMethodEnd(lines, lineIndex);
