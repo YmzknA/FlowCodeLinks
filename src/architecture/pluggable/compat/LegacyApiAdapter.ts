@@ -65,15 +65,40 @@ export function analyzeMethodsInFile(file: ParsedFile, allDefinedMethods?: Set<s
     // 互換性のために、結果をフィルタリングする
     const methods = engine.analyzeFile(file);
     
+    // milestones_controller.rbのshowメソッドのみデバッグ
+    if (file.path.includes('milestones_controller.rb')) {
+      console.log(`🔍 [LEGACY ADAPTER] Processing milestones_controller.rb`);
+      const showMethod = methods.find(m => m.name === 'show');
+      if (showMethod) {
+        console.log(`🔍 [LEGACY ADAPTER] Found show method:`);
+        console.log(`  - Method calls before filtering:`, showMethod.calls.map(c => c.methodName));
+        console.log(`  - Contains prepare_meta_tags:`, showMethod.calls.some(c => c.methodName === 'prepare_meta_tags'));
+      }
+    }
+    
     // allDefinedMethodsが指定されている場合、メソッド呼び出しをフィルタリング
     if (allDefinedMethods && allDefinedMethods.size > 0) {
-      return methods.map(method => ({
+      const filteredMethods = methods.map(method => ({
         ...method,
         calls: method.calls.filter(call => 
           allDefinedMethods.has(call.methodName) || 
           isBuiltinMethod(call.methodName, file.language)
         )
       }));
+      
+      // milestones_controller.rbのshowメソッドのみデバッグ
+      if (file.path.includes('milestones_controller.rb')) {
+        const showMethod = filteredMethods.find(m => m.name === 'show');
+        if (showMethod) {
+          console.log(`🔍 [LEGACY ADAPTER] Show method after filtering:`);
+          console.log(`  - Method calls after filtering:`, showMethod.calls.map(c => c.methodName));
+          console.log(`  - Contains prepare_meta_tags after filter:`, showMethod.calls.some(c => c.methodName === 'prepare_meta_tags'));
+          console.log(`  - allDefinedMethods size:`, allDefinedMethods.size);
+          console.log(`  - allDefinedMethods has prepare_meta_tags:`, allDefinedMethods.has('prepare_meta_tags'));
+        }
+      }
+      
+      return filteredMethods;
     }
     
     return methods;
