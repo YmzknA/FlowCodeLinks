@@ -76,8 +76,27 @@ export function analyzeMethodsInFile(file: ParsedFile, allDefinedMethods?: Set<s
       }
     }
     
+    // 🔄 FIX: 新しいプラガブルアーキテクチャでは、プラグインが既にフィルタリングを実行している
+    // そのため、LegacyApiAdapterでの二重フィルタリングは不要
+    // ただし、既存コードとの互換性のため、条件付きで無効化する
+    
+    // DEBUG: プラグインがフィルタリング済みかを確認
+    if (file.path.includes('milestones_controller.rb')) {
+      const showMethod = methods.find(m => m.name === 'show');
+      if (showMethod) {
+        console.log(`🔍 [LEGACY ADAPTER] Checking if plugin already filtered:`);
+        console.log(`  - Method calls from plugin:`, showMethod.calls.map(c => c.methodName));
+        console.log(`  - Contains prepare_meta_tags from plugin:`, showMethod.calls.some(c => c.methodName === 'prepare_meta_tags'));
+      }
+    }
+    
     // allDefinedMethodsが指定されている場合、メソッド呼び出しをフィルタリング
-    if (allDefinedMethods && allDefinedMethods.size > 0) {
+    // 🔄 FIX: 新アーキテクチャでは、プラグインが既にフィルタリングを実行しているため、
+    // ここでの追加フィルタリングは原則不要。ただし、prepare_meta_tagsの問題を解決するため、
+    // 一時的に無効化してテストする
+    const ENABLE_LEGACY_FILTERING = false; // デバッグ用フラグ
+    
+    if (ENABLE_LEGACY_FILTERING && allDefinedMethods && allDefinedMethods.size > 0) {
       const filteredMethods = methods.map(method => ({
         ...method,
         calls: method.calls.filter(call => 
@@ -118,7 +137,12 @@ export function extractAllMethodDefinitions(files: ParsedFile[]): Set<string> {
   const engine = LegacyAnalysisEngine.getInstance();
   
   try {
-    return engine.extractDefinitions(files);
+    const definitions = engine.extractDefinitions(files);
+    console.log(`🔍 [LEGACY ADAPTER] extractAllMethodDefinitions result:`);
+    console.log(`  - Total definitions found: ${definitions.size}`);
+    console.log(`  - Contains prepare_meta_tags: ${definitions.has('prepare_meta_tags')}`);
+    console.log(`  - First 20 definitions:`, Array.from(definitions).slice(0, 20));
+    return definitions;
   } catch (error) {
     console.error('Legacy API compatibility error for method definitions extraction:', error);
     return new Set<string>();
