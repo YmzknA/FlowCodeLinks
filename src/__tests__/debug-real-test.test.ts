@@ -40,7 +40,7 @@ function saveToDatabase(user) {
     const methods = analyzeMethodsInFile(file);
     
     const processMethod = methods.find(m => m.name === 'processUser');
-    console.log('ProcessUser calls:', processMethod?.calls.map(c => c.methodName));
+    // Check that processMethod has been found
     
     expect(methods.length).toBeGreaterThan(0);
   });

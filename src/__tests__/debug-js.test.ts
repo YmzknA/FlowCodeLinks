@@ -25,7 +25,7 @@ function validateInput() {
     const file = createJsFile(content);
     const methods = analyzeMethodsInFile(file);
     
-    console.log('Detected methods:', methods.map(m => ({ name: m.name, type: m.type, calls: m.calls.map(c => c.methodName) })));
+    // Check that methods are detected
     
     expect(methods.length).toBeGreaterThan(0);
   });
@@ -48,7 +48,7 @@ function world() {
     const methods = analyzeMethodsInFile(file);
     
     const mainMethod = methods.find(m => m.name === 'main');
-    console.log('Main method calls:', mainMethod?.calls.map(c => c.methodName));
+    // Check that main method calls are detected
     
     expect(mainMethod).toBeDefined();
   });

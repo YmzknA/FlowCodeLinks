@@ -2,41 +2,36 @@ import { replaceMethodNameInText } from '../utils/method-highlighting';
 
 describe('userState Debug Test', () => {
   test('should debug why userState is clickable', () => {
-    console.log('\n=== USERSTATE DEBUG TEST ===');
+    // Test userState clickability behavior
     
     // モック: 定義が見つからない関数
     const mockFindMethodDefinition = (methodName: string) => {
-      console.log(`[DEBUG] findMethodDefinition called for: ${methodName}`);
-      console.log(`[DEBUG] Returning: null (no definition found)`);
+      // Mock function that finds no definition
       return null;
     };
     
     const testCode = 'const user = useRecoilValue(userState);';
-    console.log(`\nTesting: ${testCode}`);
+    // Test code: userState usage
     
     // 1. スマートモード（定義検索あり）
-    console.log('\n--- Smart Mode (with findMethodDefinition) ---');
+    // Test smart mode (with findMethodDefinition)
     const smartResult = replaceMethodNameInText(
       testCode, 
       'userState', 
       'userState',
       mockFindMethodDefinition
     );
-    console.log(`Result: ${smartResult}`);
-    console.log(`Is clickable: ${smartResult.includes('data-method-name')}`);
     
     // 2. フォールバックモード（定義検索なし）
-    console.log('\n--- Fallback Mode (no findMethodDefinition) ---');
+    // Test fallback mode (no findMethodDefinition)
     const fallbackResult = replaceMethodNameInText(
       testCode, 
       'userState', 
       'userState'
     );
-    console.log(`Result: ${fallbackResult}`);
-    console.log(`Is clickable: ${fallbackResult.includes('data-method-name')}`);
     
     // 3. 外部ライブラリチェック
-    console.log('\n--- External Library Check ---');
+    // Check external library patterns
     const externalLibraryMethods = new Set([
       'useRecoilValue', 'useRecoilState', 'useSetRecoilState',
       'useState', 'useEffect', 'useCallback', 'useMemo', 'useRef', 'useContext',
@@ -46,7 +41,7 @@ describe('userState Debug Test', () => {
       'Source_Sans_Pro', 'Oswald', 'Raleway', 'PT_Sans', 'Merriweather', 'Ubuntu', 'Playfair_Display'
     ]);
     
-    console.log(`userState in EXTERNAL_LIBRARY_METHODS: ${externalLibraryMethods.has('userState')}`);
+    // Check if userState is in external library methods
     
     // 4. パターンマッチング
     const externalPatterns = [
@@ -55,19 +50,19 @@ describe('userState Debug Test', () => {
       /^[A-Z]+$/, // 全大文字
     ];
     
-    console.log('\n--- Pattern Matching ---');
+    // Test pattern matching
     externalPatterns.forEach((pattern, index) => {
       const matches = pattern.test('userState');
-      console.log(`Pattern ${index + 1} (${pattern}): ${matches}`);
+      // Check if userState matches external patterns
     });
     
     const knownProjectMethods = new Set(['useAuth', 'useUser', 'useProfile']);
-    console.log(`userState in knownProjectMethods: ${knownProjectMethods.has('userState')}`);
+    // Check if userState is in known project methods
     
     // 期待結果
-    console.log('\n--- Expected Behavior ---');
-    console.log('✅ Smart mode: Should be NON-clickable (definition not found)');
-    console.log('✅ Fallback mode: Should be NON-clickable (not in knownProjectMethods)');
+    // Expected behavior:
+    // Smart mode: Should be NON-clickable (definition not found)
+    // Fallback mode: Should be NON-clickable (not in knownProjectMethods)
     
     // テスト検証
     expect(smartResult).not.toContain('data-method-name');

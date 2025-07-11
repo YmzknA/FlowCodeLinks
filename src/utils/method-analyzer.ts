@@ -11,7 +11,8 @@ export {
   extractRubyMethodDefinitionsOnly,
   extractJavaScriptMethodDefinitionsOnly,
   getAnalysisStatistics,
-  getPluginInfo
+  getPluginInfo,
+  setRepomixContent
 } from '@/architecture/pluggable/compat/LegacyApiAdapter';
 
 // 型の再エクスポート（互換性維持）
