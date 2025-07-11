@@ -299,13 +299,6 @@ export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
       const combinedDefinedMethods = new Set(localDefinedMethods);
       allAvailableMethods.forEach(method => combinedDefinedMethods.add(method));
       
-      if (methodName === 'show' && filePath.includes('milestones_controller')) {
-        console.log(`🔍 [RUBY PLUGIN] extractMethodDefinition for show:`)
-        console.log(`  - localDefinedMethods:`, Array.from(localDefinedMethods));
-        console.log(`  - allAvailableMethods size:`, allAvailableMethods.size);
-        console.log(`  - allAvailableMethods has prepare_meta_tags:`, allAvailableMethods.has('prepare_meta_tags'));
-        console.log(`  - combinedDefinedMethods has prepare_meta_tags:`, combinedDefinedMethods.has('prepare_meta_tags'));
-      }
       
       const methodCalls = this.extractRubyMethodCalls(methodCode, startIndex + 1, combinedDefinedMethods);
 
@@ -340,20 +333,10 @@ export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
   private extractRubyMethodCalls(methodCode: string, startLineNumber: number, definedMethods: Set<string>): MethodCall[] {
     const calls = CommonParsingUtils.extractMethodCallsFromCode(methodCode, startLineNumber, 'ruby');
     
-    // showメソッドでprepare_meta_tags検索の場合にデバッグ
-    if (methodCode.includes('prepare_meta_tags') && methodCode.includes('def show')) {
-      console.log(`🔍 [RUBY PLUGIN] extractRubyMethodCalls for show method:`);
-      console.log(`  - Raw calls found:`, calls.map(c => c.methodName));
-      console.log(`  - Contains prepare_meta_tags in raw:`, calls.some(c => c.methodName === 'prepare_meta_tags'));
-    }
     
     // 定義済みメソッドでフィルタリング
     const filteredCalls = calls.filter(call => this.shouldIncludeMethodCall(call.methodName, definedMethods));
     
-    if (methodCode.includes('prepare_meta_tags') && methodCode.includes('def show')) {
-      console.log(`  - Filtered calls:`, filteredCalls.map(c => c.methodName));
-      console.log(`  - Contains prepare_meta_tags after filter:`, filteredCalls.some(c => c.methodName === 'prepare_meta_tags'));
-    }
     
     return filteredCalls;
   }
@@ -370,17 +353,6 @@ export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
    * メソッド呼び出しを含めるかどうかの判定
    */
   private shouldIncludeMethodCall(methodName: string, definedMethods: Set<string>): boolean {
-    // prepare_meta_tagsの場合のみデバッグログ
-    if (methodName === 'prepare_meta_tags') {
-      console.log(`🔍 [RUBY PLUGIN] shouldIncludeMethodCall for prepare_meta_tags:`);
-      console.log(`  - isRubyKeyword: ${isRubyKeyword(methodName)}`);
-      console.log(`  - definedMethods.has: ${definedMethods.has(methodName)}`);
-      console.log(`  - isRubyCrudMethod: ${isRubyCrudMethod(methodName)}`);
-      console.log(`  - isRailsStandardMethod: ${isRailsStandardMethod(methodName)}`);
-      console.log(`  - isRubyBuiltin: ${isRubyBuiltin(methodName)}`);
-      console.log(`  - definedMethods size: ${definedMethods.size}`);
-      console.log(`  - definedMethods contents (first 10):`, Array.from(definedMethods).slice(0, 10));
-    }
     
     // Rubyキーワードは除外
     if (isRubyKeyword(methodName)) return false;
@@ -392,9 +364,6 @@ export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
             isRailsStandardMethod(methodName)) &&
            !isRubyBuiltin(methodName);
     
-    if (methodName === 'prepare_meta_tags') {
-      console.log(`  - Final result: ${result}`);
-    }
     
     return result;
   }

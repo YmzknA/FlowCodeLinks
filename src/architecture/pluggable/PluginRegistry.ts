@@ -103,16 +103,6 @@ export class PluginRegistry {
       const result = plugin.analyze(file);
       const endTime = performance.now();
       
-      // milestones_controller.rbのshowメソッドでprepare_meta_tagsが含まれる場合のみデバッグ
-      if (file.path.includes('milestones_controller.rb')) {
-        const showMethod = result.methods.find(m => m.name === 'show');
-        if (showMethod) {
-          console.log(`🔍 [PLUGIN REGISTRY] analyze result for milestones_controller.rb show method:`);
-          console.log(`  - Plugin used: ${plugin.name}`);
-          console.log(`  - Method calls found:`, showMethod.calls.map(c => c.methodName));
-          console.log(`  - Contains prepare_meta_tags:`, showMethod.calls.some(c => c.methodName === 'prepare_meta_tags'));
-        }
-      }
       
       // 処理時間をメタデータに追加
       return {

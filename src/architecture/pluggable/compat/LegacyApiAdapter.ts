@@ -65,30 +65,11 @@ export function analyzeMethodsInFile(file: ParsedFile, allDefinedMethods?: Set<s
     // 互換性のために、結果をフィルタリングする
     const methods = engine.analyzeFile(file);
     
-    // milestones_controller.rbのshowメソッドのみデバッグ
-    if (process.env.DEBUG_MILESTONES_CONTROLLER && file.path.includes('milestones_controller.rb')) {
-      console.log(`🔍 [LEGACY ADAPTER] Processing milestones_controller.rb`);
-      const showMethod = methods.find(m => m.name === 'show');
-      if (showMethod) {
-        console.log(`🔍 [LEGACY ADAPTER] Found show method:`);
-        console.log(`  - Method calls before filtering:`, showMethod.calls.map(c => c.methodName));
-        console.log(`  - Contains prepare_meta_tags:`, showMethod.calls.some(c => c.methodName === 'prepare_meta_tags'));
-      }
-    }
     
     // 🔄 FIX: 新しいプラガブルアーキテクチャでは、プラグインが既にフィルタリングを実行している
     // そのため、LegacyApiAdapterでの二重フィルタリングは不要
     // ただし、既存コードとの互換性のため、条件付きで無効化する
     
-    // DEBUG: プラグインがフィルタリング済みかを確認
-    if (process.env.DEBUG_MILESTONES_CONTROLLER && file.path.includes('milestones_controller.rb')) {
-      const showMethod = methods.find(m => m.name === 'show');
-      if (showMethod) {
-        console.log(`🔍 [LEGACY ADAPTER] Checking if plugin already filtered:`);
-        console.log(`  - Method calls from plugin:`, showMethod.calls.map(c => c.methodName));
-        console.log(`  - Contains prepare_meta_tags from plugin:`, showMethod.calls.some(c => c.methodName === 'prepare_meta_tags'));
-      }
-    }
     
     // allDefinedMethodsが指定されている場合、メソッド呼び出しをフィルタリング
     // 🔄 FIX: 新アーキテクチャでは、プラグインが既にフィルタリングを実行しているため、
@@ -105,17 +86,6 @@ export function analyzeMethodsInFile(file: ParsedFile, allDefinedMethods?: Set<s
         )
       }));
       
-      // milestones_controller.rbのshowメソッドのみデバッグ
-      if (process.env.DEBUG_MILESTONES_CONTROLLER && file.path.includes('milestones_controller.rb')) {
-        const showMethod = filteredMethods.find(m => m.name === 'show');
-        if (showMethod) {
-          console.log(`🔍 [LEGACY ADAPTER] Show method after filtering:`);
-          console.log(`  - Method calls after filtering:`, showMethod.calls.map(c => c.methodName));
-          console.log(`  - Contains prepare_meta_tags after filter:`, showMethod.calls.some(c => c.methodName === 'prepare_meta_tags'));
-          console.log(`  - allDefinedMethods size:`, allDefinedMethods.size);
-          console.log(`  - allDefinedMethods has prepare_meta_tags:`, allDefinedMethods.has('prepare_meta_tags'));
-        }
-      }
       
       return filteredMethods;
     }
@@ -138,10 +108,6 @@ export function extractAllMethodDefinitions(files: ParsedFile[]): Set<string> {
   
   try {
     const definitions = engine.extractDefinitions(files);
-    console.log(`🔍 [LEGACY ADAPTER] extractAllMethodDefinitions result:`);
-    console.log(`  - Total definitions found: ${definitions.size}`);
-    console.log(`  - Contains prepare_meta_tags: ${definitions.has('prepare_meta_tags')}`);
-    console.log(`  - First 20 definitions:`, Array.from(definitions).slice(0, 20));
     return definitions;
   } catch (error) {
     console.error('Legacy API compatibility error for method definitions extraction:', error);

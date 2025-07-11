@@ -65,17 +65,6 @@ export const CodeVisualizer: React.FC = () => {
         methods: analyzeMethodsInFile(file, allDefinedMethods)
       }));
 
-      // milestones_controller.rbのshowメソッドのみデバッグ
-      const milestonesFile = filesWithMethods.find(f => f.path.includes('milestones_controller.rb'));
-      if (milestonesFile) {
-        console.log(`🔍 [CODE VISUALIZER] Processing milestones_controller.rb`);
-        const showMethod = milestonesFile.methods.find(m => m.name === 'show');
-        if (showMethod) {
-          console.log(`🔍 [CODE VISUALIZER] Found show method:`);
-          console.log(`  - Method calls:`, showMethod.calls.map(c => c.methodName));
-          console.log(`  - Contains prepare_meta_tags:`, showMethod.calls.some(c => c.methodName === 'prepare_meta_tags'));
-        }
-      }
 
       const allMethods = filesWithMethods.flatMap(file => file.methods);
       const dependencies = extractDependencies(allMethods);
@@ -340,27 +329,11 @@ export const CodeVisualizer: React.FC = () => {
   const findAllMethodCallers = useCallback((methodName: string): Array<{ methodName: string; filePath: string; lineNumber?: number }> => {
     const callers: Array<{ methodName: string; filePath: string; lineNumber?: number }> = [];
     
-    // prepare_meta_tagsの場合のみデバッグログ
-    if (methodName === 'prepare_meta_tags') {
-      console.log(`🔍 [FOCUSED DEBUG] Finding callers for prepare_meta_tags`);
-    }
     
     // 全ファイルからメソッドを呼び出しているメソッドを検索
     for (const file of files) {
       if (file.methods) {
         for (const method of file.methods) {
-          // milestones_controller.rbのshowメソッドのみを詳細チェック
-          if (methodName === 'prepare_meta_tags' && 
-              file.path.includes('milestones_controller.rb') && 
-              method.name === 'show') {
-            console.log(`🔍 [CRITICAL] Checking milestones show method:`);
-            console.log(`  - Method name: "${method.name}"`);
-            console.log(`  - File path: "${file.path}"`);
-            console.log(`  - Calls array exists:`, !!method.calls);
-            console.log(`  - Calls array length:`, method.calls?.length || 0);
-            console.log(`  - Calls array contents:`, method.calls?.map(c => c.methodName) || []);
-            console.log(`  - Contains prepare_meta_tags:`, method.calls?.some(c => c.methodName === 'prepare_meta_tags'));
-          }
           
           // メソッドの calls 配列からmethodNameを呼び出しているかチェック
           const call = method.calls?.find(call => call.methodName === methodName);
@@ -375,10 +348,6 @@ export const CodeVisualizer: React.FC = () => {
       }
     }
     
-    if (methodName === 'prepare_meta_tags') {
-      console.log(`🔍 [RESULT] prepare_meta_tags callers found: ${callers.length}`);
-      console.log(`🔍 [RESULT] Callers:`, callers.map(c => `${c.methodName} in ${c.filePath}`));
-    }
     
     return callers;
   }, [files]);
