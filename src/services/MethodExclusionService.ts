@@ -271,7 +271,7 @@ export class MethodExclusionService {
    * 
    * @returns Rails標準アクション設定
    */
-  static getRailsStandardActionSettings(): readonly DetailedExclusionSettings {
+  static getRailsStandardActionSettings(): DetailedExclusionSettings {
     return Object.freeze({ ...this.railsStandardActionSettings });
   }
 }
