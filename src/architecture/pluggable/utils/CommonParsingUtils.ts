@@ -578,8 +578,6 @@ export class CommonParsingUtils {
     }
     
     // メソッドが見つからない場合は、最大で100行まで検索（無限ループ防止）
-    if (methodName === 'show') {
-    }
     return Math.min(startIndex + 100, lines.length - 1);
   }
   
