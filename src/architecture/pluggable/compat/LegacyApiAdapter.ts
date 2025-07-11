@@ -10,6 +10,7 @@ import { MethodAnalysisEngine, PluginRegistry } from '../index';
 import { createAllPlugins } from '../plugins';
 import { isRubyBuiltin, isRubyCrudMethod } from '@/config/ruby-keywords';
 import { isJavaScriptBuiltin, isJavaScriptFrameworkMethod } from '@/config/javascript-keywords';
+import { RepomixContentService } from '@/services/RepomixContentService';
 
 /**
  * シングルトンのメソッド解析エンジン
@@ -36,6 +37,16 @@ class LegacyAnalysisEngine {
   static reset(): void {
     this.instance = null;
   }
+}
+
+/**
+ * 新機能: Repomix全体コンテンツの設定
+ * 
+ * @param repomixContent repomix全体のコンテンツ
+ */
+export function setRepomixContent(repomixContent: string): void {
+  const repomixService = RepomixContentService.getInstance();
+  repomixService.setFullContent(repomixContent);
 }
 
 /**

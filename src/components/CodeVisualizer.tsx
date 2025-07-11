@@ -8,8 +8,9 @@ import { ZoomableCanvas } from './ZoomableCanvas';
 import { CallersModal } from './CallersModal';
 import { AnimatedArrows } from './AnimatedArrows';
 import { parseRepomixFile } from '@/utils/parser';
-import { analyzeMethodsInFile, extractAllMethodDefinitions } from '@/utils/method-analyzer';
+import { analyzeMethodsInFile, extractAllMethodDefinitions, setRepomixContent } from '@/utils/method-analyzer';
 import { extractDependencies } from '@/utils/dependency-extractor';
+import { RepomixContentService } from '@/services/RepomixContentService';
 import { useOptimizedAnalysis, useOptimizedDependencies } from '@/utils/performance';
 import { useScrollAnimation, useStaggeredScrollAnimation } from '@/hooks/useScrollAnimation';
 import { useFiles } from '@/context/FilesContext';
@@ -46,10 +47,35 @@ export const CodeVisualizer: React.FC = () => {
     }
 
     try {
+      // 🔍 DEBUG: Repomix content basic info
+      console.log('====== REPOMIX CONTENT DEBUG ======');
+      console.log('📏 Content length:', repomixContent.length);
+      
+      // RepomixContentServiceに全体コンテンツを設定
+      setRepomixContent(repomixContent);
+      
       const parseResult = parseRepomixFile(repomixContent);
+      
+      // 🔍 DEBUG: Parse result details
+      console.log('📁 Total files parsed:', parseResult.files.length);
+      const milestonesFile = parseResult.files.find(f => f.path.includes('milestones_controller'));
+      if (milestonesFile) {
+        console.log('📄 MilestonesController content length:', milestonesFile.content.length);
+        console.log('📄 MilestonesController lines:', milestonesFile.totalLines);
+      } else {
+        console.log('❌ MilestonesController not found in parse result');
+      }
       
       // 第1段階: 全ファイルからメソッド定義名を抽出
       const allDefinedMethods = extractAllMethodDefinitions(parseResult.files);
+      
+      // 🔍 DEBUG: allDefinedMethods の内容を確認
+      console.log('🔍 allDefinedMethods size:', allDefinedMethods.size);
+      console.log('🔍 ransack_by_title_and_description in allDefinedMethods:', allDefinedMethods.has('ransack_by_title_and_description'));
+      
+      // 🔄 FIX: RepomixContentServiceに全定義メソッドを設定
+      const repomixService = RepomixContentService.getInstance();
+      repomixService.setAllDefinedMethods(allDefinedMethods);
       
       // 第2段階: 定義済みメソッド一覧を使ってメソッド解析（変数フィルタリング）
       const filesWithMethods = parseResult.files.map(file => ({
@@ -57,8 +83,48 @@ export const CodeVisualizer: React.FC = () => {
         methods: analyzeMethodsInFile(file, allDefinedMethods)
       }));
 
+      // 🔍 DEBUG: MilestonesControllerの解析結果を詳細確認
+      const limitedController = filesWithMethods.find(f => f.path.includes('limited_sharing_milestones_controller'));
+      const mainController = filesWithMethods.find(f => f.path === 'app/controllers/milestones_controller.rb');
+      
+      console.log('====== MILESTONES CONTROLLER DEBUG ======');
+      console.log('🔍 limited_sharing_milestones_controller found:', !!limitedController);
+      console.log('🔍 milestones_controller.rb found:', !!mainController);
+      
+      const milestonesController = mainController || limitedController;
+      
+      if (mainController) {
+        console.log('✅ Main MilestonesController found');
+        console.log('📊 Methods count:', mainController.methods.length);
+        const indexMethod = mainController.methods.find(m => m.name === 'index');
+        if (indexMethod) {
+          const hasRansack = indexMethod.calls.some(c => c.methodName === 'ransack_by_title_and_description');
+          console.log('✅ Index method found');
+          console.log('📋 Index method calls:', indexMethod.calls.map(c => c.methodName));
+          console.log('🎯 ransack_by_title_and_description detected:', hasRansack);
+        } else {
+          console.log('❌ Index method not found');
+        }
+      } else if (limitedController) {
+        console.log('⚠️  Only limited_sharing_milestones_controller found');
+        console.log('📊 Methods count:', limitedController.methods.length);
+      } else {
+        console.log('❌ No MilestonesController found');
+      }
+      console.log('====== END DEBUG ======');
+
       const allMethods = filesWithMethods.flatMap(file => file.methods);
       const dependencies = extractDependencies(allMethods);
+
+      // 🔍 DEBUG: Dependencies with ransack_by_title_and_description
+      const ransackDeps = dependencies.filter(dep => 
+        dep.sourceMethod === 'ransack_by_title_and_description' || 
+        dep.targetMethod === 'ransack_by_title_and_description'
+      );
+      console.log('🔍 UI DEBUG: Dependencies with ransack_by_title_and_description:', ransackDeps.length);
+      ransackDeps.forEach(dep => {
+        console.log(`🔍 UI DEBUG: Dependency: ${dep.sourceFile}#${dep.sourceMethod} -> ${dep.targetFile}#${dep.targetMethod}`);
+      });
 
 
       return {
@@ -137,6 +203,7 @@ export const CodeVisualizer: React.FC = () => {
         // 初期表示: 全ファイル非表示でスタート
         setVisibleFiles([]);
       } catch (err) {
+        console.error('🔍 UI DEBUG: File upload error:', err);
         setError('ファイルの読み込みに失敗しました');
         setIsLoading(false);
       }

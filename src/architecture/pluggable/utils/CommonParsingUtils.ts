@@ -216,6 +216,11 @@ export class CommonParsingUtils {
         continue;
       }
       
+      // メソッド定義行は除外（Rubyの場合）
+      if (language === 'ruby' && line.trim().match(/^def\s+/)) {
+        continue;
+      }
+      
       const cleanedLine = this.cleanSourceLine(line, language);
       const lineCalls = this.findMethodCallsInLine(cleanedLine, lineNumber, language);
       calls.push(...lineCalls);
@@ -242,7 +247,14 @@ export class CommonParsingUtils {
     for (const pattern of patterns) {
       let match;
       while ((match = pattern.exec(line)) !== null) {
-        const methodName = match[1];
+        // Ruby パターンの場合、複数のキャプチャグループがある可能性を考慮
+        let methodName = '';
+        if (language === 'ruby') {
+          // match[1] は前方一致、match[2] は実際のメソッド名の場合
+          methodName = match[2] || match[1];
+        } else {
+          methodName = match[1];
+        }
         
         if (this.isValidMethodName(methodName, language)) {
           calls.push({
@@ -264,8 +276,14 @@ export class CommonParsingUtils {
     switch (language) {
       case 'ruby':
         return [
-          /(\w+)(?:\!|\?)?(?:\s*\(|\s+\w)/g,
-          /\.(\w+)(?:\!|\?)?\s*(?:\(|$)/g
+          // スタンドアロンメソッド呼び出し: method_name, method_name(), method_name!, method_name?
+          /(^|\s+)(\w+[?!]?)(?=\s|$|\(|\)|,|&&|\|\|)/g,
+          // ドット記法: object.method_name
+          /\.(\w+[?!]?)(?=\s*\(|$|\s|,|\)|\.)/g,
+          // 文字列補間内の単純メソッド: #{method_name}
+          /#{(\w+[?!]?)(?:\s*\()?}/g,
+          // 文字列補間内のオブジェクトメソッド: #{object.method_name}
+          /#{[\w]+\.(\w+[?!]?)(?:\s*\()?}/g
         ];
       case 'javascript':
       case 'typescript':
@@ -393,9 +411,10 @@ export class CommonParsingUtils {
     switch (language) {
       case 'ruby':
         return [
-          /"(?:[^"\\]|\\.)*"/g,
-          /'(?:[^'\\]|\\.)*'/g,
-          /`(?:[^`\\]|\\.)*`/g
+          // Ruby: 文字列補間を含まない文字列リテラルのみを除去
+          /'(?:[^'\\]|\\.)*'/g,  // シングルクォート（補間なし）
+          /`(?:[^`\\]|\\.)*`/g   // バッククォート（コマンド実行）
+          // ダブルクォートは補間があるので除去しない
         ];
       case 'javascript':
       case 'typescript':
@@ -406,8 +425,8 @@ export class CommonParsingUtils {
         ];
       case 'erb':
         return [
-          /"(?:[^"\\]|\\.)*"/g,
-          /'(?:[^'\\]|\\.)*'/g
+          /'(?:[^'\\]|\\.)*'/g  // ERBでもシングルクォートのみ除去
+          // ダブルクォートは補間があるので除去しない
         ];
       default:
         return [/"(?:[^"\\]|\\.)*"/g];
@@ -423,7 +442,8 @@ export class CommonParsingUtils {
   private static removeComments(line: string, language: SupportedLanguage): string {
     switch (language) {
       case 'ruby':
-        return line.replace(/#.*$/, '');
+        // Ruby: # で始まるコメントを削除するが、#{}文字列補間は除外
+        return line.replace(/(?<!\\)(#(?![{])).*$/, '');
       case 'javascript':
       case 'typescript':
         return line.replace(/\/\/.*$/, '').replace(/\/\*.*?\*\//, '');
@@ -525,11 +545,16 @@ export class CommonParsingUtils {
       iterations++;
       const line = lines[i].trim();
       
+      // Ruby構文を正確に判定
       if (line.startsWith('def ') || line.match(/^\s*def\s+/)) {
         depth++;
-      } else if (line === 'end' || line.startsWith('end ')) {
+      } else if (line === 'end' || line.startsWith('end ') || line.endsWith(' end')) {
         depth--;
+      } else if (line.match(/^(class|module|begin|if|unless|case|while|until|for)\b/)) {
+        // endが必要なブロック構造はすべてdepthを増やす
+        depth++;
       }
+      // elsif/elseは既存ブロックの一部なのでdepthは変更しない
       
       if (depth === 0) {
         return i;
