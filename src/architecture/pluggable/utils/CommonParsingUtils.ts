@@ -537,20 +537,34 @@ export class CommonParsingUtils {
    * Ruby固有のメソッド終了位置検出
    */
   private static findRubyMethodEnd(lines: string[], startIndex: number): number {
+    const startLine = lines[startIndex];
+    const cleanStartLine = startLine.replace(/^\s*\d+:\s*/, '').trim();
+    
+    // 1行メソッド（def method_name; end）の検出
+    if (cleanStartLine.includes(';') && cleanStartLine.includes('end')) {
+      return startIndex; // 同じ行で終了
+    }
+    
     let depth = 1;
     const maxIterations = 1000;
     let iterations = 0;
     
     for (let i = startIndex + 1; i < lines.length && depth > 0 && iterations < maxIterations; i++) {
       iterations++;
-      const line = lines[i].trim();
+      const line = lines[i];
+      // 行番号プレフィックスを除去
+      const cleanLine = line.replace(/^\s*\d+:\s*/, '');
+      const trimmedLine = cleanLine.trim();
       
       // Ruby構文を正確に判定
-      if (line.startsWith('def ') || line.match(/^\s*def\s+/)) {
+      if (trimmedLine.startsWith('def ') || trimmedLine.match(/^\s*def\s+/)) {
         depth++;
-      } else if (line === 'end' || line.startsWith('end ') || line.endsWith(' end')) {
+      } else if (trimmedLine === 'end' || trimmedLine.startsWith('end ') || trimmedLine.endsWith(' end')) {
         depth--;
-      } else if (line.match(/^(class|module|begin|if|unless|case|while|until|for)\b/)) {
+        
+        // depth変化の追跡（ログなし、処理のみ）
+        
+      } else if (trimmedLine.match(/^(class|module|begin|if|unless|case|while|until|for)\b/)) {
         // endが必要なブロック構造はすべてdepthを増やす
         depth++;
       }

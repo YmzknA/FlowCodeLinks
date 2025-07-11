@@ -90,6 +90,7 @@ export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
       }
     }
 
+
     return methods;
   }
 
@@ -142,14 +143,6 @@ export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
       const combinedMethods = new Set(resolutionResult.resolvedMethods);
       globalDefinedMethods.forEach(method => combinedMethods.add(method));
       
-      // 🔍 DEBUG: グローバル定義メソッドの結合を確認
-      if (file.path.includes('milestones_controller')) {
-        console.log('🔍 extractAllAvailableMethods DEBUG:');
-        console.log('🔍 Local + Rails resolved:', resolutionResult.resolvedMethods.size);
-        console.log('🔍 Global defined methods:', globalDefinedMethods.size);
-        console.log('🔍 Combined total:', combinedMethods.size);
-        console.log('🔍 ransack_by_title_and_description in combined:', combinedMethods.has('ransack_by_title_and_description'));
-      }
       
       return combinedMethods;
     }
@@ -260,7 +253,6 @@ export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
     }
     
     // モジュール内のメソッドを抽出
-    let methodCount = 0;
     for (let i = moduleStartLine + 1; i < moduleEndLine; i++) {
       const line = lines[i];
       // 行番号プレフィックスを除去
@@ -271,8 +263,6 @@ export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
       if (methodMatch) {
         const [, , methodName] = methodMatch;
         methods.add(methodName);
-        methodCount++;
-        
       }
     }
     
@@ -288,7 +278,7 @@ export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
     methodMatch: RegExpMatchArray,
     isPrivate: boolean,
     filePath: string,
-    allAvailableMethods: Set<string>
+    allAvailableMethods: Set<string>,
   ): Method | null {
     const [, selfPrefix, methodName, params] = methodMatch;
     const isClassMethod = !!selfPrefix;
@@ -309,15 +299,6 @@ export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
       const combinedDefinedMethods = new Set(localDefinedMethods);
       allAvailableMethods.forEach(method => combinedDefinedMethods.add(method));
       
-      // 🔍 DEBUG: MilestonesController#index の場合のみ詳細ログ
-      if (filePath.includes('milestones_controller') && methodName === 'index') {
-        console.log('🔍 RubyPlugin DEBUG: Processing index method');
-        console.log('🔍 Local methods count:', localDefinedMethods.size);
-        console.log('🔍 All available methods count:', allAvailableMethods.size);
-        console.log('🔍 Combined methods count:', combinedDefinedMethods.size);
-        console.log('🔍 ransack_by_title_and_description in combined:', combinedDefinedMethods.has('ransack_by_title_and_description'));
-        console.log('🔍 Method code preview:', methodCode.substring(0, 300));
-      }
       
       const methodCalls = this.extractRubyMethodCalls(methodCode, startIndex + 1, combinedDefinedMethods);
 
@@ -352,20 +333,8 @@ export class RubyAnalysisPlugin implements MethodAnalysisPlugin {
   private extractRubyMethodCalls(methodCode: string, startLineNumber: number, definedMethods: Set<string>): MethodCall[] {
     const calls = CommonParsingUtils.extractMethodCallsFromCode(methodCode, startLineNumber, 'ruby');
     
-    // 🔍 DEBUG: MilestonesController#index の場合のみ詳細ログ
-    if (methodCode.includes('ransack') || calls.some(c => c.methodName.includes('ransack'))) {
-      console.log('🔍 extractRubyMethodCalls DEBUG:');
-      console.log('🔍 Raw calls found:', calls.map(c => c.methodName));
-      console.log('🔍 ransack_by_title_and_description in definedMethods:', definedMethods.has('ransack_by_title_and_description'));
-    }
-    
     // 定義済みメソッドでフィルタリング
     const filteredCalls = calls.filter(call => this.shouldIncludeMethodCall(call.methodName, definedMethods));
-    
-    // 🔍 DEBUG: フィルタリング後
-    if (methodCode.includes('ransack') || calls.some(c => c.methodName.includes('ransack'))) {
-      console.log('🔍 Filtered calls:', filteredCalls.map(c => c.methodName));
-    }
     
     return filteredCalls;
   }

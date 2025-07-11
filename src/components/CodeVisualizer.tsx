@@ -47,33 +47,15 @@ export const CodeVisualizer: React.FC = () => {
     }
 
     try {
-      // 🔍 DEBUG: Repomix content basic info
-      console.log('====== REPOMIX CONTENT DEBUG ======');
-      console.log('📏 Content length:', repomixContent.length);
-      
       // RepomixContentServiceに全体コンテンツを設定
       setRepomixContent(repomixContent);
       
       const parseResult = parseRepomixFile(repomixContent);
       
-      // 🔍 DEBUG: Parse result details
-      console.log('📁 Total files parsed:', parseResult.files.length);
-      const milestonesFile = parseResult.files.find(f => f.path.includes('milestones_controller'));
-      if (milestonesFile) {
-        console.log('📄 MilestonesController content length:', milestonesFile.content.length);
-        console.log('📄 MilestonesController lines:', milestonesFile.totalLines);
-      } else {
-        console.log('❌ MilestonesController not found in parse result');
-      }
-      
       // 第1段階: 全ファイルからメソッド定義名を抽出
       const allDefinedMethods = extractAllMethodDefinitions(parseResult.files);
       
-      // 🔍 DEBUG: allDefinedMethods の内容を確認
-      console.log('🔍 allDefinedMethods size:', allDefinedMethods.size);
-      console.log('🔍 ransack_by_title_and_description in allDefinedMethods:', allDefinedMethods.has('ransack_by_title_and_description'));
-      
-      // 🔄 FIX: RepomixContentServiceに全定義メソッドを設定
+      // RepomixContentServiceに全定義メソッドを設定
       const repomixService = RepomixContentService.getInstance();
       repomixService.setAllDefinedMethods(allDefinedMethods);
       
@@ -83,48 +65,9 @@ export const CodeVisualizer: React.FC = () => {
         methods: analyzeMethodsInFile(file, allDefinedMethods)
       }));
 
-      // 🔍 DEBUG: MilestonesControllerの解析結果を詳細確認
-      const limitedController = filesWithMethods.find(f => f.path.includes('limited_sharing_milestones_controller'));
-      const mainController = filesWithMethods.find(f => f.path === 'app/controllers/milestones_controller.rb');
-      
-      console.log('====== MILESTONES CONTROLLER DEBUG ======');
-      console.log('🔍 limited_sharing_milestones_controller found:', !!limitedController);
-      console.log('🔍 milestones_controller.rb found:', !!mainController);
-      
-      const milestonesController = mainController || limitedController;
-      
-      if (mainController) {
-        console.log('✅ Main MilestonesController found');
-        console.log('📊 Methods count:', mainController.methods.length);
-        const indexMethod = mainController.methods.find(m => m.name === 'index');
-        if (indexMethod) {
-          const hasRansack = indexMethod.calls.some(c => c.methodName === 'ransack_by_title_and_description');
-          console.log('✅ Index method found');
-          console.log('📋 Index method calls:', indexMethod.calls.map(c => c.methodName));
-          console.log('🎯 ransack_by_title_and_description detected:', hasRansack);
-        } else {
-          console.log('❌ Index method not found');
-        }
-      } else if (limitedController) {
-        console.log('⚠️  Only limited_sharing_milestones_controller found');
-        console.log('📊 Methods count:', limitedController.methods.length);
-      } else {
-        console.log('❌ No MilestonesController found');
-      }
-      console.log('====== END DEBUG ======');
 
       const allMethods = filesWithMethods.flatMap(file => file.methods);
       const dependencies = extractDependencies(allMethods);
-
-      // 🔍 DEBUG: Dependencies with ransack_by_title_and_description
-      const ransackDeps = dependencies.filter(dep => 
-        dep.sourceMethod === 'ransack_by_title_and_description' || 
-        dep.targetMethod === 'ransack_by_title_and_description'
-      );
-      console.log('🔍 UI DEBUG: Dependencies with ransack_by_title_and_description:', ransackDeps.length);
-      ransackDeps.forEach(dep => {
-        console.log(`🔍 UI DEBUG: Dependency: ${dep.sourceFile}#${dep.sourceMethod} -> ${dep.targetFile}#${dep.targetMethod}`);
-      });
 
 
       return {
@@ -159,27 +102,6 @@ export const CodeVisualizer: React.FC = () => {
   const visibleDependencies = useOptimizedDependencies(dependencies, visibleFiles);
   
   // prepare_meta_tags関連の依存関係を確認（本番では無効化）
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'development' && visibleFiles.includes('app/controllers/users_controller.rb')) {
-      const prepareMetaTagsDeps = visibleDependencies.filter(dep => 
-        dep.from.methodName === 'prepare_meta_tags' || dep.to.methodName === 'prepare_meta_tags'
-      );
-      // eslint-disable-next-line no-console
-      console.log('🔍 prepare_meta_tags dependencies:', prepareMetaTagsDeps);
-      
-      // showメソッドを確認
-      const userControllerFile = files.find(f => f.path === 'app/controllers/users_controller.rb');
-      if (userControllerFile) {
-        const showMethod = userControllerFile.methods.find(m => m.name === 'show');
-        // eslint-disable-next-line no-console
-        console.log('🔍 show method:', showMethod);
-        if (showMethod) {
-          // eslint-disable-next-line no-console
-          console.log('🔍 show method calls:', showMethod.calls);
-        }
-      }
-    }
-  }, [visibleDependencies, visibleFiles, files]);
 
   // 全ファイルデータをContext APIで安全に管理（グローバル変数も後方互換性で並行更新）
   useEffect(() => {
@@ -203,7 +125,6 @@ export const CodeVisualizer: React.FC = () => {
         // 初期表示: 全ファイル非表示でスタート
         setVisibleFiles([]);
       } catch (err) {
-        console.error('🔍 UI DEBUG: File upload error:', err);
         setError('ファイルの読み込みに失敗しました');
         setIsLoading(false);
       }
