@@ -8,13 +8,15 @@ interface ValidationResult {
   error?: string;
 }
 
+// 共通定数: ファイルサイズ制限 (1MB)
+const MAX_SIZE = 1024 * 1024;
+
 /**
  * デモコンテンツの基本的な検証
  * @param content - 検証対象のコンテンツ
  * @returns 検証結果
  */
 export function validateDemoContent(content: string): ValidationResult {
-  const MAX_SIZE = 1024 * 1024; // 1MB
   
   if (!content) {
     return { valid: false, error: 'コンテンツが空です' };
@@ -33,7 +35,6 @@ export function validateDemoContent(content: string): ValidationResult {
  * @returns 検証結果
  */
 export function validateDemoFile(file: File): ValidationResult {
-  const MAX_SIZE = 1024 * 1024; // 1MB
   
   if (file.size > MAX_SIZE) {
     return { valid: false, error: 'ファイルサイズが大きすぎます' };

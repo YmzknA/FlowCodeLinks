@@ -44,7 +44,6 @@ export const CodeVisualizer: React.FC = () => {
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
-  const [isDemoMode, setIsDemoMode] = useState(false);
 
   // ファイル解析と最適化（2段階解析）
   const analysisResult = useMemo(() => {
@@ -125,7 +124,6 @@ export const CodeVisualizer: React.FC = () => {
     if (file) {
       try {
         setIsLoading(true);
-        setIsDemoMode(false);
         const content = await file.text();
         setRepomixContent(content);
         
@@ -142,7 +140,6 @@ export const CodeVisualizer: React.FC = () => {
   const handleLoadSample = useCallback(async () => {
     try {
       setIsLoading(true);
-      setIsDemoMode(true);
       setDemoError(null);
       const content = await loadSampleData();
       setRepomixContent(content);

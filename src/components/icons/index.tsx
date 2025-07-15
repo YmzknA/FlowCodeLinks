@@ -142,16 +142,7 @@ export const LoadingSpinner: React.FC<IconProps> = ({
   ariaLabel,
   ariaHidden = false
 }) => {
-  const sizeMap = {
-    'xs': 'loading-xs',
-    'sm': 'loading-sm',
-    'md': 'loading-md',
-    'lg': 'loading-lg',
-    'xl': 'loading-lg',
-    'xxl': 'loading-lg'
-  };
-  
-  const sizeClass = size ? sizeMap[size] : 'loading-sm';
+  const sizeClass = size ? `loading-${size}` : 'loading-sm';
   const finalClassName = className || `loading loading-spinner ${sizeClass}`;
   
   return (
