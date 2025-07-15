@@ -1,6 +1,7 @@
 import React from 'react';
 import { SAMPLE_DATA_INFO } from '@/utils/loadSampleData';
 import { Icons } from '@/components/icons';
+import { getUserFriendlyErrorMessage } from '@/utils/error';
 
 interface DemoSectionProps {
   onLoadSample: () => Promise<void>;
@@ -26,7 +27,7 @@ export const DemoSection: React.FC<DemoSectionProps> = ({ onLoadSample, isLoadin
             {SAMPLE_DATA_INFO.title}
           </h3>
           
-          <p className="text-base-content/70 mb-6">
+          <p id="demo-description" className="text-base-content/70 mb-6">
             {SAMPLE_DATA_INFO.description}
           </p>
           
@@ -44,9 +45,9 @@ export const DemoSection: React.FC<DemoSectionProps> = ({ onLoadSample, isLoadin
           
           {/* エラー表示 */}
           {error && (
-            <div className="alert alert-error mb-4">
+            <div className="alert alert-error mb-4" role="alert">
               <Icons.Error />
-              <span>{error.message}</span>
+              <span>{getUserFriendlyErrorMessage(error)}</span>
             </div>
           )}
           
@@ -55,6 +56,8 @@ export const DemoSection: React.FC<DemoSectionProps> = ({ onLoadSample, isLoadin
             <button
               onClick={onLoadSample}
               disabled={isLoading}
+              aria-label="サンプルコードを読み込んでFlowCodeLinksを体験する"
+              aria-describedby="demo-description"
               className={`btn btn-primary btn-lg gap-3 shadow-lg transition-all duration-300 ${
                 isLoading 
                   ? 'loading cursor-not-allowed' 
