@@ -5,24 +5,11 @@
 
 import React from 'react';
 
-// 型システムの完全化 - アイコンの完全な型定義
-export type IconSize = 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
-export type IconColor = 'primary' | 'secondary' | 'accent' | 'neutral' | 'current';
-export type IconVariant = 'filled' | 'outlined' | 'ghost';
-export type IconUsage = 'button' | 'decoration' | 'status' | 'navigation' | 'feedback';
-
-// 品質保証済みアイコンプロパティ
 export interface IconProps {
   className?: string;
-  size?: IconSize;
-  color?: IconColor;
-  variant?: IconVariant;
-  usage: IconUsage; // 使用目的を明確化
-  // アクセシビリティ
+  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl';
   ariaLabel?: string;
   ariaHidden?: boolean;
-  // パフォーマンス
-  lazy?: boolean;
 }
 
 /**
@@ -31,40 +18,25 @@ export interface IconProps {
 export const LightningIcon: React.FC<IconProps> = ({ 
   className,
   size = 'xxl',
-  color = 'current',
-  variant = 'filled',
-  usage,
   ariaLabel,
-  ariaHidden = false,
-  lazy = false
+  ariaHidden = false
 }) => {
-  // サイズマッピング
   const sizeClass = size ? ICON_SIZES[size] : undefined;
   const finalClassName = className || `${sizeClass} mx-auto`;
   
-  // 色設定
-  const colorClass = color !== 'current' ? `text-${color}` : '';
-  const finalClasses = [finalClassName, colorClass].filter(Boolean).join(' ');
-  
-  // アクセシビリティ属性
-  const accessibilityProps = {
-    'aria-label': ariaLabel || (usage === 'decoration' ? undefined : 'Lightning icon'),
-    'aria-hidden': ariaHidden || usage === 'decoration',
-    role: usage === 'decoration' ? 'presentation' : 'img'
-  };
-  
   return (
     <svg 
-      className={finalClasses} 
-      fill={variant === 'filled' ? 'currentColor' : 'none'} 
+      className={finalClassName} 
+      fill="none" 
       stroke="currentColor" 
       viewBox="0 0 24 24"
-      {...accessibilityProps}
+      aria-label={ariaLabel}
+      aria-hidden={ariaHidden}
     >
       <path 
         strokeLinecap="round" 
         strokeLinejoin="round" 
-        strokeWidth={variant === 'outlined' ? 1 : 2} 
+        strokeWidth={2} 
         d="M13 10V3L4 14h7v7l9-11h-7z" 
       />
     </svg>
@@ -77,34 +49,23 @@ export const LightningIcon: React.FC<IconProps> = ({
 export const CheckIcon: React.FC<IconProps> = ({ 
   className,
   size = 'xs',
-  color = 'current',
-  variant = 'filled',
-  usage,
   ariaLabel,
-  ariaHidden = false,
-  lazy = false
+  ariaHidden = false
 }) => {
   const sizeClass = size ? ICON_SIZES[size] : undefined;
   const finalClassName = className || sizeClass;
-  const colorClass = color !== 'current' ? `text-${color}` : '';
-  const finalClasses = [finalClassName, colorClass].filter(Boolean).join(' ');
-  
-  const accessibilityProps = {
-    'aria-label': ariaLabel || (usage === 'decoration' ? undefined : 'Check icon'),
-    'aria-hidden': ariaHidden || usage === 'decoration',
-    role: usage === 'decoration' ? 'presentation' : 'img'
-  };
   
   return (
     <svg 
-      className={finalClasses} 
-      fill={variant === 'filled' ? 'currentColor' : 'none'} 
+      className={finalClassName} 
+      fill="none" 
       strokeLinecap="round" 
       strokeLinejoin="round" 
-      strokeWidth={variant === 'outlined' ? 1 : 2} 
+      strokeWidth={2} 
       viewBox="0 0 24 24" 
       stroke="currentColor"
-      {...accessibilityProps}
+      aria-label={ariaLabel}
+      aria-hidden={ariaHidden}
     >
       <path d="M5 13l4 4L19 7"></path>
     </svg>
@@ -117,35 +78,24 @@ export const CheckIcon: React.FC<IconProps> = ({
 export const ErrorIcon: React.FC<IconProps> = ({ 
   className,
   size = 'lg',
-  color = 'current',
-  variant = 'filled',
-  usage,
   ariaLabel,
-  ariaHidden = false,
-  lazy = false
+  ariaHidden = false
 }) => {
   const sizeClass = size ? ICON_SIZES[size] : undefined;
   const finalClassName = className || `${sizeClass} shrink-0 stroke-current`;
-  const colorClass = color !== 'current' ? `text-${color}` : '';
-  const finalClasses = [finalClassName, colorClass].filter(Boolean).join(' ');
-  
-  const accessibilityProps = {
-    'aria-label': ariaLabel || (usage === 'decoration' ? undefined : 'Error icon'),
-    'aria-hidden': ariaHidden || usage === 'decoration',
-    role: usage === 'decoration' ? 'presentation' : 'img'
-  };
   
   return (
     <svg 
-      className={finalClasses} 
-      fill={variant === 'filled' ? 'currentColor' : 'none'} 
+      className={finalClassName} 
+      fill="none" 
       viewBox="0 0 24 24"
-      {...accessibilityProps}
+      aria-label={ariaLabel}
+      aria-hidden={ariaHidden}
     >
       <path 
         strokeLinecap="round" 
         strokeLinejoin="round" 
-        strokeWidth={variant === 'outlined' ? 1 : 2} 
+        strokeWidth={2} 
         d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" 
       />
     </svg>
@@ -158,36 +108,25 @@ export const ErrorIcon: React.FC<IconProps> = ({
 export const PlayIcon: React.FC<IconProps> = ({ 
   className,
   size = 'md',
-  color = 'current',
-  variant = 'filled',
-  usage,
   ariaLabel,
-  ariaHidden = false,
-  lazy = false
+  ariaHidden = false
 }) => {
   const sizeClass = size ? ICON_SIZES[size] : undefined;
   const finalClassName = className || sizeClass;
-  const colorClass = color !== 'current' ? `text-${color}` : '';
-  const finalClasses = [finalClassName, colorClass].filter(Boolean).join(' ');
-  
-  const accessibilityProps = {
-    'aria-label': ariaLabel || (usage === 'decoration' ? undefined : 'Play icon'),
-    'aria-hidden': ariaHidden || usage === 'decoration',
-    role: usage === 'decoration' ? 'presentation' : 'img'
-  };
   
   return (
     <svg 
-      className={finalClasses} 
-      fill={variant === 'filled' ? 'currentColor' : 'none'} 
+      className={finalClassName} 
+      fill="none" 
       stroke="currentColor" 
       viewBox="0 0 24 24"
-      {...accessibilityProps}
+      aria-label={ariaLabel}
+      aria-hidden={ariaHidden}
     >
       <path 
         strokeLinecap="round" 
         strokeLinejoin="round" 
-        strokeWidth={variant === 'outlined' ? 1 : 2} 
+        strokeWidth={2} 
         d="M5 3l14 9-14 9V3z" 
       />
     </svg>
@@ -200,12 +139,8 @@ export const PlayIcon: React.FC<IconProps> = ({
 export const LoadingSpinner: React.FC<IconProps> = ({ 
   className,
   size = 'sm',
-  color = 'current',
-  variant = 'filled',
-  usage,
   ariaLabel,
-  ariaHidden = false,
-  lazy = false
+  ariaHidden = false
 }) => {
   const sizeMap = {
     'xs': 'loading-xs',
@@ -218,19 +153,12 @@ export const LoadingSpinner: React.FC<IconProps> = ({
   
   const sizeClass = size ? sizeMap[size] : 'loading-sm';
   const finalClassName = className || `loading loading-spinner ${sizeClass}`;
-  const colorClass = color !== 'current' ? `text-${color}` : '';
-  const finalClasses = [finalClassName, colorClass].filter(Boolean).join(' ');
-  
-  const accessibilityProps = {
-    'aria-label': ariaLabel || (usage === 'decoration' ? undefined : 'Loading'),
-    'aria-hidden': ariaHidden || usage === 'decoration',
-    role: usage === 'decoration' ? 'presentation' : 'status'
-  };
   
   return (
     <span 
-      className={finalClasses}
-      {...accessibilityProps}
+      className={finalClassName}
+      aria-label={ariaLabel}
+      aria-hidden={ariaHidden}
     ></span>
   );
 };
