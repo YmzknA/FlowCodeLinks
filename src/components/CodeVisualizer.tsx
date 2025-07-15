@@ -21,6 +21,7 @@ import { calculateCenteringPan } from '@/utils/window-centering';
 import { CANVAS_CONFIG } from '@/config/canvas';
 import { loadSampleData } from '@/utils/loadSampleData';
 import { DemoSection } from './DemoSection';
+import { normalizeError } from '@/utils/error';
 
 export const CodeVisualizer: React.FC = () => {
   const { setAllFiles } = useFiles();
@@ -148,7 +149,7 @@ export const CodeVisualizer: React.FC = () => {
       // 初期表示: 全ファイル非表示でスタート
       setVisibleFiles([]);
     } catch (err) {
-      const error = err instanceof Error ? err : new Error('サンプルデータの読み込みに失敗しました');
+      const error = normalizeError(err, 'サンプルデータの読み込みに失敗しました');
       setDemoError(error);
       setIsLoading(false);
     }

@@ -1,5 +1,6 @@
 import React from 'react';
 import { SAMPLE_DATA_INFO } from '@/utils/loadSampleData';
+import { Icons } from '@/components/icons';
 
 interface DemoSectionProps {
   onLoadSample: () => Promise<void>;
@@ -18,9 +19,7 @@ export const DemoSection: React.FC<DemoSectionProps> = ({ onLoadSample, isLoadin
         <div className="card-body">
           {/* アイコン */}
           <div className="text-primary mb-4">
-            <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
+            <Icons.Lightning />
           </div>
           
           <h3 className="card-title justify-center mb-3 text-xl">
@@ -36,9 +35,7 @@ export const DemoSection: React.FC<DemoSectionProps> = ({ onLoadSample, isLoadin
             {SAMPLE_DATA_INFO.features.map((feature, index) => (
               <div key={index} className="flex items-center justify-center">
                 <div className="badge badge-primary badge-outline gap-2 h-14 flex items-center justify-center w-full">
-                  <svg className="w-3 h-3" fill="none" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" viewBox="0 0 24 24" stroke="currentColor">
-                    <path d="M5 13l4 4L19 7"></path>
-                  </svg>
+                  <Icons.Check />
                   <span className="text-xs">{feature}</span>
                 </div>
               </div>
@@ -48,9 +45,7 @@ export const DemoSection: React.FC<DemoSectionProps> = ({ onLoadSample, isLoadin
           {/* エラー表示 */}
           {error && (
             <div className="alert alert-error mb-4">
-              <svg className="w-6 h-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+              <Icons.Error />
               <span>{error.message}</span>
             </div>
           )}
@@ -68,14 +63,12 @@ export const DemoSection: React.FC<DemoSectionProps> = ({ onLoadSample, isLoadin
             >
               {isLoading ? (
                 <>
-                  <span className="loading loading-spinner loading-sm"></span>
+                  <Icons.LoadingSpinner />
                   読み込み中...
                 </>
               ) : (
                 <>
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3l14 9-14 9V3z" />
-                  </svg>
+                  <Icons.Play />
                   体験する
                 </>
               )}
