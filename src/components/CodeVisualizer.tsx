@@ -29,6 +29,7 @@ export const CodeVisualizer: React.FC = () => {
   const [highlightedMethod, setHighlightedMethod] = useState<{ methodName: string; filePath: string; lineNumber?: number } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [demoError, setDemoError] = useState<Error | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(320); // 初期幅320px
   const [isResizing, setIsResizing] = useState(false);
@@ -140,13 +141,15 @@ export const CodeVisualizer: React.FC = () => {
     try {
       setIsLoading(true);
       setIsDemoMode(true);
+      setDemoError(null);
       const content = await loadSampleData();
       setRepomixContent(content);
       
       // 初期表示: 全ファイル非表示でスタート
       setVisibleFiles([]);
     } catch (err) {
-      setError('サンプルデータの読み込みに失敗しました');
+      const error = err instanceof Error ? err : new Error('サンプルデータの読み込みに失敗しました');
+      setDemoError(error);
       setIsLoading(false);
     }
   }, []);
@@ -674,6 +677,7 @@ export const CodeVisualizer: React.FC = () => {
             <DemoSection 
               onLoadSample={handleLoadSample} 
               isLoading={isLoading}
+              error={demoError}
             />
           </div>
         </section>
