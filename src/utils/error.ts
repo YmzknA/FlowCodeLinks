@@ -3,6 +3,16 @@
  * 一貫したエラーハンドリングとエラー正規化を提供
  */
 
+export type ErrorSeverity = 'low' | 'medium' | 'high' | 'critical';
+export type ErrorCategory = 'network' | 'validation' | 'security' | 'system';
+
+export interface StructuredError extends Error {
+  severity: ErrorSeverity;
+  category: ErrorCategory;
+  userMessage: string;
+  technicalDetails?: string;
+}
+
 /**
  * 未知のエラーを Error オブジェクトに正規化
  * @param err - 任意のエラー値
