@@ -2,11 +2,12 @@ import React from 'react';
 import { SAMPLE_DATA_INFO } from '@/utils/loadSampleData';
 
 interface DemoSectionProps {
-  onLoadSample: () => void;
+  onLoadSample: () => Promise<void>;
   isLoading?: boolean;
+  error?: Error | null;
 }
 
-export const DemoSection: React.FC<DemoSectionProps> = ({ onLoadSample, isLoading = false }) => {
+export const DemoSection: React.FC<DemoSectionProps> = ({ onLoadSample, isLoading = false, error }) => {
   return (
     <div className="text-center mb-8">
       <h2 className="text-2xl md:text-4xl font-bold text-center mb-6 raleway">
@@ -43,6 +44,16 @@ export const DemoSection: React.FC<DemoSectionProps> = ({ onLoadSample, isLoadin
               </div>
             ))}
           </div>
+          
+          {/* エラー表示 */}
+          {error && (
+            <div className="alert alert-error mb-4">
+              <svg className="w-6 h-6 shrink-0 stroke-current" fill="none" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{error.message}</span>
+            </div>
+          )}
           
           {/* サンプルボタン */}
           <div className="card-actions justify-center">

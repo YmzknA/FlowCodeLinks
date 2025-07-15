@@ -6,12 +6,12 @@ export async function loadSampleData(): Promise<string> {
   try {
     const response = await fetch('/sample-ruby-code.md');
     if (!response.ok) {
-      throw new Error('サンプルデータの読み込みに失敗しました');
+      throw new Error(`サンプルデータの読み込みに失敗: ${response.status} ${response.statusText}`);
     }
     const content = await response.text();
     return content;
   } catch (error) {
-    console.error('サンプルデータ読み込みエラー:', error);
+    // console.errorを除去し、エラーをそのまま上位に伝播
     throw error;
   }
 }
