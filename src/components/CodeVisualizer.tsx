@@ -19,10 +19,9 @@ import { MethodExclusionService } from '@/services/MethodExclusionService';
 import { MethodFinder } from '@/utils/method-finder';
 import { calculateCenteringPan } from '@/utils/window-centering';
 import { CANVAS_CONFIG } from '@/config/canvas';
-import { loadSampleData, useLoadSampleDataQuality } from '@/utils/loadSampleData';
+import { loadSampleData } from '@/utils/loadSampleData';
 import { DemoSection } from './DemoSection';
-import { ErrorFactory, createErrorContext, StructuredError } from '@/utils/error';
-import { useQualityAssurance } from '@/utils/quality-assurance';
+import { normalizeError } from '@/utils/error';
 
 export const CodeVisualizer: React.FC = () => {
   const { setAllFiles } = useFiles();
@@ -31,11 +30,8 @@ export const CodeVisualizer: React.FC = () => {
   const [highlightedMethod, setHighlightedMethod] = useState<{ methodName: string; filePath: string; lineNumber?: number } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [demoError, setDemoError] = useState<StructuredError | null>(null);
+  const [demoError, setDemoError] = useState<Error | null>(null);
   
-  // 品質監視フック
-  const { qualityScore, runCheck } = useQualityAssurance('CodeVisualizer');
-  const { stats } = useLoadSampleDataQuality();
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(320); // 初期幅320px
   const [isResizing, setIsResizing] = useState(false);
@@ -144,37 +140,22 @@ export const CodeVisualizer: React.FC = () => {
 
   // サンプルデータ読み込みハンドラー
   const handleLoadSample = useCallback(async () => {
-    const context = createErrorContext('CodeVisualizer', 'handleLoadSample');
-    
     try {
       setIsLoading(true);
       setIsDemoMode(true);
       setDemoError(null);
-      
-      // 品質チェック実行
-      await runCheck();
-      
       const content = await loadSampleData();
       setRepomixContent(content);
       
       // 初期表示: 全ファイル非表示でスタート
       setVisibleFiles([]);
-      
-      // 成功時の品質チェック
-      await runCheck();
-      
     } catch (err) {
-      const structuredError = err instanceof Error && 'errorId' in err 
-        ? err as StructuredError
-        : ErrorFactory.createNetworkError(
-            err instanceof Error ? err.message : String(err),
-            context
-          );
-      
-      setDemoError(structuredError);
+      const error = normalizeError(err, 'サンプルデータの読み込みに失敗しました');
+      setDemoError(error);
+    } finally {
       setIsLoading(false);
     }
-  }, [runCheck]);
+  }, []);
 
 
   // ファイル表示切り替え
@@ -700,10 +681,6 @@ export const CodeVisualizer: React.FC = () => {
               onLoadSample={handleLoadSample} 
               isLoading={isLoading}
               error={demoError}
-              enableQualityMonitoring={true}
-              qualityThreshold={85}
-              lazy={false}
-              priority="high"
             />
           </div>
         </section>
