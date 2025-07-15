@@ -19,6 +19,8 @@ import { MethodExclusionService } from '@/services/MethodExclusionService';
 import { MethodFinder } from '@/utils/method-finder';
 import { calculateCenteringPan } from '@/utils/window-centering';
 import { CANVAS_CONFIG } from '@/config/canvas';
+import { loadSampleData } from '@/utils/loadSampleData';
+import { DemoSection } from './DemoSection';
 
 export const CodeVisualizer: React.FC = () => {
   const { setAllFiles } = useFiles();
@@ -39,6 +41,7 @@ export const CodeVisualizer: React.FC = () => {
   const [imageModalOpen, setImageModalOpen] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
   // ファイル解析と最適化（2段階解析）
   const analysisResult = useMemo(() => {
@@ -119,6 +122,7 @@ export const CodeVisualizer: React.FC = () => {
     if (file) {
       try {
         setIsLoading(true);
+        setIsDemoMode(false);
         const content = await file.text();
         setRepomixContent(content);
         
@@ -130,6 +134,23 @@ export const CodeVisualizer: React.FC = () => {
       }
     }
   }, []);
+
+  // サンプルデータ読み込みハンドラー
+  const handleLoadSample = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setIsDemoMode(true);
+      const content = await loadSampleData();
+      setRepomixContent(content);
+      
+      // 初期表示: 全ファイル非表示でスタート
+      setVisibleFiles([]);
+    } catch (err) {
+      setError('サンプルデータの読み込みに失敗しました');
+      setIsLoading(false);
+    }
+  }, []);
+
 
   // ファイル表示切り替え
   const handleFileToggle = useCallback((filePath: string) => {
@@ -605,45 +626,55 @@ export const CodeVisualizer: React.FC = () => {
               <h1 className="text-4xl md:text-6xl font-bold text-primary mb-6 raleway">
                 FlowCodeLinks
               </h1>
-              <p className="text-lg md:text-xl text-base-content/80 mb-8 leading-relaxed px-4 md:px-0">
-                Repomixで生成されたmdファイルをアップロードして、<br className="hidden md:block" />
-                コードの関係性を分かりやすく可視化します
-              </p>
-              <div className="mb-12">
-                {isMobile ? (
-                  <div className="btn btn-primary btn-lg gap-3 shadow-lg cursor-not-allowed opacity-70">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
-                    PCからご利用ください
-                  </div>
-                ) : (
-                  <label className="btn btn-primary btn-lg gap-3 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    ファイルを選択して開始
-                    <input
-                      type="file"
-                      accept=".md"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                  </label>
-                )}
-              </div>
               
-              <div className="mt-8 text-center">
-                <a 
-                  href="https://repomix.com/ja/" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 underline hover:no-underline transition-all duration-200"
-                >
-                  Repomixはこちら
-                </a>
+              {/* ファイルアップロードセクション */}
+              <div className="mt-8">
+                <div className="mb-4">
+                  {isMobile ? (
+                    <div className="btn btn-primary btn-lg gap-3 shadow-lg cursor-not-allowed opacity-70">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      PCからご利用ください
+                    </div>
+                  ) : (
+                    <label className="btn btn-primary btn-lg gap-3 shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300">
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                      ファイルを選択して開始
+                      <input
+                        type="file"
+                        accept=".md"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+                
+                <div className="text-center">
+                  <a 
+                    href="https://repomix.com/ja/" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 underline hover:no-underline transition-all duration-200"
+                  >
+                    Repomixはこちら
+                  </a>
+                </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Demo Section */}
+        <section className="py-20 bg-base-100 transition-all duration-1000 relative z-10">
+          <div className="container mx-auto px-4">
+            <DemoSection 
+              onLoadSample={handleLoadSample} 
+              isLoading={isLoading}
+            />
           </div>
         </section>
 
@@ -1241,6 +1272,7 @@ export const CodeVisualizer: React.FC = () => {
           openWindows={openWindowPaths}
         />
       )}
+
 
       {/* daisyUI画像カルーセルモーダル（解析画面用） */}
       <dialog className={`modal ${imageModalOpen ? 'modal-open' : ''}`}>
