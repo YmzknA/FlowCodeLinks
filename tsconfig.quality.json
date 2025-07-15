@@ -1,0 +1,108 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    // 品質保証強化設定
+    "strict": true,
+    "noImplicitAny": true,
+    "noImplicitReturns": true,
+    "noImplicitThis": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    
+    // 型チェック強化
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "alwaysStrict": true,
+    
+    // 詳細な型チェック
+    "allowUnreachableCode": false,
+    "allowUnusedLabels": false,
+    "checkJs": false,
+    "declaration": false,
+    "declarationMap": false,
+    "downlevelIteration": false,
+    "emitDecoratorMetadata": false,
+    "exactOptionalPropertyTypes": true,
+    "experimentalDecorators": false,
+    "forceConsistentCasingInFileNames": true,
+    "importsNotUsedAsValues": "error",
+    "keyofStringsOnly": false,
+    "newLine": "lf",
+    "noEmitHelpers": false,
+    "noEmitOnError": true,
+    "noErrorTruncation": true,
+    "noImplicitUseStrict": false,
+    "noResolve": false,
+    "noStrictGenericChecks": false,
+    "preserveConstEnums": false,
+    "preserveValueImports": false,
+    "removeComments": false,
+    "suppressExcessPropertyErrors": false,
+    "suppressImplicitAnyIndexErrors": false,
+    "useDefineForClassFields": true,
+    "useUnknownInCatchVariables": true,
+    
+    // 品質保証用の追加設定
+    "target": "es2020",
+    "lib": ["dom", "dom.iterable", "es2020"],
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "skipLibCheck": false,
+    "resolveJsonModule": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./tsconfig.quality.tsbuildinfo",
+    
+    // パフォーマンス設定
+    "assumeChangesOnlyAffectDirectDependencies": true,
+    "disableSourceOfProjectReferenceRedirect": false,
+    "disableSolutionSearching": false,
+    "disableReferencedProjectLoad": false,
+    
+    // 出力設定
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "sourceMap": true,
+    "inlineSourceMap": false,
+    "inlineSources": false,
+    "mapRoot": "",
+    "sourceRoot": "",
+    "composite": false,
+    "tsBuildInfoFile": "./tsconfig.quality.tsbuildinfo"
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    ".next",
+    "out",
+    "dist",
+    "build",
+    "coverage",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/*.spec.ts",
+    "**/*.spec.tsx",
+    "jest.config.js",
+    "jest.setup.js"
+  ],
+  "ts-node": {
+    "esm": true,
+    "experimentalSpecifierResolution": "node"
+  }
+}
