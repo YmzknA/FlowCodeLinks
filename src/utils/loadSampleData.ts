@@ -12,7 +12,7 @@ let cachedSampleData: string | null = null;
 const MAX_FILE_SIZE = 1024 * 1024;
 
 // 許可されるContent-Type
-const ALLOWED_CONTENT_TYPES = ['text/markdown', 'text/plain', 'text/'];
+const ALLOWED_CONTENT_TYPES = ['text/markdown', 'text/plain'];
 
 /**
  * サンプルデータを読み込む
